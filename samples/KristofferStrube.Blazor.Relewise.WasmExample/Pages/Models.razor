@@ -6,6 +6,7 @@
 @using global::Relewise.Client.Requests.Recommendations
 @using global::Relewise.Client.Responses
 @implements IDisposable
+@inject NavigationManager NavigationManager
 
 <PageTitle>Blazor Relewise - Models</PageTitle>
 
@@ -43,43 +44,37 @@
 @code {
     private bool disposed = false;
     private CancellationTokenSource? cts;
-    private string search = "";
     private double? searchTime;
-    private string? error;
-    private string? message;
-    private Recommender? recommender;
     private Dictionary<Type, object?> initValues = default!;
     private List<Type> filteredTypes = new();
 
+    [SupplyParameterFromQuery(Name = "q")]
+    public string search { get; set; } = "";
+
     protected override async Task OnInitializedAsync()
     {
+        if (search is null) {
+            search = ""; 
+        }
+
         initValues = Types
-        .ToDictionary(
-            keySelector: t => t,
-            elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
-        );
+            .ToDictionary(
+                keySelector: t => t,
+                elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
+            );
         await Search();
     }
 
-    private bool Connect()
+    protected override void OnParametersSet()
     {
-        try
+        if (search is null)
         {
-            recommender = new Recommender(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
-            message = "Successfully initialized the Recommender.";
-            error = null;
-            return true;
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            message = null;
-            return false;
+            search = "";
         }
     }
 
     private static List<Type> AssemblyTypes = Assembly
-            .GetAssembly(typeof(ClientBase))!
+        .GetAssembly(typeof(ClientBase))!
             .GetTypes()
             .ToList();
 
@@ -102,14 +97,15 @@
 
     private async Task Search()
     {
+        UpdateSearchQueryString();
         cts?.Cancel();
         var localCts = new CancellationTokenSource();
         var cancellationToken = localCts.Token;
         cts = localCts;
         searchTime = null;
-        var sw = Stopwatch.StartNew();
-
         filteredTypes.Clear();
+
+        var sw = Stopwatch.StartNew();
 
         int i = 0;
         foreach (var type in Types)
@@ -134,6 +130,27 @@
         else
         {
             searchTime = sw.Elapsed.TotalMilliseconds;
+        }
+    }
+
+    private void UpdateSearchQueryString()
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        if (relativePath.Split("?") is { Length: >= 2 } parts)
+        {
+            relativePath = parts[0];
+        }
+        if (relativePath.EndsWith("/"))
+        {
+            relativePath = relativePath[..^1];
+        }
+        if (search is "")
+        {
+            NavigationManager.NavigateTo($"{relativePath}", replace: true);
+        }
+        else
+        {
+            NavigationManager.NavigateTo($"{relativePath}?q={search}", replace: true);
         }
     }
 
