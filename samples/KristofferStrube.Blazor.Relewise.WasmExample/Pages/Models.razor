@@ -1,0 +1,146 @@
+﻿@page "/Models"
+@using KristofferStrube.Blazor.Relewise.TypeEditors
+@using System.Reflection
+@using System.Diagnostics
+@using global::Relewise.Client.Requests
+@using global::Relewise.Client.Requests.Recommendations
+@using global::Relewise.Client.Responses
+@implements IDisposable
+
+<PageTitle>Blazor Relewise - Models</PageTitle>
+
+<h1>Models</h1>
+<p>
+    Here you can see all models and explore the many ways that you configure and use them together.
+    <small>An easy demo you can try yourself is to search <i>"ProductSearchRequest"</i> and then try to make a request that searches for <i>"Blouse"</i> with a <code>ProductDataFilter</code> on the <i>"Color"</i> key with an <code>EqualsCondition</code> matching on the string <code>DataValue</code> containing the value <i>"Red"</i></small>
+</p>
+
+<div class="input-group">
+    <input @bind=search @bind:after=Search id="search" @bind:event="oninput" class="form-control" placeholder="Search" />
+    <div class="input-group-append">
+        <label for="search" class="input-group-text" style="width:240px;">
+            <svg class="bi" width="24" height="24" viewBox="-2 -2 14 13"><polygon fill="transparent" stroke="grey" stroke-width="1" points="12,11 6,6 5,7 2,7 0,5 0,2 2,0 5,0 7,2 7,5 6,6"></polygon></svg>
+            @if (searchTime is not null)
+            {
+                <small style="color: green;margin-left:10px;">
+                    Found @filteredTypes.Count() results in @Math.Round(searchTime.Value, 2) ms
+                </small>
+            }
+        </label>
+    </div>
+</div>
+<br />
+
+@foreach (var type in filteredTypes)
+{
+    if (@Settings.Editors.FirstOrDefault(e => e.CanHandle(type)) is { } editor && editor.InitValue(type) is { } initValue)
+    {
+        <DynamicComponent @key=type Type="@editor.EditorType(type)" Parameters="@(new Dictionary<string, object?>() { ["Value"] = initValue, ["Setter"] = (object? obj) => {} })" />
+    }
+    <br />
+}
+
+<br />
+
+@code {
+    private bool disposed = false;
+    private CancellationTokenSource? cts;
+    private string search = "";
+    private double? searchTime;
+    private string? error;
+    private string? message;
+    private Recommender? recommender;
+    private List<Type> filteredTypes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Search();
+    }
+
+    private bool Connect()
+    {
+        try
+        {
+            recommender = new Recommender(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+            message = "Successfully initialized the Recommender.";
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            return false;
+        }
+    }
+
+    private static List<Type> AssemblyTypes = Assembly
+            .GetAssembly(typeof(ClientBase))!
+            .GetTypes()
+            .ToList();
+
+    private static List<Type> Types = AssemblyTypes
+            .Where(t =>
+                !t.IsGenericType
+                && t.DeclaringType is null
+                && !t.IsAbstract
+                && !t.IsInterface
+                && !AssemblyTypes.Any(d => d != t && d.IsAssignableTo(t))
+                && t.GetConstructors().Any(c => c.GetParameters().Length is 0))
+            .OrderBy(t => t.Name.ToLower().Trim())
+            .ToList();
+
+    private async Task Search()
+    {
+        cts?.Cancel();
+        var localCts = new CancellationTokenSource();
+        var cancellationToken = localCts.Token;
+        cts = localCts;
+        searchTime = null;
+        var sw = Stopwatch.StartNew();
+
+        filteredTypes.Clear();
+
+        int i = 0;
+        foreach (var type in Types)
+        {
+            if (ContainsSearch(type))
+            {
+                filteredTypes.Add(type);
+                StateHasChanged();
+                await Task.Delay(1);
+            }
+            if (disposed || cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            i++;
+        }
+
+        if (search is "")
+        {
+            searchTime = null;
+        }
+        else
+        {
+            searchTime = sw.Elapsed.TotalMilliseconds;
+        }
+    }
+
+    private Dictionary<Type, string> typeNames = new();
+
+    private bool ContainsSearch(Type type)
+    {
+        if (!typeNames.TryGetValue(type, out string? typeName))
+        {
+            typeName = type.Name;
+            typeNames[type] = typeName;
+        }
+        return typeName.Contains(search.Replace(" ", ""), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        disposed = true;
+    }
+}
