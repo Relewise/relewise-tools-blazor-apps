@@ -12,8 +12,6 @@
 <h1>Models</h1>
 <p>
     Here you can see all models and explore the many ways that you configure and use them together.
-    <br />
-    <small>An easy demo you can try yourself is to search <i>"ProductSearchRequest"</i> and then try to make a request that searches for <i>"Blouse"</i> with a <code>ProductDataFilter</code> on the <i>"Color"</i> key with an <code>EqualsCondition</code> matching on the string <code>DataValue</code> containing the value <i>"Red"</i></small>
 </p>
 
 <div class="input-group">
@@ -32,14 +30,13 @@
 </div>
 <br />
 
-@foreach (var type in filteredTypes)
-{
-    if (@Settings.Editors.FirstOrDefault(e => e.CanHandle(type)) is { } editor && editor.InitValue(type) is { } initValue)
+<div style="@(search is "" ? "min-height:100vh;" : "")">
+    @foreach (var type in filteredTypes)
     {
-        <DynamicComponent @key=type Type="@editor.EditorType(type)" Parameters="@(new Dictionary<string, object?>() { ["Value"] = initValue, ["Setter"] = (object? obj) => {} })" />
+            <DynamicComponent @key=type Type="@EditorTypes[type]" Parameters="@(new Dictionary<string, object?>() { ["Value"] = InitValues[type], ["Setter"] = (object? obj) => {} })" />
+        <br />
     }
-    <br />
-}
+</div>
 
 <br />
 
@@ -90,6 +87,18 @@
                 && t.GetConstructors().Any(c => c.GetParameters().Length is 0))
             .OrderBy(t => t.Name.ToLower().Trim())
             .ToList();
+
+    private static Dictionary<Type, Type> EditorTypes = Types
+        .ToDictionary(
+            keySelector: t => t,
+            elementSelector: t => typeof(ObjectEditor<>).MakeGenericType(new Type[] { t })
+        );
+
+    private static Dictionary<Type, object?> InitValues = Types
+        .ToDictionary(
+            keySelector: t => t,
+            elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
+        );
 
     private async Task Search()
     {
