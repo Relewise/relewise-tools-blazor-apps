@@ -1,0 +1,202 @@
+﻿@using KristofferStrube.Blazor.Relewise.TypeEditors
+@page "/Products"
+
+<PageTitle>Blazor Relewise - Products</PageTitle>
+
+<h1>Products</h1>
+<p>Here you can get a product using the <code>DataAccessor</code>, then make changes to it, and in the end track the changes with the <code>Tracker</code>. You can likewise enable or disable the selected product.</p>
+<p>
+    First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/developer-settings">My Relewise > Settings > Developer Settings</a>.
+    <br />
+    <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>DataAccessor</code> and the <code>Tracker</code> to use this.</small>
+</p>
+
+@if (error is not null)
+{
+    <code>@error</code>
+    <br />
+    <br />
+}
+@if (message is not null)
+{
+    <span style="color:green;">@message</span>
+    <br />
+    <br />
+}
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="serverUrl" class="input-group-text" style="width:120px;">Server URL</label>
+    </div>
+    <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
+</div>
+<br />
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
+    </div>
+    <input @bind=StaticDatasetStorage.DatasetId class="form-control" id="datasetId" />
+</div>
+<br />
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="apiKey" class="input-group-text" style="width:120px;">API Key</label>
+    </div>
+    <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
+</div>
+<br />
+
+@if (dataAccessor is null || tracker is null)
+{
+    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <br />
+}
+else
+{
+    <p>Now you need to find the id of some Product you want to inspect.</p>
+
+    <div class="input-group">
+        <div class="input-group-prepend">
+            <label for="productId" class="input-group-text" style="width:120px;">Product Id</label>
+        </div>
+        <input @bind=productId class="form-control" />
+    </div>
+    <br />
+    <button class="btn btn-primary" @onclick=Fetch>Fetch</button>
+    <button class="btn btn-success" @onclick=EnableProduct>Enable</button>
+    <button class="btn btn-warning" @onclick=DisableProduct>Disable</button>
+    <br />
+    <br />
+}
+@if (product is not null)
+{
+    <ObjectEditor OpenDetails=true T=Product Value="product" Setter="(Object? obj) => product = (Product?)obj" />
+    <br />
+    <button class="btn btn-success" @onclick=Update>Update</button>
+    <br />
+    <br />
+}
+
+@code {
+    private string? error;
+    private string? message;
+    private string productId = "";
+    private DataAccessor? dataAccessor;
+    private Tracker? tracker;
+    private Product? product;
+    private ProductEditor productEditor = default!;
+
+    private bool Connect()
+    {
+        try
+        {
+            dataAccessor = new DataAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+            tracker = new Tracker(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+            message = "Successfully initialized the DataAccessor and Tracker.";
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            return false;
+        }
+    }
+
+    private async Task Fetch()
+    {
+        if (!Connect()) return;
+        try
+        {
+            var result = await dataAccessor!.QueryAsync(new ProductQuery(productId));
+            var productResult = result?.Products.Single();
+            if (productResult is null) return;
+
+            product = new Product(productResult.ProductId)
+                {
+                    DisplayName = productResult.DisplayName,
+                    Assortments = productResult.Assortments?.ToList(),
+                    CategoryPaths = productResult.CategoryPaths
+                            ?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })
+                            ?.ToList(),
+                    Data = productResult.Data,
+                    Custom = productResult.Custom,
+                    Brand = productResult.Brand is null
+                        ? null
+                        : new Brand(productResult.Brand.BrandId)
+                        {
+                            DisplayName = productResult.Brand.DisplayName,
+                            Assortments = productResult.Brand.Assortments?.ToList(),
+                            Data = productResult.Brand.Data
+                        },
+                    ListPrice = productResult.ListPrice,
+                    SalesPrice = productResult.SalesPrice
+                };
+            message = "Successfully fetched the product";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            dataAccessor = null;
+            tracker = null;
+        }
+    }
+
+    private async Task Update()
+    {
+        try
+        {
+            await tracker!.TrackAsync(new ProductUpdate(productEditor.Product, ProductUpdate.UpdateKind.ReplaceProvidedProperties));
+            message = "Successfully updated the product";
+            product = null;
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    private async Task EnableProduct()
+    {
+        if (!Connect()) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.Enable)
+            );
+            message = "Successfully enabled the product";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    private async Task DisableProduct()
+    {
+        if (!Connect()) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.Disable)
+            );
+            message = "Successfully disabled the product";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+}

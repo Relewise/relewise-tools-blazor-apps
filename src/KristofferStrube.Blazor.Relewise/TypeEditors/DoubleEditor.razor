@@ -1,0 +1,12 @@
+﻿<input type="number" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
+
+@code {
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required double Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+}

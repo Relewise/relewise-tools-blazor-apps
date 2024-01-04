@@ -1,0 +1,198 @@
+﻿@using System.Reflection
+@using Microsoft.JSInterop
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Converters
+@using global::Relewise.Client
+@typeparam T
+
+<CascadingValue Value="HideDefaultValueProperties">
+    <details class="box" open=@OpenDetails>
+        <summary>
+            @if (Value is not null && derivedTypes.Count > 0 && !ReadOnly && !OpenDetails)
+            {
+                <span>&nbsp;</span>
+                <select @onchange=TypeDropdownChanged>
+                    @foreach (Type type in derivedTypes)
+                    {
+                        if (type == selectedCreateType)
+                        {
+                            <option value="@type.Name" selected>@type.Name</option>
+                        }
+                        else
+                        {
+                            <option value="@type.Name">@type.Name</option>
+                        }
+                    }
+                </select>
+                <button class="btn btn-light btn-sm" style="margin:2px;margin-top:1px;padding:2px;line-height:1.1" @onclick=Create>Switch type</button>
+            }
+            else
+            {
+                <i>@ProductEditor.Name(Value is not null ? Value.GetType() : typeof(T))</i>
+            }
+            <span style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => CopyToClipboard()">
+                <svg class="bi" width="16" height="16" viewBox="-1 -1 10 13">
+                    <polygon fill="transparent" stroke="white" stroke-width="2" points="0,12 0,2 1,1 3,1 4,0 5,0 6,1 8,1 9,2 9,12">
+                        <title>Copy to clipboard as JSON</title>
+                    </polygon>
+                </svg>
+            </span>
+            <span title="@(HideDefaultValueProperties is not true ? "Hide properties that have default values" : "Show all properties")" style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => HideDefaultValueProperties = HideDefaultValueProperties is not true">
+                @if (HideDefaultValueProperties is not true)
+                {
+                    <svg class="bi" width="16" height="16" viewBox="-2 -2 12 3"><polygon stroke="white" stroke-width="2" points="0,0 10,0 10,1 0,1"></polygon></svg>
+                }
+                else
+                {
+                    <svg class="bi" width="16" height="16" viewBox="-2 -2 15 15"><polygon stroke="white" stroke-width="2" points="5,5 5,0 6,0 6,5 11,5 11,6 6,6 6,11 5,11 5,6 0,6 0,5"></polygon></svg>
+                }
+            </span>
+        </summary>
+        <div class="two-column-grid">
+            @if (Value is null)
+            {
+                <div>
+                    <code>&lt;NULL&gt;</code>
+                    @if (!ReadOnly)
+                    {
+                        <br />
+                        @if (derivedTypes.Count is 0)
+                        {
+                            <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new @ProductEditor.Name(typeof(T))</button>
+                        }
+                        else
+                        {
+                            <select @onchange=TypeDropdownChanged>
+                                @foreach (Type type in derivedTypes)
+                                {
+                                    if (type == selectedCreateType)
+                                    {
+                                        <option value="@type.Name" selected>@type.Name</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@type.Name">@type.Name</option>
+                                    }
+                                }
+                            </select>
+                            <button class="btn btn-outline-success btn-sm" style="margin:2px;margin-top:0px;padding:3px;line-height:1.1" @onclick=Create>Create</button>
+                        }
+                    }
+                </div>
+            }
+            else
+            {
+                foreach (var property in Value.GetType().GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret"))
+                {
+                    if (HideDefaultValueProperties is not true || (Value is null && emptyInstanceOfValue is null) || (Value is not null && emptyInstanceOfValue is not null && JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue))))
+                    {
+                        <div @key=@($"{property.Name}-label")>
+                            <b>@property.Name</b>
+                        </div>
+                        <div @key=@($"{property.Name}-value")>
+                            @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)) is { } editor)
+                            {
+                                <ErrorBoundary>
+                                    <ChildContent>
+                                        <DynamicComponent Type="@editor.EditorType(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => property.SetValue(Value, obj) })" />
+                                    </ChildContent>
+                                    <ErrorContent>
+                                        <code>Failed for @property.PropertyType.Name</code>
+                                    </ErrorContent>
+                                </ErrorBoundary>
+                            }
+                            else
+                            {
+                                <code>Can't edit @ProductEditor.Name(property.PropertyType)</code>
+                            }
+                        </div>
+                    }
+                }
+            }
+        </div>
+    </details>
+</CascadingValue>
+
+@code {
+    private object? emptyInstanceOfValue;
+    private List<Type> derivedTypes = new();
+    private Type selectedCreateType = typeof(T);
+
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Parameter]
+    public bool OpenDetails { get; set; } = false;
+
+    [Parameter, CascadingParameter]
+    public bool? HideDefaultValueProperties { get; set; }
+
+    [Inject]
+    public required IJSRuntime JSRuntime { get; set; }
+
+    [Parameter, EditorRequired]
+    public required object? Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        var assembly = Assembly.GetAssembly(typeof(ClientBase));
+        derivedTypes = assembly!
+            .GetTypes()
+            .Where(type => type != typeof(T) && type.IsAssignableTo(typeof(T)) && !type.IsGenericType && !type.IsAbstract)
+            .ToList();
+
+
+        if (derivedTypes.Count > 0 && (typeof(T).IsGenericType || typeof(T).IsAbstract))
+        {
+            if (Value is not null && Value.GetType() != typeof(T))
+            {
+                selectedCreateType = Value.GetType();
+            }
+            else
+            {
+                selectedCreateType = derivedTypes.First();
+            }
+        }
+        if (Value is not null)
+        {
+            emptyInstanceOfValue = Activator.CreateInstance(Value.GetType());
+        }
+        else if (selectedCreateType is not null)
+        {
+            emptyInstanceOfValue = Activator.CreateInstance(selectedCreateType);
+        }
+    }
+
+    private void TypeDropdownChanged(ChangeEventArgs eventArgs)
+    {
+        selectedCreateType = derivedTypes.First(t => t.Name == (string?)eventArgs.Value);
+    }
+
+    public void Create()
+    {
+        Value = Activator.CreateInstance(selectedCreateType);
+        Setter(Value);
+    }
+
+    public async Task CopyToClipboard()
+    {
+        var jsonSerializerSettings = new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto,
+                NullValueHandling = NullValueHandling.Ignore,
+                Formatting = Formatting.Indented
+            };
+        jsonSerializerSettings.Converters.Add(new StringEnumConverter());
+
+        Type? serializedType = Value?.GetType();
+        if (serializedType?.BaseType is not null)
+        {
+            serializedType = serializedType.BaseType;
+        }
+
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(Value, serializedType, jsonSerializerSettings));
+    }
+}

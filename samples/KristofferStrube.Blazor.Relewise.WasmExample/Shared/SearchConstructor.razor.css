@@ -1,0 +1,17 @@
+﻿.box {
+    border: 1px solid var(--color-green);
+    border-radius: 5px;
+}
+
+.two-column-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px 10px;
+    padding: 5px;
+}
+
+summary {
+    padding-left: 5px;
+    background-color: var(--color-green);
+    font-size: 20px;
+}

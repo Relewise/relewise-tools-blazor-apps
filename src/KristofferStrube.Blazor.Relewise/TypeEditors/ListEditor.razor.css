@@ -1,0 +1,16 @@
+﻿.box {
+    border: 1px solid var(--color-blue-light);
+    border-radius: 5px;
+}
+
+.two-column-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px 10px;
+    padding: 5px;
+}
+
+.header {
+    padding-left: 5px;
+    background-color: var(--color-blue-light);
+}

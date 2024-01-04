@@ -1,0 +1,91 @@
+﻿<details class="box">
+    <summary>
+        <i>DataValue</i>
+    </summary>
+    <div class="two-column-grid">
+        @if (Value is null)
+        {
+            <div>
+                <code>&lt;NULL&gt;</code>
+                @if (!ReadOnly)
+                {
+                    <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new DataValue</button>
+                }
+            </div>
+        }
+        else
+        {
+            <div>
+                <b>Type</b>
+            </div>
+            <div>
+                <EnumEditor T="DataValue.DataValueTypes" Value="Value!.Type" Setter="SetType" />
+            </div>
+
+            <div>
+                <b>Value</b>
+            </div>
+            <div>
+                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(dataValueEnumTypesToTypes[Value!.Type])) is { } editor)
+                {
+                    <ErrorBoundary>
+                        <ChildContent>
+                            <DynamicComponent Type="@editor.EditorType(dataValueEnumTypesToTypes[Value!.Type])" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = Value.Value, ["Setter"] = (object? obj) => { Value.Value = obj; Setter(Value); } })" />
+                        </ChildContent>
+                        <ErrorContent>
+                            <code>Failed to initialize editor part for @dataValueEnumTypesToTypes[Value!.Type].ToString()</code>
+                        </ErrorContent>
+                    </ErrorBoundary>
+                }
+            </div>
+        }
+    </div>
+</details>
+
+@code {
+    private readonly Dictionary<DataValue.DataValueTypes, Type> dataValueEnumTypesToTypes = new()
+    {
+            [DataValue.DataValueTypes.String] = typeof(string),
+            [DataValue.DataValueTypes.Double] = typeof(double),
+            [DataValue.DataValueTypes.Boolean] = typeof(bool),
+            [DataValue.DataValueTypes.Multilingual] = typeof(Multilingual),
+            [DataValue.DataValueTypes.Money] = typeof(Money),
+            [DataValue.DataValueTypes.MultiCurrency] = typeof(MultiCurrency),
+            [DataValue.DataValueTypes.StringList] = typeof(List<string>),
+            [DataValue.DataValueTypes.DoubleList] = typeof(List<double>),
+            [DataValue.DataValueTypes.BooleanList] = typeof(List<bool>),
+            [DataValue.DataValueTypes.MultilingualCollection] = typeof(MultilingualCollection),
+            [DataValue.DataValueTypes.Object] = typeof(DataObject),
+            [DataValue.DataValueTypes.ObjectList] = typeof(List<DataObject>)
+    };
+
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required DataValue? Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+
+    public void Create()
+    {
+        Value = Activator.CreateInstance<DataValue>();
+        Setter(Value);
+    }
+
+    public void SetType(object? obj)
+    {
+        var newEnumValue = (DataValue.DataValueTypes)obj!;
+        if (newEnumValue != Value?.Type)
+        {
+            var newType = dataValueEnumTypesToTypes[newEnumValue];
+            object? defaultValue = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(newType)) is { } editor
+                ? editor.InitValue(newType)
+                : default;
+            Value = new() { Type = newEnumValue, Value = defaultValue };
+            Setter(Value);
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,80 @@
+﻿@typeparam T
+
+@if (Value is null)
+{
+    <code>&lt;NULL&gt;</code>
+    @if (!ReadOnly)
+    {
+        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new @ProductEditor.Name(typeof(T))<text>[]</text></button>
+    }
+}
+else
+{
+    <div class="box">
+        <div class="header">
+            <i>@(ProductEditor.Name(typeof(T)))[]</i>
+        </div>
+        <div class="two-column-grid">
+            @for (int i = 0; i < Value.Length; i++)
+            {
+                var k = i;
+                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T))) is { } editor)
+                {
+                    <ErrorBoundary>
+                        <ChildContent>
+                            <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="@(new Dictionary<string, object?>() { ["ReadOnly"] = ReadOnly, ["Value"] = Value[k], ["Setter"] = (object? obj) => { Value[k] = (T)obj!; Setter(Value); } })" />
+                        </ChildContent>
+                        <ErrorContent>
+                            <code>Failed to initialize editor part for @ProductEditor.Name(typeof(T))</code>
+                        </ErrorContent>
+                    </ErrorBoundary>
+                    @if (!ReadOnly)
+                    {
+                        <button class="btn btn-sm btn-warning" @onclick="() => Remove(k)">X</button>
+                    }
+                    else
+                    {
+                        <span></span>
+                    }
+                }
+            }
+            @if (!ReadOnly)
+            {
+                <button class="btn btn-outline-primary btn-sm" style="grid-column: span 2" @onclick=Add>+ Add new @ProductEditor.Name(typeof(T))</button>
+            }
+        </div>
+    </div>
+}
+@code {
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required T[]? Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+
+    public void Create()
+    {
+        Value = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T[]))) is { } editor
+            ? (T[]?)editor.InitValue(typeof(T[]))
+            : default(T[]);
+        Setter(Value);
+    }
+
+    public void Add()
+    {
+        T? newItem = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T))) is { } editor
+            ? (T?)editor.InitValue(typeof(T))
+            : default(T);
+        Value = [.. Value, newItem];
+        Setter(Value);
+    }
+
+    public void Remove(int k)
+    {
+        Value = [.. Value[..Math.Max(0, k)], .. Value[Math.Min(k + 1, Value.Length)..]];
+        Setter(Value);
+    }
+}

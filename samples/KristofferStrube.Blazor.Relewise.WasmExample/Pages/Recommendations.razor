@@ -1,0 +1,212 @@
+﻿@page "/Recommendations"
+@using KristofferStrube.Blazor.Relewise.TypeEditors
+@using System.Reflection
+@using System.Diagnostics
+@using global::Relewise.Client.Requests
+@using global::Relewise.Client.Requests.Recommendations
+@using global::Relewise.Client.Responses
+
+<PageTitle>Blazor Relewise - Recommendations</PageTitle>
+
+<h1>Recommendations</h1>
+<p>Here you can get try to make some recommendations.</p>
+
+@if (error is not null)
+{
+    <code>@error</code>
+    <br />
+    <br />
+}
+@if (message is not null)
+{
+    <span style="color:green;">@message</span>
+    <br />
+    <br />
+}
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="serverUrl" class="input-group-text" style="width:120px;">Server URL</label>
+    </div>
+    <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
+</div>
+<br />
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
+    </div>
+    <input @bind=StaticDatasetStorage.DatasetId class="form-control" id="datasetId" />
+</div>
+<br />
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="apiKey" class="input-group-text" style="width:120px;">API Key</label>
+    </div>
+    <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
+</div>
+<br />
+
+@if (recommender is null)
+{
+    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <br />
+}
+<br />
+
+<div class="input-group">
+    <input @bind=search @bind:after=Search id="search" @bind:event="oninput" class="form-control" placeholder="Search" />
+    <div class="input-group-append">
+        <label for="search" class="input-group-text" style="width:240px;">
+            <svg class="bi" width="24" height="24" viewBox="-2 -2 14 13"><polygon fill="transparent" stroke="grey" stroke-width="1" points="12,11 6,6 5,7 2,7 0,5 0,2 2,0 5,0 7,2 7,5 6,6"></polygon></svg>
+            @if (searchTime is not null)
+            {
+                <small style="color: green;margin-left:10px;">
+                    Found @groupings.Sum(g => g.Value.Count) results in @searchTime.Value ms
+                </small>
+            }
+        </label>
+    </div>
+</div>
+<br />
+
+@foreach (var group in groupings.Where(group => group.Value.Count > 0))
+{
+    <h2>@group.Key Recommendations</h2>
+    @foreach (Type recommendation in group.Value)
+    {
+        <RecommendationConstructor @key=recommendation RequestType=recommendation Connect=Connect Recommender="recommender" />
+        <br />
+    }
+}
+
+@if (uncategorizedTypes.Count > 0)
+{
+    <h2>Uncategorized Recommendations</h2>
+    @foreach (var recommendation in uncategorizedTypes)
+    {
+        <RecommendationConstructor RequestType=recommendation Connect=Connect Recommender="recommender" />
+        <br />
+    }
+}
+
+<br />
+
+@code {
+    private string search = "";
+    private double? searchTime;
+    private string? error;
+    private string? message;
+    private Recommender? recommender;
+    private Dictionary<string, List<Type>> groupings = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Search();
+    }
+
+    private bool Connect()
+    {
+        try
+        {
+            recommender = new Recommender(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+            message = "Successfully initialized the Recommender.";
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            return false;
+        }
+    }
+
+    private static Dictionary<string, List<Type>> RecommendationGroupings = new()
+        {
+            ["Product"] = [typeof(PopularProductsRequest),
+            typeof(PersonalProductRecommendationRequest),
+            typeof(PurchasedWithProductRequest),
+            typeof(PurchasedWithCurrentCartRequest),
+            typeof(PurchasedWithMultipleProductsRequest),
+            typeof(ProductsViewedAfterViewingProductRequest),
+            typeof(ProductsViewedAfterViewingContentRequest),
+            typeof(RecentlyViewedProductsRequest),
+            typeof(SearchTermBasedProductRecommendationRequest),
+            typeof(SimilarProductsRequest),
+            typeof(SortProductsRequest),
+            typeof(SortVariantsRequest),
+            typeof(CustomProductRecommendationRequest)],
+
+            ["Content"] = [typeof(PopularContentsRequest),
+            typeof(PersonalContentRecommendationRequest),
+            typeof(ContentsViewedAfterViewingContentRequest),
+            typeof(ContentsViewedAfterViewingProductRequest),
+            typeof(ContentsViewedAfterViewingMultipleContentsRequest),
+            typeof(ContentsViewedAfterViewingMultipleProductsRequest)],
+
+            ["Brand"] = [typeof(PopularBrandsRecommendationRequest),
+            typeof(PersonalBrandRecommendationRequest)],
+
+            ["Product Category"] = [typeof(PopularProductCategoriesRecommendationRequest),
+            typeof(PersonalProductCategoryRecommendationRequest)],
+
+            ["Content Category"] = [typeof(PopularContentCategoriesRecommendationRequest),
+            typeof(PersonalContentCategoryRecommendationRequest)],
+
+            ["Search Term"] = [typeof(PopularSearchTermsRecommendationRequest)],
+
+            ["Batched"] = [typeof(ProductRecommendationRequestCollection),
+            typeof(ContentRecommendationRequestCollection)]
+        };
+
+    private static List<Type> allRecommendationTypes =
+        Assembly
+            .GetAssembly(typeof(ClientBase))!
+            .GetTypes()
+            .Where(type =>
+                type != typeof(RecommendationRequest)
+                && type.IsAssignableTo(typeof(RecommendationRequest))
+                && !type.IsGenericType
+                && !type.IsAbstract)
+            .Append(typeof(ProductRecommendationRequestCollection))
+            .Append(typeof(ContentRecommendationRequestCollection))
+            .ToList();
+
+    private static List<Type> uncategorizedTypes =
+        allRecommendationTypes
+            .Where(t => !RecommendationGroupings.SelectMany(m => m.Value).Contains(t))
+            .ToList();
+
+    private Task Search()
+    {
+        var sw = Stopwatch.StartNew();
+
+        groupings = RecommendationGroupings.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value
+                .Where(ContainsSearch)
+                .ToList()
+        );
+
+        if (search is "")
+        {
+            searchTime = null;
+        }
+        else
+        {
+            searchTime = sw.Elapsed.TotalMilliseconds;
+        }
+        return Task.CompletedTask;
+    }
+
+    private Dictionary<Type, string> typeNames = new();
+
+    private bool ContainsSearch(Type type)
+    {
+        if(!typeNames.TryGetValue(type, out string? typeName))
+        {
+            typeName = type.Name;
+            typeNames[type] = typeName;
+        }
+        return typeName.Contains(search.Replace(" ", ""), StringComparison.OrdinalIgnoreCase);
+    }
+}

@@ -1,0 +1,11 @@
+﻿.box {
+    border: 2px solid var(--color-gray);
+    border-radius: 5px;
+    padding: 5px;
+}
+
+.two-column-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 20px 10px;
+}

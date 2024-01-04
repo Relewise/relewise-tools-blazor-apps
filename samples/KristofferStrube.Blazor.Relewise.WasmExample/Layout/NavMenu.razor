@@ -1,0 +1,54 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Blazor Relewise</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Products/">
+                <svg class="bi" width="30" height="30" viewBox="0 0 14 10"><polygon fill="white" points="4,10 4,4 2,6 0,4 4,0 5,0 6,1 8,1 9,0 10,0 14,4 12,6 10,4 10,10"></polygon></svg> Products
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Recommendations/">
+                <svg class="bi" width="30" height="30" viewBox="0 0 16 16"><polygon fill="white" points="0,6 6,6 8,0 10,6 16,6 11,10 13,16 8,12 3,16 5,10"></polygon></svg> Recommendations
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Searches/">
+                <svg class="bi" width="30" height="30" viewBox="-2 -2 14 13"><polygon fill="transparent" stroke="white" stroke-width="2" points="12,11 6,6 5,7 2,7 0,5 0,2 2,0 5,0 7,2 7,5 6,6"></polygon></svg> Searches
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="RequestExplorer/">
+                <svg class="bi" width="30" height="30" viewBox="0 0 10 10"><polygon fill="white" points="3,4 0,2 1,1 4,3 4,0 6,0 6,3 9,1 10,2 7,4 10,4 10,11 0,11 0,4"></polygon></svg> Request Explorer
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="DataValueConverter/">
+                <svg class="bi" width="30" height="30" viewBox="0 0 10 7"><polygon fill="white" points="2,4 2,0 7,0 7,2 10,2 10,7 5,7 5,9 0,9 0,4"></polygon></svg> DataValue Converter
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}

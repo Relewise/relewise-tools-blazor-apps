@@ -1,0 +1,39 @@
+﻿@typeparam T where T : Enum
+@if (ReadOnly)
+{
+    <code>@Value.ToString()</code>
+}
+else
+{
+    <select style="width:100%;" @bind=value @bind:after="() => Setter(value)">
+        @foreach (T value in Enum.GetValues(typeof(T)))
+        {
+            if (value.Equals(Value))
+            {
+                <option value="@value" selected>@value.ToString()</option>
+            }
+            else
+            {
+                <option value="@value">@value.ToString()</option>
+            }
+        }
+    </select>
+}
+
+@code {
+    private T value;
+
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required T Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        value = Value;
+    }
+}

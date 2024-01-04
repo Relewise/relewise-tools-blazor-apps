@@ -1,0 +1,130 @@
+﻿@page "/Searches"
+@using KristofferStrube.Blazor.Relewise.TypeEditors
+@using System.Reflection
+@using global::Relewise.Client.Requests
+@using global::Relewise.Client.Requests.Recommendations
+@using global::Relewise.Client.Requests.Search
+@using global::Relewise.Client.Responses
+@using global::Relewise.Client.Search
+
+<PageTitle>Blazor Relewise - Searches</PageTitle>
+
+<h1>Searches</h1>
+<p>Here you can get try to make some searchers.</p>
+
+
+@if (error is not null)
+{
+    <code>@error</code>
+    <br />
+    <br />
+}
+@if (message is not null)
+{
+    <span style="color:green;">@message</span>
+    <br />
+    <br />
+}
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="serverUrl" class="input-group-text" style="width:120px;">Server URL</label>
+    </div>
+    <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
+</div>
+<br />
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
+    </div>
+    <input @bind=StaticDatasetStorage.DatasetId class="form-control" id="datasetId" />
+</div>
+<br />
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="apiKey" class="input-group-text" style="width:120px;">API Key</label>
+    </div>
+    <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
+</div>
+<br />
+
+@if (searcher is null)
+{
+    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <br />
+}
+<br />
+
+@foreach (var group in searchRequestGroupings)
+{
+    <h2>@group.Key Searches</h2>
+    @foreach (Type search in group.Value.Select(name => allSearchRequestTypes.Single(t => t.Name == name)))
+    {
+        <SearchConstructor RequestType=search Connect=Connect Searcher="searcher" />
+        <br />
+    }
+}
+
+@if (uncategorizedTypes.Count > 0)
+{
+    <h2>Uncategorized Searches</h2>
+    @foreach (var type in uncategorizedTypes)
+    {
+        <SearchConstructor RequestType=type Connect=Connect Searcher="searcher" />
+        <br />
+    }
+}
+
+<br />
+
+@code {
+    private string? error;
+    private string? message;
+    private Searcher? searcher;
+
+    private bool Connect()
+    {
+        try
+        {
+            searcher = new Searcher(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+            message = "Successfully initialized the Searcher.";
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            return false;
+        }
+    }
+
+    private static Dictionary<string, List<string>> searchRequestGroupings = new()
+        {
+            ["Entity"] =
+                ["ProductSearchRequest",
+                "ContentSearchRequest",
+                "SearchTermPredictionRequest",
+                "ProductCategorySearchRequest",
+                "ContentCategorySearchRequest"],
+
+            ["Search Term"] = ["SearchTermPredictionRequest"],
+
+            ["Batched"] = ["SearchRequestCollection"]
+        };
+
+    private static List<Type> allSearchRequestTypes =
+        Assembly
+            .GetAssembly(typeof(ClientBase))!
+            .GetTypes()
+            .Where(type =>
+                type != typeof(SearchRequest)
+                && type.IsAssignableTo(typeof(SearchRequest))
+                && !type.IsGenericType
+                && !type.IsAbstract)
+            .ToList();
+
+    private static List<Type> uncategorizedTypes =
+        allSearchRequestTypes
+            .Where(t => !searchRequestGroupings.SelectMany(m => m.Value).Contains(t.Name))
+            .ToList();
+}

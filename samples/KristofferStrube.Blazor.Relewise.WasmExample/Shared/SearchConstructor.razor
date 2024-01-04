@@ -1,0 +1,113 @@
+﻿@using KristofferStrube.Blazor.Relewise.TypeEditors
+@using System.Reflection
+@using KristofferStrube.Blazor.Relewise.WasmExample.Extensions
+@using global::Relewise.Client.Requests.Recommendations
+@using global::Relewise.Client.Requests.Search
+@using global::Relewise.Client.Responses
+@using global::Relewise.Client.Responses.Search
+@using global::Relewise.Client.Search
+
+<details class="box">
+    <summary @onclick=Instantiate>
+        @(NormalName(RequestType))
+        </summary>
+    <div style="margin:5px;">
+        <h3>Request</h3>
+        <ObjectEditor OpenDetails=true T=SearchRequest Value="request" Setter="(object? obj) => { request = (SearchRequest?)obj; }" />
+        <br />
+        @if (Searcher is null)
+        {
+            <button class="btn btn-success" disabled="true" @onclick="() => Post()">Post</button>
+            <i>You have to connect before you can post a request.</i>
+        }
+        else
+        {
+            <button class="btn btn-success" @onclick="() => Post()">Post</button>
+        }
+        <br />
+        @if (error is not null)
+        {
+            <code>@error</code>
+        }
+        else if (message is not null)
+        {
+            <span style="color:green;">@message</span>
+        }
+        @if (response is not null)
+        {
+            <br />
+            <br />
+            <h3>Response</h3>
+            <ObjectEditor OpenDetails=true ReadOnly=true T=SearchResponse Value="response" Setter="(object? obj) => { response = (SearchResponse?)obj; }" />
+        }
+    </div>
+</details>
+
+
+@code {
+    private string? message;
+    private string? error;
+    private SearchRequest? request;
+    private SearchResponse? response;
+
+    [Parameter, EditorRequired]
+    public required Searcher Searcher { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Func<bool> Connect { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Type RequestType { get; set; }
+
+    private void Instantiate()
+    {
+        if (request is not null) return;
+        request = (SearchRequest)Activator.CreateInstance(RequestType)!;
+    }
+
+    private string NormalName(Type type)
+    {
+        var separated = type.SpaceSeparatedName();
+        if (separated.EndsWith("Request"))
+        {
+            separated = separated[..^8];
+        }
+        return separated;
+    }
+
+    private async Task Post()
+    {
+        if (!Connect()) return;
+
+        if (request is null)
+        {
+            message = null;
+            error = "Request was null.";
+            return;
+        }
+
+        try
+        {
+            var method = typeof(Searcher)
+                .GetMethods()
+                .Single(m => m.Name is "SearchAsync" && m.GetParameters() is [var requestParam, var tokenParam] && requestParam.ParameterType == request.GetType());
+
+            var responseTask = (Task<SearchResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Searcher, request])!;
+
+            response = await responseTask;
+            message = "Successfully recommended.";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    public static async Task<SearchResponse> Post<T>(MethodInfo method, Searcher recommender, SearchRequest request) where T : SearchResponse
+    {
+        var taskResponse = (Task<T>)method.Invoke(recommender, [request, CancellationToken.None])!;
+        return await taskResponse;
+    }
+}

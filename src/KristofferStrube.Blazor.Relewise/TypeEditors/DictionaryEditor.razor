@@ -1,0 +1,105 @@
+﻿@typeparam TKey where TKey : notnull
+@typeparam TValue
+
+@if (Value is null)
+{
+    @if (!ReadOnly)
+    {
+        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new Dictionary&lt;@ProductEditor.Name(typeof(TKey)),@ProductEditor.Name(typeof(TValue))&gt;</button>
+    }
+}
+else
+{
+    <div class="box three-column-grid">
+        @foreach (var key in Value.Keys)
+        {
+            var localKey = key;
+            <div>
+                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TKey))) is { } keyEditor)
+                {
+                    <ErrorBoundary>
+                        <ChildContent>
+                            <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = localKey, ["Setter"] = (object? obj) => { Value[(TKey)obj] = Value[(TKey)localKey]; Value.Remove((TKey)localKey); localKey = (TKey)obj; } })" />
+                        </ChildContent>
+                        <ErrorContent>
+                            <code>Failed to initialize editor part for @ProductEditor.Name(typeof(TKey))</code>
+                        </ErrorContent>
+                    </ErrorBoundary>
+                }
+                else
+                {
+                    <span>Can't edit or show @ProductEditor.Name(typeof(TKey))</span>
+                }
+            </div>
+            @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue))) is { } valueEditor)
+            {
+                <ErrorBoundary>
+                    <ChildContent>
+                        <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = Value[localKey], ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; } })" />
+                    </ChildContent>
+                    <ErrorContent>
+                        <code>Failed to initialize editor part for @ProductEditor.Name(typeof(TValue))</code>
+                    </ErrorContent>
+                </ErrorBoundary>
+            }
+            else
+            {
+                <span>Can't edit or show @ProductEditor.Name(typeof(TValue))</span>
+            }
+            @if (!ReadOnly)
+            {
+                <button class="btn btn-sm btn-warning" @onclick="() => Remove(localKey)">X</button>
+            }
+            else
+            {
+                <span></span>
+            }
+        }
+        @if (!ReadOnly)
+        {
+            <button class="btn btn-outline-primary btn-sm" style="grid-column: span 3" @onclick=Add>+ Add new entry</button>
+        }
+    </div>
+}
+@code {
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required Dictionary<TKey, TValue> Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+
+    public void Add()
+    {
+        TKey? newKey = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TKey))) is { } keyEditor
+            ? (TKey?)keyEditor.InitValue(typeof(TKey))
+            : default(TKey);
+        TValue? newValue = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue))) is { } valueEditor
+            ? (TValue?)valueEditor.InitValue(typeof(TValue))
+            : default(TValue);
+        if (newKey is null || newValue is null || Value.ContainsKey(newKey)) return;
+        Value.Add(newKey, newValue);
+        Setter(Value);
+    }
+
+    public void Create()
+    {
+        Value = Activator.CreateInstance<Dictionary<TKey, TValue>>();
+        Setter(Value);
+    }
+
+    public void Remove(TKey key)
+    {
+        if (typeof(TValue) == typeof(DataValue))
+        {
+            Value[key] = default;
+        }
+        else
+        {
+            Value.Remove(key);
+        }
+        Setter(Value);
+    }
+}
