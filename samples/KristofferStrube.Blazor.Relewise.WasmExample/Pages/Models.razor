@@ -33,7 +33,7 @@
 <div style="@(search is "" ? "min-height:100vh;" : "")">
     @foreach (var type in filteredTypes)
     {
-            <DynamicComponent @key=type Type="@EditorTypes[type]" Parameters="@(new Dictionary<string, object?>() { ["Value"] = InitValues[type], ["Setter"] = (object? obj) => {} })" />
+        <DynamicComponent @key=type Type="@EditorTypes[type]" Parameters="@(new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => {} })" />
         <br />
     }
 </div>
@@ -48,10 +48,16 @@
     private string? error;
     private string? message;
     private Recommender? recommender;
+    private Dictionary<Type, object?> initValues = default!;
     private List<Type> filteredTypes = new();
 
     protected override async Task OnInitializedAsync()
     {
+        initValues = Types
+        .ToDictionary(
+            keySelector: t => t,
+            elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
+        );
         await Search();
     }
 
@@ -92,12 +98,6 @@
         .ToDictionary(
             keySelector: t => t,
             elementSelector: t => typeof(ObjectEditor<>).MakeGenericType(new Type[] { t })
-        );
-
-    private static Dictionary<Type, object?> InitValues = Types
-        .ToDictionary(
-            keySelector: t => t,
-            elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
         );
 
     private async Task Search()
