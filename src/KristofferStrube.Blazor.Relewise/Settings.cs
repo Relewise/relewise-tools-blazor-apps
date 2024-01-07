@@ -1,5 +1,6 @@
 ﻿using KristofferStrube.Blazor.Relewise.TypeEditors;
 using Relewise.Client.DataTypes;
+using System.Reflection;
 
 namespace KristofferStrube.Blazor.Relewise;
 
@@ -46,6 +47,9 @@ public static class Settings
         new(t => t == typeof(DataValue),
             t => typeof(DataValueEditor),
             t => new DataValue("")),
+        new(t => t == typeof(int?),
+            t => typeof(IntEditor),
+            t => null),
         new(t => t.IsAssignableTo(typeof(object)),
             t => typeof(ObjectEditor<>).MakeGenericType(new Type[] { t }),
             t => {
