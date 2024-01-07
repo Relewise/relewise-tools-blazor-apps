@@ -34,7 +34,7 @@
 <div style="@(search is "" ? "min-height:100vh;" : "")">
     @foreach (var type in filteredTypes)
     {
-        <DynamicComponent @key=type Type="@EditorTypes[type]" Parameters="@(new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => {} })" />
+        <DynamicComponent @key=type Type="@EditorTypes[type]" Parameters="@(new Dictionary<string, object?>() { ["OpenDetails"] = searchTime is not null && filteredTypes.Count is 1, ["Value"] = initValues[type], ["Setter"] = (object? obj) => {} })" />
         <br />
     }
 </div>
