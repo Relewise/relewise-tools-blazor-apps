@@ -2,6 +2,7 @@
 @using Microsoft.JSInterop
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Converters
+@using System.IO.Compression
 @using global::Relewise.Client
 @typeparam T
 
@@ -29,6 +30,16 @@
             else
             {
                 <i>@ProductEditor.Name(Value is not null ? Value.GetType() : typeof(T))</i>
+            }
+            @if (ShowModelShareLink)
+            {
+                <span style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => CopyLinkToClipboard()">
+                    <svg class="bi" width="16" height="16" viewBox="-1 -1 10 10">
+                        <polygon fill="transparent" stroke="white" stroke-width="1" points="0,6 2,4 4,4 4,2 6,0 8,0 8,2 6,4 4,4 4,6 2,8 0,8">
+                            <title>Copy link to Model page with this object data</title>
+                        </polygon>
+                    </svg>
+                </span>
             }
             <span style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => CopyToClipboard()">
                 <svg class="bi" width="16" height="16" viewBox="-1 -1 10 13">
@@ -123,6 +134,9 @@
     private Type selectedCreateType = typeof(T);
 
     [Parameter]
+    public bool ShowModelShareLink { get; set; } = false;
+
+    [Parameter]
     public bool ReadOnly { get; set; } = false;
 
     [Parameter]
@@ -200,4 +214,45 @@
 
         await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(Value, serializedType, jsonSerializerSettings));
     }
+
+    public async Task CopyLinkToClipboard()
+    {
+        var jsonSerializerSettings = new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto,
+                NullValueHandling = NullValueHandling.Ignore,
+                Formatting = Formatting.None,
+                Converters = [new StringEnumConverter()]
+            };
+
+        Type? serializedType = Value?.GetType();
+        if (serializedType?.BaseType is not null)
+        {
+            serializedType = serializedType.BaseType;
+        }
+
+        string serialized = JsonConvert.SerializeObject(Value, serializedType, jsonSerializerSettings);
+        Console.WriteLine(serialized);
+        string compressed = ToGzip(serialized);
+
+        string url = $"https://kristofferstrube.github.io/Blazor.Relewise/Models?q={Value?.GetType().Name}&o={compressed}";
+
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", url);
+    }
+
+    public static string ToGzip(string value)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(value);
+        using var input = new MemoryStream(bytes);
+        using var output = new MemoryStream();
+        using var stream = new GZipStream(output, CompressionLevel.Fastest);
+
+        input.CopyTo(stream);
+
+        stream.Dispose();
+
+        var result = output.ToArray();
+        return Convert.ToBase64String(result);
+    }
+
 }

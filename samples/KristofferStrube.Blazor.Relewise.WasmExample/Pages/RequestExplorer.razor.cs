@@ -33,8 +33,6 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
                 .OrderBy(type => type.Name)
                 .ToList();
             selectedParseType = typeof(ProductSearchRequest);
-
-
         }
 
         public void TryParse()

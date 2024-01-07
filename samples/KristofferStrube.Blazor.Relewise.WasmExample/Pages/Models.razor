@@ -2,6 +2,9 @@
 @using KristofferStrube.Blazor.Relewise.TypeEditors
 @using System.Reflection
 @using System.Diagnostics
+@using System.IO.Compression
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Converters
 @using global::Relewise.Client.Requests
 @using global::Relewise.Client.Requests.Recommendations
 @using global::Relewise.Client.Responses
@@ -16,7 +19,7 @@
 </p>
 
 <div class="input-group">
-    <input @bind=search @bind:after=Search id="search" @bind:event="oninput" class="form-control" placeholder="Search" />
+    <input @bind=SearchTerm @bind:after=Search id="search" @bind:event="oninput" class="form-control" placeholder="Search" />
     <div class="input-group-append">
         <label for="search" class="input-group-text" style="width:240px;">
             <svg class="bi" width="24" height="24" viewBox="-2 -2 14 13"><polygon fill="transparent" stroke="grey" stroke-width="1" points="12,11 6,6 5,7 2,7 0,5 0,2 2,0 5,0 7,2 7,5 6,6"></polygon></svg>
@@ -31,10 +34,10 @@
 </div>
 <br />
 
-<div style="@(search is "" ? "min-height:100vh;" : "")">
+<div style="@(SearchTerm is "" ? "min-height:100vh;" : "")">
     @foreach (var type in filteredTypes)
     {
-        var parameters = new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => { } };
+        var parameters = new Dictionary<string, object?>() { ["ShowModelShareLink"] = true, ["Value"] = initValues[type], ["Setter"] = (object? obj) => { } };
         if (searchTime is not null && filteredTypes.Count is 1)
         {
             parameters.Add("OpenDetails", true);
@@ -54,12 +57,15 @@
     private List<Type> filteredTypes = new();
 
     [SupplyParameterFromQuery(Name = "q")]
-    public string search { get; set; } = "";
+    public string SearchTerm { get; set; } = "";
+
+    [SupplyParameterFromQuery(Name = "o")]
+    public string? CompressedObject { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        if (search is null) {
-            search = ""; 
+        if (SearchTerm is null) {
+            SearchTerm = ""; 
         }
 
         initValues = Types
@@ -68,13 +74,30 @@
                 elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
             );
         await Search();
+
+        if (CompressedObject is not null)
+        {
+            String decompressedString = await FromGzipAsync(CompressedObject.Replace(" ", "+"));
+            var jsonSerializerSettings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto,
+                    NullValueHandling = NullValueHandling.Ignore,
+                    Formatting = Formatting.None,
+                    Converters = [new StringEnumConverter()]
+                };
+            object? decompressedObject = JsonConvert.DeserializeObject(decompressedString, jsonSerializerSettings);
+            if (filteredTypes.FirstOrDefault(t => t.Name == decompressedObject?.GetType().Name) is { } matchingType)
+            {
+                initValues[matchingType] = decompressedObject;
+            }
+        }
     }
 
     protected override void OnParametersSet()
     {
-        if (search is null)
+        if (SearchTerm is null)
         {
-            search = "";
+            SearchTerm = "";
         }
     }
 
@@ -128,7 +151,7 @@
             i++;
         }
 
-        if (search is "")
+        if (SearchTerm is "")
         {
             searchTime = null;
         }
@@ -149,14 +172,15 @@
         {
             relativePath = relativePath[..^1];
         }
-        if (search is "")
+
+        string url = SearchTerm is "" ? relativePath : $"{relativePath}?q={SearchTerm}";
+
+        if (CompressedObject is not null)
         {
-            NavigationManager.NavigateTo($"{relativePath}", replace: true);
+            url += "&o=" + CompressedObject;
         }
-        else
-        {
-            NavigationManager.NavigateTo($"{relativePath}?q={search}", replace: true);
-        }
+
+        NavigationManager.NavigateTo(url, replace: true);
     }
 
     private Dictionary<Type, string> typeNames = new();
@@ -168,7 +192,20 @@
             typeName = type.Name;
             typeNames[type] = typeName;
         }
-        return typeName.Contains(search.Replace(" ", ""), StringComparison.OrdinalIgnoreCase);
+        return typeName.Contains(SearchTerm.Replace(" ", ""), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static async Task<string> FromGzipAsync(string value)
+    {
+        var bytes = Convert.FromBase64String(value);
+        await using var input = new MemoryStream(bytes);
+        await using var output = new MemoryStream();
+        await using var stream = new GZipStream(input, CompressionMode.Decompress);
+
+        await stream.CopyToAsync(output);
+        await stream.FlushAsync();
+
+        return System.Text.Encoding.UTF8.GetString(output.ToArray());
     }
 
     public void Dispose()
