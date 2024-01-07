@@ -7,7 +7,7 @@
 
 <CascadingValue Value="HideDefaultValueProperties">
     <details class="box" open=@OpenDetails>
-        <summary>
+        <summary @onclick="() => hasBeenOpen = true">
             @if (Value is not null && derivedTypes.Count > 0 && !ReadOnly && !OpenDetails)
             {
                 <span>&nbsp;</span>
@@ -48,72 +48,76 @@
                 }
             </span>
         </summary>
-        <div class="two-column-grid">
-            @if (Value is null)
-            {
-                <div>
-                    <code>&lt;NULL&gt;</code>
-                    @if (!ReadOnly)
-                    {
-                        <br />
-                        @if (derivedTypes.Count is 0)
-                        {
-                            <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new @ProductEditor.Name(typeof(T))</button>
-                        }
-                        else
-                        {
-                            <select @onchange=TypeDropdownChanged>
-                                @foreach (Type type in derivedTypes)
-                                {
-                                    if (type == selectedCreateType)
-                                    {
-                                        <option value="@type.Name" selected>@type.Name</option>
-                                    }
-                                    else
-                                    {
-                                        <option value="@type.Name">@type.Name</option>
-                                    }
-                                }
-                            </select>
-                            <button class="btn btn-outline-success btn-sm" style="margin:2px;margin-top:0px;padding:3px;line-height:1.1" @onclick=Create>Create</button>
-                        }
-                    }
-                </div>
-            }
-            else
-            {
-                foreach (var property in Value.GetType().GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret"))
+        @if (hasBeenOpen)
+        {
+            <div class="two-column-grid">
+                @if (Value is null)
                 {
-                    if (HideDefaultValueProperties is not true || (Value is null && emptyInstanceOfValue is null) || (Value is not null && emptyInstanceOfValue is not null && JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue))))
-                    {
-                        <div @key=@($"{property.Name}-label")>
-                            <b>@property.Name</b>
-                        </div>
-                        <div @key=@($"{property.Name}-value")>
-                            @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)) is { } editor)
+                    <div>
+                        <code>&lt;NULL&gt;</code>
+                        @if (!ReadOnly)
+                        {
+                            <br />
+                            @if (derivedTypes.Count is 0)
                             {
-                                <ErrorBoundary>
-                                    <ChildContent>
-                                        <DynamicComponent Type="@editor.EditorType(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => property.SetValue(Value, obj) })" />
-                                    </ChildContent>
-                                    <ErrorContent>
-                                        <code>Failed for @property.PropertyType.Name</code>
-                                    </ErrorContent>
-                                </ErrorBoundary>
+                                <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new @ProductEditor.Name(typeof(T))</button>
                             }
                             else
                             {
-                                <code>Can't edit @ProductEditor.Name(property.PropertyType)</code>
+                                <select @onchange=TypeDropdownChanged>
+                                    @foreach (Type type in derivedTypes)
+                                    {
+                                        if (type == selectedCreateType)
+                                        {
+                                            <option value="@type.Name" selected>@type.Name</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@type.Name">@type.Name</option>
+                                        }
+                                    }
+                                </select>
+                                <button class="btn btn-outline-success btn-sm" style="margin:2px;margin-top:0px;padding:3px;line-height:1.1" @onclick=Create>Create</button>
                             }
-                        </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    foreach (var property in Value.GetType().GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret"))
+                    {
+                        if (HideDefaultValueProperties is not true || (Value is null && emptyInstanceOfValue is null) || (Value is not null && emptyInstanceOfValue is not null && JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue))))
+                        {
+                            <div @key=@($"{property.Name}-label")>
+                                <b>@property.Name</b>
+                            </div>
+                            <div @key=@($"{property.Name}-value")>
+                                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)) is { } editor)
+                                {
+                                    <ErrorBoundary>
+                                        <ChildContent>
+                                            <DynamicComponent Type="@editor.EditorType(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => property.SetValue(Value, obj) })" />
+                                        </ChildContent>
+                                        <ErrorContent>
+                                            <code>Failed for @property.PropertyType.Name</code>
+                                        </ErrorContent>
+                                    </ErrorBoundary>
+                                }
+                                else
+                                {
+                                    <code>Can't edit @ProductEditor.Name(property.PropertyType)</code>
+                                }
+                            </div>
+                        }
                     }
                 }
-            }
-        </div>
+            </div>
+        }
     </details>
 </CascadingValue>
 
 @code {
+    private bool hasBeenOpen;
     private object? emptyInstanceOfValue;
     private List<Type> derivedTypes = new();
     private Type selectedCreateType = typeof(T);
@@ -138,12 +142,13 @@
 
     protected override void OnParametersSet()
     {
+        hasBeenOpen = hasBeenOpen || OpenDetails;
+
         var assembly = Assembly.GetAssembly(typeof(ClientBase));
         derivedTypes = assembly!
             .GetTypes()
             .Where(type => type != typeof(T) && type.IsAssignableTo(typeof(T)) && !type.IsGenericType && !type.IsAbstract)
             .ToList();
-
 
         if (derivedTypes.Count > 0 && (typeof(T).IsGenericType || typeof(T).IsAbstract))
         {
