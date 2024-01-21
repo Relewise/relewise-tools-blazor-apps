@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Relewise.Client;
 using Relewise.Client.Requests;
 using Relewise.Client.Requests.Search;
+using System.IO.Compression;
 using System.Reflection;
 
 namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
@@ -23,6 +25,9 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
         };
         private List<Type> derivedTypes;
         private LicensedRequest? request;
+
+        [Inject]
+        public required NavigationManager NavigationManager { get; set; }
 
         protected override void OnInitialized()
         {
@@ -106,6 +111,69 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
                 error = ex.Message;
                 message = null;
             }
+        }
+
+        public void TransferToRecommendationsPage()
+        {
+            var jsonSerializerSettings = new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto,
+                NullValueHandling = NullValueHandling.Ignore,
+                Formatting = Formatting.None,
+                Converters = [new StringEnumConverter()]
+            };
+
+            Type? serializedType = request?.GetType();
+            if (serializedType?.BaseType is not null)
+            {
+                serializedType = serializedType.BaseType;
+            }
+
+            string serialized = JsonConvert.SerializeObject(request, serializedType, jsonSerializerSettings);
+            Console.WriteLine(serialized);
+            string compressed = ToGzip(serialized);
+
+            string url = $"https://kristofferstrube.github.io/Blazor.Relewise/Recommendations?q={request?.GetType().Name}&o={compressed}";
+            NavigationManager.NavigateTo(url);
+        }
+
+        public void TransferToSearchesPage()
+        {
+            var jsonSerializerSettings = new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto,
+                NullValueHandling = NullValueHandling.Ignore,
+                Formatting = Formatting.None,
+                Converters = [new StringEnumConverter()]
+            };
+
+            Type? serializedType = request?.GetType();
+            if (serializedType?.BaseType is not null)
+            {
+                serializedType = serializedType.BaseType;
+            }
+
+            string serialized = JsonConvert.SerializeObject(request, serializedType, jsonSerializerSettings);
+            Console.WriteLine(serialized);
+            string compressed = ToGzip(serialized);
+
+            string url = $"https://kristofferstrube.github.io/Blazor.Relewise/Searches?q={request?.GetType().Name}&o={compressed}";
+            NavigationManager.NavigateTo(url);
+        }
+
+        public static string ToGzip(string value)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(value);
+            using var input = new MemoryStream(bytes);
+            using var output = new MemoryStream();
+            using var stream = new GZipStream(output, CompressionLevel.Fastest);
+
+            input.CopyTo(stream);
+
+            stream.Dispose();
+
+            var result = output.ToArray();
+            return Convert.ToBase64String(result);
         }
 
         private void TypeDropdownChanged(ChangeEventArgs eventArgs)

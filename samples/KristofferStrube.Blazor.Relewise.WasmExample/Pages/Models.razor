@@ -106,7 +106,7 @@
             .GetTypes()
             .ToList();
 
-    private static List<Type> Types = AssemblyTypes
+    public static List<Type> Types = AssemblyTypes
             .Where(t =>
                 !t.IsGenericType
                 && t.DeclaringType is null

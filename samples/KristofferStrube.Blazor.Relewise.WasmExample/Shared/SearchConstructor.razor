@@ -7,13 +7,13 @@
 @using global::Relewise.Client.Responses.Search
 @using global::Relewise.Client.Search
 
-<details class="box">
-    <summary @onclick=Instantiate>
+<details class="box" open=@OpenDetails>
+    <summary>
         @(NormalName(RequestType))
-        </summary>
+    </summary>
     <div style="margin:5px;">
         <h3>Request</h3>
-        <ObjectEditor OpenDetails=true T=SearchRequest Value="request" Setter="(object? obj) => { request = (SearchRequest?)obj; }" />
+        <ObjectEditor OpenDetails=true T=SearchRequest Value="Request" Setter="(object? obj) => { Request = (SearchRequest?)obj; }" />
         <br />
         @if (Searcher is null)
         {
@@ -47,7 +47,7 @@
 @code {
     private string? message;
     private string? error;
-    private SearchRequest? request;
+
     private SearchResponse? response;
 
     [Parameter, EditorRequired]
@@ -59,11 +59,11 @@
     [Parameter, EditorRequired]
     public required Type RequestType { get; set; }
 
-    private void Instantiate()
-    {
-        if (request is not null) return;
-        request = (SearchRequest)Activator.CreateInstance(RequestType)!;
-    }
+    [Parameter, EditorRequired]
+    public required SearchRequest Request { get; set; }
+
+    [Parameter, EditorRequired]
+    public required bool OpenDetails { get; set; }
 
     private string NormalName(Type type)
     {
@@ -79,7 +79,7 @@
     {
         if (!Connect()) return;
 
-        if (request is null)
+        if (Request is null)
         {
             message = null;
             error = "Request was null.";
@@ -90,9 +90,9 @@
         {
             var method = typeof(Searcher)
                 .GetMethods()
-                .Single(m => m.Name is "SearchAsync" && m.GetParameters() is [var requestParam, var tokenParam] && requestParam.ParameterType == request.GetType());
+                .Single(m => m.Name is "SearchAsync" && m.GetParameters() is [var requestParam, var tokenParam] && requestParam.ParameterType == Request.GetType());
 
-            var responseTask = (Task<SearchResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Searcher, request])!;
+            var responseTask = (Task<SearchResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Searcher, Request])!;
 
             response = await responseTask;
             message = "Successfully recommended.";

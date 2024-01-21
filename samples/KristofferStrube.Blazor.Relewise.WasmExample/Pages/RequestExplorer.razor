@@ -45,6 +45,17 @@ else if (message is not null)
 </select>
 <br />
 <br />
+@if (Recommendations.RecommendationGroupings.SelectMany(g => g.Value).Contains(request?.GetType()))
+{
+    <button class="btn btn-primary btn-sm" @onclick="() => TransferToRecommendationsPage()">Transfer to Recommendations page</button>
+    <br />
+}
+@if (Searches.SearchRequestGroupings.SelectMany(g => g.Value).Contains(request?.GetType()))
+{
+    <button class="btn btn-primary btn-sm" @onclick="() => TransferToSearchesPage()">Transfer to Searches page</button>
+    <br />
+}
+
 <label for="readonly">Disable Edit: </label>
 <input id="readonly" type="checkbox" @bind=ReadOnly @bind:event="oninput" />
 <br />
@@ -52,7 +63,7 @@ else if (message is not null)
 @if (request is not null)
 {
     <CascadingValue Value="true" Name="HideDefaultValueProperties">
-        <ObjectEditor OpenDetails=true ReadOnly=ReadOnly T=LicensedRequest Value="request" Setter="(Object? obj) => request = (LicensedRequest?)obj" />
+        <ObjectEditor OpenDetails=true ReadOnly=ReadOnly T=LicensedRequest ShowModelShareLink=@(Models.Types.Contains(request?.GetType())) Value="request" Setter="(Object? obj) => request = (LicensedRequest?)obj" />
     </CascadingValue>
     <br />
 }
