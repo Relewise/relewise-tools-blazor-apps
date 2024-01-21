@@ -13,7 +13,7 @@
     </summary>
     <div style="margin:5px;">
         <h3>Request</h3>
-        <ObjectEditor OpenDetails=true T=SearchRequest Value="Request" Setter="(object? obj) => { Request = (SearchRequest?)obj; }" />
+        <ObjectEditor OpenDetails=true T=SearchRequest Value="Request" ShowModelShareLink="true" Setter="(object? obj) => { Request = (SearchRequest?)obj; }" />
         <br />
         @if (Searcher is null)
         {
@@ -38,7 +38,7 @@
             <br />
             <br />
             <h3>Response</h3>
-            <ObjectEditor OpenDetails=true ReadOnly=true T=SearchResponse Value="response" Setter="(object? obj) => { response = (SearchResponse?)obj; }" />
+            <ObjectEditor OpenDetails=true ReadOnly=true T=SearchResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (SearchResponse?)obj; }" />
         }
     </div>
 </details>
