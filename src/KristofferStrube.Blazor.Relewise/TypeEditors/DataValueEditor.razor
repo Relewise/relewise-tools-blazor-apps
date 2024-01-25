@@ -1,4 +1,4 @@
-﻿<details class="box">
+﻿<details class="box" open="@OpenDetails">
     <summary>
         <i>DataValue</i>
     </summary>
@@ -19,7 +19,7 @@
                 <b>Type</b>
             </div>
             <div>
-                <EnumEditor T="DataValue.DataValueTypes" Value="Value!.Type" Setter="SetType" />
+                <EnumEditor T="DataValue.DataValueTypes" Value="Value!.Type" ReadOnly=ReadOnly Setter="SetType" />
             </div>
 
             <div>
@@ -61,6 +61,9 @@
 
     [Parameter]
     public bool ReadOnly { get; set; } = false;
+
+    [Parameter]
+    public bool OpenDetails { get; set; } = false;
 
     [Parameter, EditorRequired]
     public required DataValue? Value { get; set; }

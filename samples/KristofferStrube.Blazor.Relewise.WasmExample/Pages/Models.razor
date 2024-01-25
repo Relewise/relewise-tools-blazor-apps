@@ -35,14 +35,35 @@
 <br />
 
 <div style="@(SearchTerm is "" ? "min-height:100vh;" : "")">
-    @foreach (var type in filteredTypes)
+    @foreach (var type in searchResults)
     {
-        var parameters = new Dictionary<string, object?>() { ["ShowModelShareLink"] = true, ["Value"] = initValues[type], ["Setter"] = (object? obj) => { } };
-        if (searchTime is not null && filteredTypes.Count is 1)
-        {
-            parameters.Add("OpenDetails", true);
-        }
-        <DynamicComponent @key=type Type=@EditorTypes[type] Parameters=parameters />
+        <div @key=type>
+            @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
+            {
+                if (editor.InitValue(type) is { } initValue)
+                {
+                    initValues[type] = initValue;
+                }
+                var parameters = new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => { } };
+                var editorType = editor.EditorType(type);
+                if (searchTime is not null && filteredTypes.Count is 1 || type == singleExactMatch)
+                {
+                    parameters.Add("OpenDetails", true);
+                }
+                if (editorType.IsConstructedGenericType && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>))
+                {
+                    parameters.Add("ShowModelShareLink", true);
+                }
+                <ErrorBoundary>
+                    <ChildContent>
+                        <DynamicComponent Type=editor.EditorType(type) Parameters=parameters />
+                    </ChildContent>
+                    <ErrorContent>
+                        <code>Failed for @type.Name</code>
+                    </ErrorContent>
+                </ErrorBoundary>
+            }
+        </div>
         <br />
     }
 </div>
@@ -56,6 +77,8 @@
     private Dictionary<Type, object?> initValues = default!;
     private List<Type> filteredTypes = new();
     private Type? singleExactMatch = null;
+
+    private IEnumerable<Type> searchResults => singleExactMatch is null ? filteredTypes : filteredTypes.Where(t => t != singleExactMatch).Prepend(singleExactMatch);
 
     [SupplyParameterFromQuery(Name = "q")]
     public string SearchTerm { get; set; } = "";
@@ -132,6 +155,7 @@
         var cancellationToken = localCts.Token;
         cts = localCts;
         searchTime = null;
+        singleExactMatch = null;
         filteredTypes.Clear();
 
         var sw = Stopwatch.StartNew();
@@ -141,6 +165,10 @@
         {
             if (ContainsSearch(type))
             {
+                if (type.Name.Equals(SearchTerm, StringComparison.OrdinalIgnoreCase))
+                {
+                    singleExactMatch = type;
+                }
                 filteredTypes.Add(type);
                 StateHasChanged();
                 await Task.Delay(1);
