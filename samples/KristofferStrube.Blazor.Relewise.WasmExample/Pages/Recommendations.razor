@@ -75,7 +75,7 @@
     <h2>@group.Key Recommendations</h2>
     @foreach (Type recommendation in group.Value)
     {
-        <RecommendationConstructor @key=recommendation RequestType=recommendation Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Connect=Connect Recommender="recommender" />
+        <RecommendationConstructor @key=recommendation RequestType=recommendation Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Connect=Connect ResetRecommender=ResetRecommender Recommender="recommender" />
         <br />
     }
 }
@@ -85,7 +85,7 @@
     <h2>Uncategorized Recommendations</h2>
     @foreach (var recommendation in uncategorizedTypes)
     {
-        <RecommendationConstructor RequestType=recommendation Connect=Connect Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Recommender="recommender" />
+        <RecommendationConstructor RequestType=recommendation Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Connect=Connect ResetRecommender=ResetRecommender Recommender="recommender" />
         <br />
     }
 }
@@ -154,6 +154,12 @@
             message = null;
             return false;
         }
+    }
+
+    private void ResetRecommender()
+    {
+        recommender = null;
+        StateHasChanged();
     }
 
     public static Dictionary<string, List<Type>> RecommendationGroupings = new()

@@ -64,6 +64,9 @@
     public required Func<bool> Connect { get; set; }
 
     [Parameter, EditorRequired]
+    public required Action ResetRecommender { get; set; }
+
+    [Parameter, EditorRequired]
     public required Type RequestType { get; set; }
 
     [Parameter, EditorRequired]
@@ -108,6 +111,7 @@
         catch (Exception ex)
         {
             error = ex.Message;
+            ResetRecommender();
             message = null;
         }
     }

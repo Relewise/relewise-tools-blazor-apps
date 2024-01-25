@@ -78,7 +78,7 @@
     <h2>@group.Key Searches</h2>
     @foreach (Type search in group.Value)
     {
-        <SearchConstructor RequestType=search Request=initValues[search] OpenDetails=loadedModelFromUrl Connect=Connect Searcher="searcher" />
+        <SearchConstructor RequestType=search Request=initValues[search] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="searcher" />
         <br />
     }
 }
@@ -88,7 +88,7 @@
     <h2>Uncategorized Searches</h2>
     @foreach (var type in uncategorizedTypes)
     {
-        <SearchConstructor RequestType=type Request=initValues[type] OpenDetails=loadedModelFromUrl Connect=Connect Searcher="searcher" />
+        <SearchConstructor RequestType=type Request=initValues[type] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="searcher" />
         <br />
     }
 }
@@ -159,6 +159,12 @@
             message = null;
             return false;
         }
+    }
+
+    private void ResetSearcher()
+    {
+        searcher = null;
+        StateHasChanged();
     }
 
     private Task Search()

@@ -55,6 +55,7 @@
     private double? searchTime;
     private Dictionary<Type, object?> initValues = default!;
     private List<Type> filteredTypes = new();
+    private Type? singleExactMatch = null;
 
     [SupplyParameterFromQuery(Name = "q")]
     public string SearchTerm { get; set; } = "";
