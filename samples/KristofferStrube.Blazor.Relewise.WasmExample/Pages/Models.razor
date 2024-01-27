@@ -3,6 +3,8 @@
 @using System.Reflection
 @using System.Diagnostics
 @using System.IO.Compression
+@using KristofferStrube.DocumentSearching
+@using KristofferStrube.DocumentSearching.SuffixTree
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Converters
 @using global::Relewise.Client.Requests
@@ -35,35 +37,33 @@
 <br />
 
 <div style="@(SearchTerm is "" ? "min-height:100vh;" : "")">
-    @foreach (var type in searchResults)
+    @foreach (var type in SearchResults)
     {
-        <div @key=type>
-            @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
+        @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
+        {
+            if (editor.InitValue(type) is { } initValue && initValues[type] is null)
             {
-                if (editor.InitValue(type) is { } initValue)
-                {
-                    initValues[type] = initValue;
-                }
-                var parameters = new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => { } };
-                var editorType = editor.EditorType(type);
-                if (searchTime is not null && filteredTypes.Count is 1 || type == singleExactMatch)
-                {
-                    parameters.Add("OpenDetails", true);
-                }
-                if (editorType.IsConstructedGenericType && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>))
-                {
-                    parameters.Add("ShowModelShareLink", true);
-                }
-                <ErrorBoundary>
-                    <ChildContent>
-                        <DynamicComponent Type=editor.EditorType(type) Parameters=parameters />
-                    </ChildContent>
-                    <ErrorContent>
-                        <code>Failed for @type.Name</code>
-                    </ErrorContent>
-                </ErrorBoundary>
+                initValues[type] = initValue;
             }
-        </div>
+            var parameters = new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => { } };
+            var editorType = editor.EditorType(type);
+            if (searchTime is not null && filteredTypes.Count is 1 || type == singleExactMatch)
+            {
+                parameters.Add("OpenDetails", true);
+            }
+            if (editorType.IsConstructedGenericType && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>))
+            {
+                parameters.Add("ShowModelShareLink", true);
+            }
+            <ErrorBoundary>
+                <ChildContent>
+                    <DynamicComponent Type=editor.EditorType(type) Parameters=parameters />
+                </ChildContent>
+                <ErrorContent>
+                    <code>Failed for @type.Name</code>
+                </ErrorContent>
+            </ErrorBoundary>
+        }
         <br />
     }
 </div>
@@ -75,10 +75,13 @@
     private CancellationTokenSource? cts;
     private double? searchTime;
     private Dictionary<Type, object?> initValues = default!;
-    private List<Type> filteredTypes = new();
+
+    private DocumentIndex<Type, SuffixTrieSearchIndex> searchIndex = default!;
+
+    private List<Type> filteredTypes = [];
     private Type? singleExactMatch = null;
 
-    private IEnumerable<Type> searchResults => singleExactMatch is null ? filteredTypes : filteredTypes.Where(t => t != singleExactMatch).Prepend(singleExactMatch);
+    public IEnumerable<Type> SearchResults => singleExactMatch is null ? filteredTypes : filteredTypes.Where(t => t != singleExactMatch).Prepend(singleExactMatch);
 
     [SupplyParameterFromQuery(Name = "q")]
     public string SearchTerm { get; set; } = "";
@@ -88,8 +91,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (SearchTerm is null) {
-            SearchTerm = ""; 
+        if (SearchTerm is null)
+        {
+            SearchTerm = "";
         }
 
         initValues = Types
@@ -97,6 +101,9 @@
                 keySelector: t => t,
                 elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
             );
+
+        searchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(Types.ToArray(), t => t.Name.ToLower());
+
         await Search();
 
         if (CompressedObject is not null)
@@ -110,9 +117,9 @@
                     Converters = [new StringEnumConverter()]
                 };
             object? decompressedObject = JsonConvert.DeserializeObject(decompressedString, jsonSerializerSettings);
-            if (filteredTypes.FirstOrDefault(t => t.Name == decompressedObject?.GetType().Name) is { } matchingType)
+            if (SearchResults.FirstOrDefault()?.Name == decompressedObject?.GetType().Name)
             {
-                initValues[matchingType] = decompressedObject;
+                initValues[SearchResults.First()] = decompressedObject;
             }
         }
     }
@@ -160,24 +167,34 @@
 
         var sw = Stopwatch.StartNew();
 
-        int i = 0;
-        foreach (var type in Types)
+        Type[] results;
+
+        if (SearchTerm is "")
         {
-            if (ContainsSearch(type))
+            results = Types.ToArray();
+        }
+        else
+        {
+            results = searchIndex.ExactSearch(SearchTerm.ToLower()).Select(sr => sr.Element).ToArray();
+        }
+        singleExactMatch = results.FirstOrDefault(e => e.Name.ToLower() == SearchTerm.ToLower());
+
+        if (results.Length > 10)
+        {
+            foreach (var chunk in results.Chunk(10))
             {
-                if (type.Name.Equals(SearchTerm, StringComparison.OrdinalIgnoreCase))
-                {
-                    singleExactMatch = type;
-                }
-                filteredTypes.Add(type);
-                StateHasChanged();
+                filteredTypes.AddRange(chunk);
+                await InvokeAsync(StateHasChanged);
                 await Task.Delay(1);
+                if (localCts.IsCancellationRequested)
+                {
+                    return;
+                }
             }
-            if (disposed || cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-            i++;
+        }
+        else
+        {
+            filteredTypes = results.ToList();
         }
 
         if (SearchTerm is "")
@@ -206,22 +223,10 @@
 
         if (CompressedObject is not null)
         {
-            url += "&o=" + CompressedObject;
+            url += $"{(SearchTerm is "" ? "?" : "&")}o=" + CompressedObject;
         }
 
         NavigationManager.NavigateTo(url, replace: true);
-    }
-
-    private Dictionary<Type, string> typeNames = new();
-
-    private bool ContainsSearch(Type type)
-    {
-        if (!typeNames.TryGetValue(type, out string? typeName))
-        {
-            typeName = type.Name;
-            typeNames[type] = typeName;
-        }
-        return typeName.Contains(SearchTerm.Replace(" ", ""), StringComparison.OrdinalIgnoreCase);
     }
 
     public static async Task<string> FromGzipAsync(string value)
