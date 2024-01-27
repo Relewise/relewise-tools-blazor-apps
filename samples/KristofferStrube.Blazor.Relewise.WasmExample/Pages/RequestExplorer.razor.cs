@@ -25,6 +25,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
         };
         private List<Type> derivedTypes;
         private LicensedRequest? request;
+        private bool hideDefaultValueProperties = true;
 
         [Inject]
         public required NavigationManager NavigationManager { get; set; }
@@ -133,7 +134,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
             Console.WriteLine(serialized);
             string compressed = ToGzip(serialized);
 
-            string url = $"https://kristofferstrube.github.io/Blazor.Relewise/Recommendations?q={request?.GetType().Name}&o={compressed}";
+            string url = $"{NavigationManager.BaseUri}Recommendations?q={request?.GetType().Name}&o={compressed}";
             NavigationManager.NavigateTo(url);
         }
 
@@ -157,7 +158,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
             Console.WriteLine(serialized);
             string compressed = ToGzip(serialized);
 
-            string url = $"https://kristofferstrube.github.io/Blazor.Relewise/Searches?q={request?.GetType().Name}&o={compressed}";
+            string url = $"{NavigationManager.BaseUri}Searches?q={request?.GetType().Name}&o={compressed}";
             NavigationManager.NavigateTo(url);
         }
 

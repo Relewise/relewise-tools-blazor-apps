@@ -62,4 +62,6 @@ public static class Settings
                 return t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0) is { } parameterLessConstructor ? parameterLessConstructor.Invoke(null) : null;
             })
     ];
+
+    public static string Name(Type type) => (type.DeclaringType is { } nestedType ? $"{Name(nestedType)}." : "") + type.Name.Replace("`1", "").Replace("`2", "") + (type.GenericTypeArguments is { Length: > 0 } args ? $"<{string.Join(", ", args.Select(t => t.Name))}>" : "");
 }

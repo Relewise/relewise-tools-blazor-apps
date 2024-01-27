@@ -83,7 +83,6 @@ else
     private DataAccessor? dataAccessor;
     private Tracker? tracker;
     private Product? product;
-    private ProductEditor productEditor = default!;
 
     private bool Connect()
     {
@@ -148,7 +147,7 @@ else
     {
         try
         {
-            await tracker!.TrackAsync(new ProductUpdate(productEditor.Product, ProductUpdate.UpdateKind.ReplaceProvidedProperties));
+            await tracker!.TrackAsync(new ProductUpdate(product, ProductUpdate.UpdateKind.ReplaceProvidedProperties));
             message = "Successfully updated the product";
             product = null;
             error = null;

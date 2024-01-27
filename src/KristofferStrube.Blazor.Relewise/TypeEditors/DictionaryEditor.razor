@@ -5,7 +5,7 @@
 {
     @if (!ReadOnly)
     {
-        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new Dictionary&lt;@ProductEditor.Name(typeof(TKey)),@ProductEditor.Name(typeof(TValue))&gt;</button>
+        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new Dictionary&lt;@Settings.Name(typeof(TKey)),@Settings.Name(typeof(TValue))&gt;</button>
     }
 }
 else
@@ -22,29 +22,29 @@ else
                             <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = localKey, ["Setter"] = (object? obj) => { Value[(TKey)obj] = Value[(TKey)localKey]; Value.Remove((TKey)localKey); localKey = (TKey)obj; } })" />
                         </ChildContent>
                         <ErrorContent>
-                            <code>Failed to initialize editor part for @ProductEditor.Name(typeof(TKey))</code>
+                            <code>Failed to initialize editor part for @Settings.Name(typeof(TKey))</code>
                         </ErrorContent>
                     </ErrorBoundary>
                 }
                 else
                 {
-                    <span>Can't edit or show @ProductEditor.Name(typeof(TKey))</span>
+                    <span>Can't edit or show @Settings.Name(typeof(TKey))</span>
                 }
             </div>
             @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue))) is { } valueEditor)
             {
                 <ErrorBoundary>
                     <ChildContent>
-                        <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = Value[localKey], ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; } })" />
+                        <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = Value[localKey], ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; } })" />
                     </ChildContent>
                     <ErrorContent>
-                        <code>Failed to initialize editor part for @ProductEditor.Name(typeof(TValue))</code>
+                        <code>Failed to initialize editor part for @Settings.Name(typeof(TValue))</code>
                     </ErrorContent>
                 </ErrorBoundary>
             }
             else
             {
-                <span>Can't edit or show @ProductEditor.Name(typeof(TValue))</span>
+                <span>Can't edit or show @Settings.Name(typeof(TValue))</span>
             }
             @if (!ReadOnly)
             {
@@ -64,6 +64,9 @@ else
 @code {
     [Parameter]
     public bool ReadOnly { get; set; } = false;
+
+    [Parameter]
+    public bool OpenDetails { get; set; } = false;
 
     [Parameter, EditorRequired]
     public required Dictionary<TKey, TValue> Value { get; set; }

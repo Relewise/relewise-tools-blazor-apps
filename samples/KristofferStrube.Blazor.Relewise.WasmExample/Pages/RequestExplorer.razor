@@ -56,15 +56,15 @@ else if (message is not null)
     <br />
 }
 
-<label for="readonly">Disable Edit: </label>
+<label for="readonly">Disable edit: </label>
 <input id="readonly" type="checkbox" @bind=ReadOnly @bind:event="oninput" />
+<label for="readonly">Hide default values: </label>
+<input id="readonly" type="checkbox" @bind=hideDefaultValueProperties @bind:event="oninput" />
 <br />
 
 @if (request is not null)
 {
-    <CascadingValue Value="true" Name="HideDefaultValueProperties">
-        <ObjectEditor OpenDetails=true ReadOnly=ReadOnly T=LicensedRequest ShowModelShareLink=@(Models.Types.Contains(request?.GetType())) Value="request" Setter="(Object? obj) => request = (LicensedRequest?)obj" />
-    </CascadingValue>
+    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties OpenDetails=true ReadOnly=ReadOnly T=LicensedRequest ShowModelShareLink=@(Models.Types.Contains(request?.GetType())) Value="request" Setter="(Object? obj) => request = (LicensedRequest?)obj" />
     <br />
 }
 

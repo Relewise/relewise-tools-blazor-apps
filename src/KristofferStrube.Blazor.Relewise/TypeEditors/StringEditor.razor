@@ -13,6 +13,9 @@ else
     [Parameter]
     public bool ReadOnly { get; set; } = false;
 
+    [Parameter]
+    public bool OpenDetails { get; set; } = false;
+
     [Parameter, EditorRequired]
     public required string? Value { get; set; }
 

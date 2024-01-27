@@ -8,6 +8,7 @@
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Converters
 @using global::Relewise.Client.Requests
+@using global::Relewise.Client.Requests.Filters
 @using global::Relewise.Client.Requests.Recommendations
 @using global::Relewise.Client.Responses
 @implements IDisposable
@@ -41,6 +42,7 @@
     {
         @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
         {
+            ProductDataFilter f;
             if (editor.InitValue(type) is { } initValue && initValues[type] is null)
             {
                 initValues[type] = initValue;

@@ -7,95 +7,96 @@
 @typeparam T
 
 <CascadingValue Value="HideDefaultValueProperties">
-    <details class="box" open=@OpenDetails>
-        <summary @onclick="() => hasBeenOpen = true">
-            @if (Value is not null && derivedTypes.Count > 0 && !ReadOnly && !OpenDetails)
+
+    @if (Value is null)
+    {
+        <div>
+            <code>&lt;NULL&gt;</code>
+            @if (!ReadOnly)
             {
-                <span>&nbsp;</span>
-                <select @onchange=TypeDropdownChanged>
-                    @foreach (Type type in derivedTypes)
-                    {
-                        if (type == selectedCreateType)
-                        {
-                            <option value="@type.Name" selected>@type.Name</option>
-                        }
-                        else
-                        {
-                            <option value="@type.Name">@type.Name</option>
-                        }
-                    }
-                </select>
-                <button class="btn btn-light btn-sm" style="margin:2px;margin-top:1px;padding:2px;line-height:1.1" @onclick=Create>Switch type</button>
-            }
-            else
-            {
-                <i>@ProductEditor.Name(Value is not null ? Value.GetType() : typeof(T))</i>
-            }
-            @if (ShowModelShareLink)
-            {
-                <span style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => CopyLinkToClipboard()">
-                    <svg class="bi" width="16" height="16" viewBox="-1 -1 10 10">
-                        <polygon fill="transparent" stroke="white" stroke-width="1" points="0,6 2,4 4,4 4,2 6,0 8,0 8,2 6,4 4,4 4,6 2,8 0,8">
-                            <title>Copy link to Model page with this object data</title>
-                        </polygon>
-                    </svg>
-                </span>
-            }
-            <span style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => CopyToClipboard()">
-                <svg class="bi" width="16" height="16" viewBox="-1 -1 10 13">
-                    <polygon fill="transparent" stroke="white" stroke-width="2" points="0,12 0,2 1,1 3,1 4,0 5,0 6,1 8,1 9,2 9,12">
-                        <title>Copy to clipboard as JSON</title>
-                    </polygon>
-                </svg>
-            </span>
-            <span title="@(HideDefaultValueProperties is not true ? "Hide properties that have default values" : "Show all properties")" style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => HideDefaultValueProperties = HideDefaultValueProperties is not true">
-                @if (HideDefaultValueProperties is not true)
+                <text>&nbsp;</text>
+                @if (derivedTypes.Count is 0)
                 {
-                    <svg class="bi" width="16" height="16" viewBox="-2 -2 12 3"><polygon stroke="white" stroke-width="2" points="0,0 10,0 10,1 0,1"></polygon></svg>
+                    <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new @Settings.Name(typeof(T))</button>
                 }
                 else
                 {
-                    <svg class="bi" width="16" height="16" viewBox="-2 -2 15 15"><polygon stroke="white" stroke-width="2" points="5,5 5,0 6,0 6,5 11,5 11,6 6,6 6,11 5,11 5,6 0,6 0,5"></polygon></svg>
-                }
-            </span>
-        </summary>
-        @if (hasBeenOpen)
-        {
-            <div class="two-column-grid">
-                @if (Value is null)
-                {
-                    <div>
-                        <code>&lt;NULL&gt;</code>
-                        @if (!ReadOnly)
+                    <select @onchange=TypeDropdownChanged>
+                        @foreach (Type type in derivedTypes)
                         {
-                            <br />
-                            @if (derivedTypes.Count is 0)
+                            if (type == selectedCreateType)
                             {
-                                <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new @ProductEditor.Name(typeof(T))</button>
+                                <option value="@type.Name" selected>@type.Name</option>
                             }
                             else
                             {
-                                <select @onchange=TypeDropdownChanged>
-                                    @foreach (Type type in derivedTypes)
-                                    {
-                                        if (type == selectedCreateType)
-                                        {
-                                            <option value="@type.Name" selected>@type.Name</option>
-                                        }
-                                        else
-                                        {
-                                            <option value="@type.Name">@type.Name</option>
-                                        }
-                                    }
-                                </select>
-                                <button class="btn btn-outline-success btn-sm" style="margin:2px;margin-top:0px;padding:3px;line-height:1.1" @onclick=Create>Create</button>
+                                <option value="@type.Name">@type.Name</option>
                             }
                         }
-                    </div>
+                    </select>
+                    <button class="btn btn-outline-success btn-sm" style="margin:2px;margin-top:0px;padding:3px;line-height:1.1" @onclick=Create>Create</button>
+                }
+            }
+        </div>
+    }
+    else
+    {
+        <details class="box" open=@OpenDetails>
+            <summary @onclick="() => hasBeenOpen = true">
+                @if (Value is not null && derivedTypes.Count > 0 && !ReadOnly && !OpenDetails)
+                {
+                    <span>&nbsp;</span>
+                    <select @onchange=TypeDropdownChanged>
+                        @foreach (Type type in derivedTypes)
+                        {
+                            if (type == selectedCreateType)
+                            {
+                                <option value="@type.Name" selected>@type.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@type.Name">@type.Name</option>
+                            }
+                        }
+                    </select>
+                    <button class="btn btn-light btn-sm" style="margin:2px;margin-top:1px;padding:2px;line-height:1.1" @onclick=Create>Switch type</button>
                 }
                 else
                 {
-                    foreach (var property in Value.GetType().GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret"))
+                    <i>@Settings.Name(Value is not null ? Value.GetType() : typeof(T))</i>
+                }
+                @if (ShowModelShareLink)
+                {
+                    <span style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => CopyLinkToClipboard()">
+                        <svg class="bi" width="16" height="16" viewBox="-1 -1 10 10">
+                            <polygon fill="transparent" stroke="white" stroke-width="1" points="0,6 2,4 4,4 4,2 6,0 8,0 8,2 6,4 4,4 4,6 2,8 0,8">
+                                <title>Copy link to Model page with this object data</title>
+                            </polygon>
+                        </svg>
+                    </span>
+                }
+                <span style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => CopyToClipboard()">
+                    <svg class="bi" width="16" height="16" viewBox="-1 -1 10 13">
+                        <polygon fill="transparent" stroke="white" stroke-width="2" points="0,12 0,2 1,1 3,1 4,0 5,0 6,1 8,1 9,2 9,12">
+                            <title>Copy to clipboard as JSON</title>
+                        </polygon>
+                    </svg>
+                </span>
+                <span title="@(HideDefaultValueProperties is not true ? "Hide properties that have default values" : "Show all properties")" style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => HideDefaultValueProperties = HideDefaultValueProperties is not true">
+                    @if (HideDefaultValueProperties is not true)
+                    {
+                        <svg class="bi" width="16" height="16" viewBox="-2 -2 12 3"><polygon stroke="white" stroke-width="2" points="0,0 10,0 10,1 0,1"></polygon></svg>
+                    }
+                    else
+                    {
+                        <svg class="bi" width="16" height="16" viewBox="-2 -2 15 15"><polygon stroke="white" stroke-width="2" points="5,5 5,0 6,0 6,5 11,5 11,6 6,6 6,11 5,11 5,6 0,6 0,5"></polygon></svg>
+                    }
+                </span>
+            </summary>
+            @if (hasBeenOpen)
+            {
+                <div class="two-column-grid">
+                    @foreach (var property in Value.GetType().GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret"))
                     {
                         if (HideDefaultValueProperties is not true || (Value is null && emptyInstanceOfValue is null) || (Value is not null && emptyInstanceOfValue is not null && JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue))))
                         {
@@ -105,9 +106,11 @@
                             <div @key=@($"{property.Name}-value")>
                                 @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)) is { } editor)
                                 {
+                                    var parameters = new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => property.SetValue(Value, obj) };
+                                    var editorType = editor.EditorType(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType);
                                     <ErrorBoundary>
                                         <ChildContent>
-                                            <DynamicComponent Type="@editor.EditorType(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => property.SetValue(Value, obj) })" />
+                                            <DynamicComponent Type=editorType Parameters=parameters />
                                         </ChildContent>
                                         <ErrorContent>
                                             <code>Failed for @property.PropertyType.Name</code>
@@ -116,15 +119,15 @@
                                 }
                                 else
                                 {
-                                    <code>Can't edit @ProductEditor.Name(property.PropertyType)</code>
+                                    <code>Can't edit @Settings.Name(property.PropertyType)</code>
                                 }
                             </div>
                         }
                     }
-                }
-            </div>
-        }
-    </details>
+                </div>
+            }
+        </details>
+    }
 </CascadingValue>
 
 @code {
@@ -145,6 +148,9 @@
     [Parameter, CascadingParameter]
     public bool? HideDefaultValueProperties { get; set; }
 
+    [Parameter]
+    public bool? OverridenHideDefaultValueProperties { get; set; }
+
     [Parameter, EditorRequired]
     public required object? Value { get; set; }
 
@@ -160,6 +166,11 @@
     protected override void OnParametersSet()
     {
         hasBeenOpen = hasBeenOpen || OpenDetails;
+
+        if (OverridenHideDefaultValueProperties is not null)
+        {
+            HideDefaultValueProperties = OverridenHideDefaultValueProperties;
+        }
 
         var assembly = Assembly.GetAssembly(typeof(ClientBase));
         derivedTypes = assembly!
