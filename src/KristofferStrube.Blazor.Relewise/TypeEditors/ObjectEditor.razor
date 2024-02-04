@@ -41,7 +41,7 @@
     }
     else
     {
-        <details class="box" open=@OpenDetails>
+        <details class="box" open=@(OpenDetails || SingleLevelOpenDetails)>
             <summary @onclick="() => hasBeenOpen = true">
                 @if (Value is not null && derivedTypes.Count > 0 && !ReadOnly && !OpenDetails)
                 {
@@ -145,6 +145,9 @@
     [Parameter]
     public bool OpenDetails { get; set; } = false;
 
+    [Parameter]
+    public bool SingleLevelOpenDetails { get; set; } = false;
+
     [Parameter, CascadingParameter]
     public bool? HideDefaultValueProperties { get; set; }
 
@@ -165,9 +168,7 @@
 
     protected override void OnParametersSet()
     {
-        ChainableRange<decimal?> a;
-
-        hasBeenOpen = hasBeenOpen || OpenDetails;
+        hasBeenOpen = hasBeenOpen || OpenDetails || SingleLevelOpenDetails;
 
         if (OverridenHideDefaultValueProperties is not null)
         {

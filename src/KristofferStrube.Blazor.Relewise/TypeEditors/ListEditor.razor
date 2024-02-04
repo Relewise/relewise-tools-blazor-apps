@@ -9,10 +9,10 @@
 }
 else
 {
-    <div class="box">
-        <div class="header">
+    <details class="box" open=@OpenDetails>
+        <summary>
             <i>List&lt;@Settings.Name(typeof(T))&gt</i>
-        </div>
+        </summary>
         <div class="two-column-grid">
             @for (int i = 0; i < Value.Count; i++)
             {
@@ -42,7 +42,7 @@ else
                 <button class="btn btn-outline-primary btn-sm" style="grid-column: span 2" @onclick=Add>+ Add new @Settings.Name(typeof(T))</button>
             }
         </div>
-    </div>
+    </details>
 }
 @code {
     [Parameter]

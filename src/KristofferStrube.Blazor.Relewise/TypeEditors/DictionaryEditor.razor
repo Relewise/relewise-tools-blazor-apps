@@ -10,56 +10,61 @@
 }
 else
 {
-    <div class="box three-column-grid">
-        @foreach (var key in Value.Keys)
-        {
-            var localKey = key;
-            <div>
-                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TKey))) is { } keyEditor)
+    <details class="box" open=@OpenDetails>
+        <summary>
+            <i>Dictionary&lt;@Settings.Name(typeof(TKey)),@Settings.Name(typeof(TValue))&gt;</i>
+        </summary>
+        <div class="three-column-grid">
+            @foreach (var key in Value.Keys)
+            {
+                var localKey = key;
+                <div>
+                    @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TKey))) is { } keyEditor)
+                    {
+                        <ErrorBoundary>
+                            <ChildContent>
+                                <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = localKey, ["Setter"] = (object? obj) => { Value[(TKey)obj] = Value[(TKey)localKey]; Value.Remove((TKey)localKey); localKey = (TKey)obj; } })" />
+                            </ChildContent>
+                            <ErrorContent>
+                                <code>Failed to initialize editor part for @Settings.Name(typeof(TKey))</code>
+                            </ErrorContent>
+                        </ErrorBoundary>
+                    }
+                    else
+                    {
+                        <span>Can't edit or show @Settings.Name(typeof(TKey))</span>
+                    }
+                </div>
+                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue))) is { } valueEditor)
                 {
                     <ErrorBoundary>
                         <ChildContent>
-                            <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = localKey, ["Setter"] = (object? obj) => { Value[(TKey)obj] = Value[(TKey)localKey]; Value.Remove((TKey)localKey); localKey = (TKey)obj; } })" />
+                            <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = Value[localKey], ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; } })" />
                         </ChildContent>
                         <ErrorContent>
-                            <code>Failed to initialize editor part for @Settings.Name(typeof(TKey))</code>
+                            <code>Failed to initialize editor part for @Settings.Name(typeof(TValue))</code>
                         </ErrorContent>
                     </ErrorBoundary>
                 }
                 else
                 {
-                    <span>Can't edit or show @Settings.Name(typeof(TKey))</span>
+                    <span>Can't edit or show @Settings.Name(typeof(TValue))</span>
                 }
-            </div>
-            @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue))) is { } valueEditor)
-            {
-                <ErrorBoundary>
-                    <ChildContent>
-                        <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = Value[localKey], ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; } })" />
-                    </ChildContent>
-                    <ErrorContent>
-                        <code>Failed to initialize editor part for @Settings.Name(typeof(TValue))</code>
-                    </ErrorContent>
-                </ErrorBoundary>
-            }
-            else
-            {
-                <span>Can't edit or show @Settings.Name(typeof(TValue))</span>
+                @if (!ReadOnly)
+                {
+                    <button class="btn btn-sm btn-warning" @onclick="() => Remove(localKey)">X</button>
+                }
+                else
+                {
+                    <span></span>
+                }
             }
             @if (!ReadOnly)
             {
-                <button class="btn btn-sm btn-warning" @onclick="() => Remove(localKey)">X</button>
+                <button class="btn btn-outline-primary btn-sm" style="grid-column: span 3" @onclick=Add>+ Add new entry</button>
             }
-            else
-            {
-                <span></span>
-            }
-        }
-        @if (!ReadOnly)
-        {
-            <button class="btn btn-outline-primary btn-sm" style="grid-column: span 3" @onclick=Add>+ Add new entry</button>
-        }
-    </div>
+        </div>
+    </details>
 }
 @code {
     [Parameter]

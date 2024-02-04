@@ -12,7 +12,8 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
 {
     public partial class RequestExplorer
     {
-        private bool ReadOnly = true;
+        private bool readOnly = true;
+        private bool openDetails = true;
         private string? error;
         private string? message;
         private Type selectedParseType;

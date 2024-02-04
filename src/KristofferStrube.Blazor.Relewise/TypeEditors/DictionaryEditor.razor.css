@@ -1,7 +1,6 @@
 ﻿.box {
     border: 1px solid var(--color-blue-light);
     border-radius: 5px;
-    padding: 5px;
 }
 
 .three-column-grid {
@@ -9,4 +8,9 @@
     grid-template-columns: auto 1fr auto;
     gap: 10px 10px;
     padding: 5px;
+}
+
+summary {
+    padding-left: 5px;
+    background-color: var(--color-blue-light);
 }
