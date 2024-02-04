@@ -28,6 +28,12 @@ public static class Settings
         new(t => t == typeof(string),
             _ => typeof(StringEditor),
             _ => ""),
+        new(t => t == typeof(Guid),
+            _ => typeof(GuidEditor),
+            _ => null),
+        new(t => t == typeof(DateTimeOffset),
+            _ => typeof(DateTimeOffsetEditor),
+            _ => null),
         new(t => t == typeof(bool),
             _ => typeof(BoolEditor),
             _ => false),
@@ -59,9 +65,36 @@ public static class Settings
                 {
                     return null;
                 }
-                return t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0) is { } parameterLessConstructor ? parameterLessConstructor.Invoke(null) : null;
+                if (t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0) is { } parameterLessConstructor)
+                {
+                    return parameterLessConstructor.Invoke(null);
+                }
+                var someConstructor = t.GetConstructors().First();
+                var parameterTypes = someConstructor.GetParameters().Select(p => p.ParameterType);
+                var defaultValuesForParameters = parameterTypes.Select(t => t.IsValueType ? Activator.CreateInstance(t) : null).ToArray();
+                return someConstructor.Invoke(defaultValuesForParameters);
             })
     ];
 
-    public static string Name(Type type) => (type.DeclaringType is { } nestedType ? $"{Name(nestedType)}." : "") + type.Name.Replace("`1", "").Replace("`2", "") + (type.GenericTypeArguments is { Length: > 0 } args ? $"<{string.Join(", ", args.Select(t => t.Name))}>" : "");
+    public static string Name(Type type)
+    {
+        if (Nullable.GetUnderlyingType(type) is { } simpleType)
+        {
+            return $"{Name(simpleType)}?";
+        }
+
+        var name = type.Name.Replace("`1", "").Replace("`2", "");
+
+        if (type.DeclaringType is { } nestedType)
+        {
+            name = $"{Name(nestedType)}.{name}";
+        }
+
+        if (type.GenericTypeArguments is { Length: > 0 } args)
+        {
+            name += $"<{string.Join(", ", args.Select(t => Name(t)))}>";
+        }
+
+        return name;
+    }
 }

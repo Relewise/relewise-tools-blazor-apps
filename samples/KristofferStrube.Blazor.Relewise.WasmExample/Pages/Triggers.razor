@@ -1,0 +1,214 @@
+﻿@using KristofferStrube.Blazor.Relewise.TypeEditors
+@using System.Reflection
+@using System.Threading
+@using global::Relewise.Client.DataTypes.Triggers.Configurations
+@using global::Relewise.Client.Requests
+@using global::Relewise.Client.Responses
+@using global::Relewise.Client.Responses.Triggers
+@page "/Triggers"
+
+<PageTitle>Blazor Relewise - Triggers</PageTitle>
+
+<h1>Triggers</h1>
+<p>Here you can create and edit Trigger Configurations.</p>
+<p>
+    First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/developer-settings">My Relewise > Settings > Developer Settings</a>.
+    <br />
+    <small>You can't use your Master key in this application so you will have to create some separate key that has access to edit Triggers to use this.</small>
+</p>
+
+@if (error is not null)
+{
+    <code>@error</code>
+    <br />
+    <br />
+}
+@if (message is not null)
+{
+    <span style="color:green;">@message</span>
+    <br />
+    <br />
+}
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="serverUrl" class="input-group-text" style="width:120px;">Server URL</label>
+    </div>
+    <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
+</div>
+<br />
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
+    </div>
+    <input @bind=StaticDatasetStorage.DatasetId class="form-control" id="datasetId" />
+</div>
+<br />
+<div class="input-group">
+    <div class="input-group-prepend">
+        <label for="apiKey" class="input-group-text" style="width:120px;">API Key</label>
+    </div>
+    <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
+</div>
+<br />
+
+@if (triggerAccessor is null)
+{
+    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <br />
+}
+else
+{
+    <p>Now you can get an overview over all the existing triggers in the dataset or create a new.</p>
+
+    <button class="btn btn-primary" @onclick=ListAllConfigurations>List All Configurations</button>
+    <button class="btn btn-success" @onclick=CreateNewConfiguration>Create New Configuration</button>
+    <br />
+    <br />
+}
+
+@if (selectedConfiguration is not null || creatingNew)
+{
+    <ObjectEditor OpenDetails=true ShowModelShareLink=true T=TriggerConfiguration Value="selectedConfiguration" Setter="(Object? obj) => { selectedConfiguration = (TriggerConfiguration?)obj; StateHasChanged(); }" />
+    <br />
+    <label for="name">Your name: </label>
+    <input @bind=name id="name" />
+    <br />
+    <br />
+    @if (creatingNew)
+    {
+        <button class="btn btn-success" disabled=@(selectedConfiguration is null || string.IsNullOrEmpty(name)) @onclick=Create>Create</button>
+        @if (selectedConfiguration is null || string.IsNullOrEmpty(name))
+        {
+            <i>You need to create a specific configuration and set the name before you can create the configuration.</i>
+        }
+    }
+    else
+    {
+        <button class="btn btn-success" disabled=@string.IsNullOrEmpty(name) @onclick=Update>Update</button>
+        @if (string.IsNullOrEmpty(name))
+        {
+            <i>You need to set the name before you have update the configuration.</i>
+        }
+    }
+}
+else if (configurations is not null)
+{
+    <h2>All Trigger Configurations</h2>
+    <hr />
+    foreach (TriggerConfiguration configuration in configurations)
+    {
+        <div>
+            <h3>@configuration.Name (<code>@configuration.GetType().Name)</code></h3>
+            <p>@configuration.Description</p>
+            <button class="btn btn-primary" @onclick="() => Edit(configuration)">Edit</button>
+            <hr />
+        </div>
+    }
+}
+<br />
+<br />
+
+@code {
+    private string? error;
+    private string? message;
+    private string name = "";
+    private bool creatingNew = false;
+    private object? triggerAccessor;
+    private TriggerConfiguration[]? configurations;
+    private TriggerConfiguration? selectedConfiguration;
+
+    private bool Connect()
+    {
+        try
+        {
+            triggerAccessor = triggerAccessorType
+                .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
+                .Single(c => c.GetParameters() is { Length: 4 } p && p[3].ParameterType == typeof(TimeSpan))
+                .Invoke([new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl, TimeSpan.FromSeconds(30)]);
+
+            message = "Successfully initialized the TriggerAccessor.";
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            return false;
+        }
+    }
+
+    private async Task ListAllConfigurations()
+    {
+        if (!Connect()) return;
+        try
+        {
+            var loadMethod = triggerAccessorType.GetMethods().First(m => m.Name == "LoadAsync" && m.ReturnType == typeof(Task<TriggerConfigurationCollectionResponse>));
+            Task<TriggerConfigurationCollectionResponse> responseTask = (Task<TriggerConfigurationCollectionResponse>)loadMethod.Invoke(triggerAccessor, [CancellationToken.None])!;
+            TriggerConfigurationCollectionResponse response = await responseTask;
+            configurations = response.Configurations;
+
+            message = "Successfully fetched all triggers for this dataset.";
+            error = null;
+            selectedConfiguration = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            triggerAccessor = null;
+        }
+    }
+
+    private async Task Edit(TriggerConfiguration configuration)
+    {
+        selectedConfiguration = configuration;
+    }
+
+    private async Task Update()
+    {
+        if (!Connect()) return;
+
+        var saveMethod = triggerAccessorType.GetMethods().First(m => m.Name == "SaveAsync" && m.ContainsGenericParameters).MakeGenericMethod(selectedConfiguration.GetType());
+
+        var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Invoke))!.MakeGenericMethod(saveMethod.ReturnType.GetGenericArguments().Single()).Invoke(null, [saveMethod, triggerAccessor, new object[] { selectedConfiguration, name, CancellationToken.None }])!;
+
+        object response = await responseTask;
+
+        await ListAllConfigurations();
+        message = "Successfully updated the trigger configuration.";
+        error = null;
+        selectedConfiguration = null;
+    }
+
+    private async Task CreateNewConfiguration()
+    {
+        creatingNew = true;
+        selectedConfiguration = null;
+    }
+
+    private async Task Create()
+    {
+        if (!Connect()) return;
+
+        var saveMethod = triggerAccessorType.GetMethods().First(m => m.Name == "SaveAsync" && m.ContainsGenericParameters).MakeGenericMethod(selectedConfiguration.GetType());
+
+        var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Invoke))!.MakeGenericMethod(saveMethod.ReturnType.GetGenericArguments().Single()).Invoke(null, [saveMethod, triggerAccessor, new object[] { selectedConfiguration, name, CancellationToken.None }])!;
+
+        object response = await responseTask;
+
+        await ListAllConfigurations();
+        message = "Successfully updated the trigger configuration.";
+        error = null;
+        selectedConfiguration = null;
+        creatingNew = false;
+    }
+
+    private static readonly Type triggerAccessorType = Models.AssemblyTypes.Single(t => t.Name == "TriggerAccessor");
+
+    public static async Task<TimedResponse> Invoke<T>(MethodInfo method, object triggerAccessor, object[] parameters) where T : TimedResponse
+    {
+        var taskResponse = (Task<T>)method.Invoke(triggerAccessor, parameters)!;
+        return await taskResponse;
+    }
+}

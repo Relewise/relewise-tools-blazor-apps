@@ -134,7 +134,7 @@
         }
     }
 
-    private static List<Type> AssemblyTypes = Assembly
+    public static List<Type> AssemblyTypes = Assembly
         .GetAssembly(typeof(ClientBase))!
             .GetTypes()
             .ToList();
@@ -228,7 +228,10 @@
             url += $"{(SearchTerm is "" ? "?" : "&")}o=" + CompressedObject;
         }
 
-        NavigationManager.NavigateTo(url, replace: true);
+        if (!SearchTerm.EndsWith(" "))
+        {
+            NavigationManager.NavigateTo(url, replace: true);
+        }
     }
 
     public static async Task<string> FromGzipAsync(string value)
