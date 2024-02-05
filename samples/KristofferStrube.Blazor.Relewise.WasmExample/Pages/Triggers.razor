@@ -168,17 +168,25 @@ else if (configurations is not null)
     private async Task Update()
     {
         if (!Connect()) return;
+        try
+        {
+            var saveMethod = triggerAccessorType.GetMethods().First(m => m.Name == "SaveAsync" && m.ContainsGenericParameters).MakeGenericMethod(selectedConfiguration.GetType());
 
-        var saveMethod = triggerAccessorType.GetMethods().First(m => m.Name == "SaveAsync" && m.ContainsGenericParameters).MakeGenericMethod(selectedConfiguration.GetType());
+            var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Invoke))!.MakeGenericMethod(saveMethod.ReturnType.GetGenericArguments().Single()).Invoke(null, [saveMethod, triggerAccessor, new object[] { selectedConfiguration, name, CancellationToken.None }])!;
 
-        var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Invoke))!.MakeGenericMethod(saveMethod.ReturnType.GetGenericArguments().Single()).Invoke(null, [saveMethod, triggerAccessor, new object[] { selectedConfiguration, name, CancellationToken.None }])!;
+            object response = await responseTask;
 
-        object response = await responseTask;
-
-        await ListAllConfigurations();
-        message = "Successfully updated the trigger configuration.";
-        error = null;
-        selectedConfiguration = null;
+            await ListAllConfigurations();
+            message = "Successfully updated the trigger configuration.";
+            error = null;
+            selectedConfiguration = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            triggerAccessor = null;
+        }
     }
 
     private async Task CreateNewConfiguration()
@@ -190,18 +198,26 @@ else if (configurations is not null)
     private async Task Create()
     {
         if (!Connect()) return;
+        try
+        {
+            var saveMethod = triggerAccessorType.GetMethods().First(m => m.Name == "SaveAsync" && m.ContainsGenericParameters).MakeGenericMethod(selectedConfiguration.GetType());
 
-        var saveMethod = triggerAccessorType.GetMethods().First(m => m.Name == "SaveAsync" && m.ContainsGenericParameters).MakeGenericMethod(selectedConfiguration.GetType());
+            var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Invoke))!.MakeGenericMethod(saveMethod.ReturnType.GetGenericArguments().Single()).Invoke(null, [saveMethod, triggerAccessor, new object[] { selectedConfiguration, name, CancellationToken.None }])!;
 
-        var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Invoke))!.MakeGenericMethod(saveMethod.ReturnType.GetGenericArguments().Single()).Invoke(null, [saveMethod, triggerAccessor, new object[] { selectedConfiguration, name, CancellationToken.None }])!;
+            object response = await responseTask;
 
-        object response = await responseTask;
-
-        await ListAllConfigurations();
-        message = "Successfully updated the trigger configuration.";
-        error = null;
-        selectedConfiguration = null;
-        creatingNew = false;
+            await ListAllConfigurations();
+            message = "Successfully created the trigger configuration.";
+            error = null;
+            selectedConfiguration = null;
+            creatingNew = false;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            triggerAccessor = null;
+        }
     }
 
     private static readonly Type triggerAccessorType = Models.AssemblyTypes.Single(t => t.Name == "TriggerAccessor");
