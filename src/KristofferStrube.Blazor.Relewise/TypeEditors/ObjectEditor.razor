@@ -218,6 +218,7 @@
     {
         var editor = Settings.Editors.First(e => e.CanHandle(selectedCreateType));
         Value = editor.InitValue(selectedCreateType);
+        emptyInstanceOfValue = editor.InitValue(selectedCreateType);
         Setter(Value);
     }
 

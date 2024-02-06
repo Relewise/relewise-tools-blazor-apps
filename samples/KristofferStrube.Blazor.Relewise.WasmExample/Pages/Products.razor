@@ -69,8 +69,8 @@ else
 }
 @if (product is not null)
 {
-    <label for="readonly">Expand all: </label>
-    <input id="readonly" type="checkbox" @bind=openDetails @bind:event="oninput" />
+    <label for="openDetails">Expand all: </label>
+    <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
     <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Product Value="product" Setter="(Object? obj) => product = (Product?)obj" />
     <br />
     <button class="btn btn-success" @onclick=Update>Update</button>

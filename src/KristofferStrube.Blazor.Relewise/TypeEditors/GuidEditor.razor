@@ -2,7 +2,7 @@
 {
     @if (!ReadOnly)
     {
-        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new string</button>
+        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new Guid</button>
     }
 }
 else
@@ -24,7 +24,7 @@ else
 
     public void Create()
     {
-        Value = null;
+        Value = Guid.Empty;
         Setter(Value);
     }
 }

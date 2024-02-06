@@ -58,10 +58,10 @@ else if (message is not null)
 
 <label for="readonly">Disable edit: </label>
 <input id="readonly" type="checkbox" @bind=readOnly @bind:event="oninput" />
-<label for="readonly">Hide default values: </label>
-<input id="readonly" type="checkbox" @bind=hideDefaultValueProperties @bind:event="oninput" />
-<label for="readonly">Expand all: </label>
-<input id="readonly" type="checkbox" @bind=openDetails @bind:event="oninput" />
+<label for="hideDefaultValueProperties">Hide default values: </label>
+<input id="hideDefaultValueProperties" type="checkbox" @bind=hideDefaultValueProperties @bind:event="oninput" />
+<label for="openDetails">Expand all: </label>
+<input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
 <br />
 
 @if (request is not null)
