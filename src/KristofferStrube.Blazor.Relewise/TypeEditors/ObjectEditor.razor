@@ -1,9 +1,11 @@
 ﻿@using System.Reflection
+@using KristofferStrube.Blazor.Relewise.XmlSummaries
 @using Microsoft.JSInterop
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Converters
 @using System.IO.Compression
 @using global::Relewise.Client
+@using KristofferStrube.Blazor.Popper
 @typeparam T
 
 <CascadingValue Value="HideDefaultValueProperties">
@@ -96,12 +98,16 @@
             @if (hasBeenOpen)
             {
                 <div class="two-column-grid">
-                    @foreach (var property in Value.GetType().GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret"))
+                    @foreach (var property in Properties)
                     {
                         if (HideDefaultValueProperties is not true || (Value is null && emptyInstanceOfValue is null) || (Value is not null && emptyInstanceOfValue is not null && JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue))))
                         {
                             <div @key=@($"{property.Name}-label")>
                                 <b>@property.Name</b>
+                                @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(property.DeclaringType, property.Name) is { } summary)
+                                {
+                                    <Info>@summary</Info>
+                                }
                             </div>
                             <div @key=@($"{property.Name}-value")>
                                 @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)) is { } editor)
@@ -135,6 +141,7 @@
     private object? emptyInstanceOfValue;
     private List<Type> derivedTypes = new();
     private Type selectedCreateType = typeof(T);
+    private XmlDocumentation? xmlDocumentation;
 
     [Parameter]
     public bool ShowModelShareLink { get; set; } = false;
@@ -166,8 +173,13 @@
     [Inject]
     public required NavigationManager NavigationManager { get; set; }
 
-    protected override void OnParametersSet()
+    [Inject]
+    public required XMLDocumentationCache XMLDocumentationCache { get; set; }
+
+    protected override async Task OnParametersSetAsync()
     {
+        xmlDocumentation = await XMLDocumentationCache.GetAsync();
+
         hasBeenOpen = hasBeenOpen || OpenDetails || SingleLevelOpenDetails;
 
         if (OverridenHideDefaultValueProperties is not null)
@@ -281,4 +293,5 @@
         return Convert.ToBase64String(result);
     }
 
+    private IEnumerable<PropertyInfo>? Properties => Value?.GetType().GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret");
 }

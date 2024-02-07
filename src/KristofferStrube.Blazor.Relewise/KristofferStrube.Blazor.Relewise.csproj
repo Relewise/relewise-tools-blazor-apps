@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Razor">
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -12,14 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="KristofferStrube.Blazor.Popper" Version="0.5.1" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
     <PackageReference Include="Relewise.Client" Version="1.132.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="TypeEditors\LongEditor.razor">
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
+    <PackageReference Include="AngleSharp.Xml" Version="1.0.0" />
   </ItemGroup>
 
 </Project>

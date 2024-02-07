@@ -1,0 +1,87 @@
+&nbsp;<span class="badge text-dark bg-light" @ref=reference aria-describedby="tooltip" @onpointerover=Activate @onpointerout=Deactivate>?</span>
+
+@if (active)
+{
+    <span class="popper" @ref=tooltip role="tooltip" style="text-align:center;">
+        <div class="arrow" @ref=arrow style="@(hiddenArrow ? "visibility:hidden;" : "")"></div>
+        @ChildContent
+    </span>
+}
+
+@code {
+    private bool active;
+    private ElementReference reference;
+    private ElementReference tooltip;
+    private ElementReference arrow;
+    private bool hiddenArrow;
+    private Instance instance;
+
+    [Inject]
+    public Popper Popper { get; set; }
+
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+
+    public async Task Activate()
+    {
+        if (!active)
+        {
+            active = true;
+
+            StateHasChanged();
+            await Task.Delay(10);
+
+            Options options = new()
+                {
+                    Placement = Placement.Bottom,
+                    Modifiers = new Modifier[] {
+                    new(ModifierName.Arrow) {
+                        Options = new ArrowOptions {Element = arrow},
+                    },
+                    new("applyArrowHide", true, ModifierPhases.Write, (args) =>
+                    {
+                        if(args.State.Elements.Contains("arrow"))
+                        {
+                            if (args.State.ModifiersData["arrow"].GetProperty("centerOffset").GetDouble() != 0)
+                            {
+                                if(!hiddenArrow)
+                                {
+                                    hiddenArrow = true;
+                                    StateHasChanged();
+                                }
+                            } else
+                            {
+                                if(hiddenArrow)
+                                {
+                                    hiddenArrow = false;
+                                    StateHasChanged();
+                                }
+                            }
+                        }
+                        return args.State;
+                    }),
+                    new(ModifierName.Offset) {
+                        Options = new {offset = new int[]{4, 4}}
+                    },
+     }
+                };
+            if (instance is null)
+            {
+                instance = await Popper.CreatePopperAsync(reference, tooltip, options);
+            }
+        }
+    }
+
+    public async Task Deactivate()
+    {
+        if (active)
+        {
+            active = false;
+            if (instance is not null)
+            {
+                await instance.Destroy();
+                instance = null;
+            }
+        }
+    }
+}
