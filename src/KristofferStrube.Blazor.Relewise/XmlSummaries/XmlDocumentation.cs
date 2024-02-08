@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO.Pipelines;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Reflection;
 
 namespace KristofferStrube.Blazor.Relewise.XmlSummaries;
 
@@ -32,7 +26,7 @@ public class XmlDocumentation
         if (Summaries.FirstOrDefault(kvp => kvp.Key.ToLower().EndsWith(endsWith.ToLower())) is
             { Key: { } matchingKey, Value: { Length: > 0 } matchingSummary })
         {
-            return matchingSummary;
+            return sanitizeXMLSummary(matchingSummary);
         }
 
         return null;
@@ -89,5 +83,15 @@ public class XmlDocumentation
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// <see langword="true"/>
+    /// </summary>
+    /// <param name="input"></param>
+    /// <returns></returns>
+    private static string sanitizeXMLSummary(string input)
+    {
+        return input.Replace("<see langword=\"true\" />", "true").Replace("<see langword=\"false\" />", "false");
     }
 }
