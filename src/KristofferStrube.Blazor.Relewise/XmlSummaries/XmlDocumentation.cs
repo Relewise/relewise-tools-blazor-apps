@@ -26,7 +26,7 @@ public class XmlDocumentation
         if (Summaries.FirstOrDefault(kvp => kvp.Key.ToLower().EndsWith(endsWith.ToLower())) is
             { Key: { } matchingKey, Value: { Length: > 0 } matchingSummary })
         {
-            return sanitizeXMLSummary(matchingSummary);
+            return matchingSummary;
         }
 
         return null;
@@ -83,15 +83,5 @@ public class XmlDocumentation
             }
         }
         return result;
-    }
-
-    /// <summary>
-    /// <see langword="true"/>
-    /// </summary>
-    /// <param name="input"></param>
-    /// <returns></returns>
-    private static string sanitizeXMLSummary(string input)
-    {
-        return input.Replace("<see langword=\"true\" />", "true").Replace("<see langword=\"false\" />", "false");
     }
 }
