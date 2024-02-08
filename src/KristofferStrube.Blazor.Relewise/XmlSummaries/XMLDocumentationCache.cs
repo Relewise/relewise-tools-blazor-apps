@@ -35,7 +35,18 @@ public class XMLDocumentationCache
         var document = await context.OpenAsync(req => req.Content(content.Replace("/>", "></SEE>")));
         foreach (var seeReference in document.QuerySelectorAll("see"))
         {
-            seeReference.OuterHtml = seeReference.GetAttribute("cref")?.Split(".").Last() ?? string.Empty;
+            if (seeReference.GetAttribute("cref") is { } cref)
+            {
+                seeReference.OuterHtml = cref.Split(".").Last();
+            }
+            else if (seeReference.GetAttribute("langword") is { } langword)
+            {
+                seeReference.OuterHtml = langword;
+            }
+            else
+            {
+                seeReference.OuterHtml = "damm";
+            }
         }
 
         foreach (var member in document.GetElementsByTagName("doc")[0].Children[1].Children)
@@ -48,22 +59,6 @@ public class XMLDocumentationCache
                     {
                         summaryWrapper.OuterHtml = summaryWrapper.InnerHtml.Trim();
                     }
-                    foreach (var seeReference in child.Children.Where(c => c.TagName == "SEE"))
-                    {
-                        if (seeReference.GetAttribute("cref") is { } cref)
-                        {
-                            seeReference.OuterHtml = cref.Split(".").Last();
-                        }
-                        else if (seeReference.GetAttribute("langword") is { } langword)
-                        {
-                            seeReference.OuterHtml = langword;
-                        }
-                        else
-                        {
-                            seeReference.OuterHtml = "damm";
-                        }
-                    }
-                    //.Replace(@"<see langword=""true"" />", "true").Replace(@"<see langword=""false"" />", "false")
                     result.Summaries.TryAdd(member.GetAttribute("name")!, HttpUtility.HtmlDecode(JoinInOneLine(child.InnerHtml)));
                 }
                 else if (child.TagName is "PARAM" && child.NextSibling?.TextContent is { Length: > 0 } text)
