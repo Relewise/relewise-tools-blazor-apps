@@ -2,10 +2,12 @@
 
 @if (active)
 {
-    <span class="popper" @ref=tooltip role="tooltip" style="text-align:center;">
-        <div class="arrow" @ref=arrow style="@(hiddenArrow ? "visibility:hidden;" : "")"></div>
-        @ChildContent
-    </span>
+    <div style="width:0;height:0;overflow:hidden;">
+        <span class="popper" @ref=tooltip role="tooltip" style="text-align:center;">
+            <div class="arrow" @ref=arrow style="@(hiddenArrow ? "visibility:hidden;" : "")"></div>
+            @ChildContent
+        </span>
+    </div>
 }
 
 @code {
@@ -29,7 +31,7 @@
             active = true;
 
             StateHasChanged();
-            await Task.Delay(10);
+            await Task.Delay(1);
 
             Options options = new()
                 {
@@ -59,10 +61,7 @@
                             }
                         }
                         return args.State;
-                    }),
-                    new(ModifierName.Offset) {
-                        Options = new {offset = new int[]{4, 4}}
-                    },
+                    })
      }
                 };
             if (instance is null)
