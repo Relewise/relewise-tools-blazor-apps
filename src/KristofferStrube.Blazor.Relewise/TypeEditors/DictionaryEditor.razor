@@ -12,7 +12,7 @@ else
 {
     <details class="box" open=@OpenDetails>
         <summary>
-            <i>Dictionary&lt;@Settings.Name(typeof(TKey)),@Settings.Name(typeof(TValue))&gt;</i>
+            <i>Dictionary&lt;@Settings.Name(typeof(TKey)),@Settings.Name(typeof(TValue))&gt; <small>with @Value.Count @(@Value.Count is 1 ? "entry" : "entries")</small></i>
         </summary>
         <div class="three-column-grid">
             @foreach (var key in Value.Keys)

@@ -10,7 +10,8 @@
     padding: 5px;
 }
 
-.header {
+summary {
     padding-left: 5px;
     background-color: var(--color-blue-light);
+    color: white;
 }

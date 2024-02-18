@@ -38,7 +38,9 @@
             <br />
             <br />
             <h3>Response</h3>
-            <ObjectEditor OpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=SearchResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (SearchResponse?)obj; }" />
+            <label for="openDetails">Expand all: </label>
+            <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+            <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=SearchResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (SearchResponse?)obj; }" />
         }
     </div>
 </details>
@@ -47,6 +49,7 @@
 @code {
     private string? message;
     private string? error;
+    private bool openDetails;
 
     private SearchResponse? response;
 

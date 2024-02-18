@@ -11,7 +11,7 @@ else
 {
     <details class="box" open=@OpenDetails>
         <summary>
-            <i>List&lt;@Settings.Name(typeof(T))&gt</i>
+            <i>List&lt;@Settings.Name(typeof(T))&gt <small>with @Value.Count @(@Value.Count is 1 ? "element" : "elements")</small></i>
         </summary>
         <div class="two-column-grid">
             @for (int i = 0; i < Value.Count; i++)

@@ -2,12 +2,12 @@
 {
     @if (!ReadOnly)
     {
-        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new string</button>
+        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new DateTimeOffset</button>
     }
 }
 else
 {
-    <input style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
+    <input type="datetime-local" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
 }
 @code {
     [Parameter]
@@ -24,7 +24,7 @@ else
 
     public void Create()
     {
-        Value = null;
+        Value = default(DateTimeOffset);
         Setter(Value);
     }
 }

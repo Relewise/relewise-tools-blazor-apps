@@ -2,7 +2,13 @@
 
 <details class="box" open="@OpenDetails">
     <summary>
-        <i>DataValue</i>
+        <i>
+            <span>DataValue</span>
+            @if (Value is not null)
+            {
+                <small> holding a @Value!.Type</small>
+            }
+        </i>
     </summary>
     <div class="two-column-grid">
         @if (Value is null)
@@ -46,7 +52,7 @@
 
 @code {
     private readonly Dictionary<DataValue.DataValueTypes, Type> dataValueEnumTypesToTypes = new()
-    {
+        {
             [DataValue.DataValueTypes.String] = typeof(string),
             [DataValue.DataValueTypes.Double] = typeof(double),
             [DataValue.DataValueTypes.Boolean] = typeof(bool),
@@ -59,7 +65,7 @@
             [DataValue.DataValueTypes.MultilingualCollection] = typeof(MultilingualCollection),
             [DataValue.DataValueTypes.Object] = typeof(DataObject),
             [DataValue.DataValueTypes.ObjectList] = typeof(List<DataObject>)
-    };
+        };
 
     [Parameter]
     public bool ReadOnly { get; set; } = false;
