@@ -44,7 +44,7 @@
             @foreach (string continuation in continuations)
             {
                 <text> — </text>
-                <u style="color:#00A; cursor: pointer;" @onclick=@(() => { NavigationManager.NavigateTo($"/Models?q={continuation}", replace: false); })>@continuation</u>
+                <u style="color:#00A; cursor: pointer;" @onclick=@(() => { SearchTerm = continuation; UpdateSearchQueryString(replace: false); })>@continuation</u>
             }
         </small>
     }
@@ -144,6 +144,7 @@
         if (SearchTerm is null)
         {
             SearchTerm = "";
+            searchTermDiff = SearchTerm;
         }
 
         if (searchTermDiff != SearchTerm)
@@ -229,7 +230,7 @@
         }
     }
 
-    private void UpdateSearchQueryString()
+    private void UpdateSearchQueryString(bool replace = true)
     {
         var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         if (relativePath.Split("?") is { Length: >= 2 } parts)
@@ -250,7 +251,7 @@
 
         if (!SearchTerm.EndsWith(" "))
         {
-            NavigationManager.NavigateTo(url, replace: true);
+            NavigationManager.NavigateTo(url, replace: replace);
         }
     }
 
