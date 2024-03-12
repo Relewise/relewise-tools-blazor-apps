@@ -35,14 +35,25 @@
         </label>
     </div>
 </div>
-<br />
 
 <div style="@(SearchTerm is "" ? "min-height:100vh;" : "")">
+    @if (continuations.Length is not 0)
+    {
+        <small>
+            <span>query continuations </span>
+            @foreach (string continuation in continuations)
+            {
+                <text> — </text>
+                <u style="color:#00A; cursor: pointer;" @onclick=@(() => { NavigationManager.NavigateTo($"/Models?q={continuation}", replace: false); })>@continuation</u>
+            }
+        </small>
+    }
+    <br />
+    <br />
     @foreach (var type in SearchResults)
     {
         @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
         {
-            ProductDataFilter f;
             if (editor.InitValue(type) is { } initValue && initValues[type] is null)
             {
                 initValues[type] = initValue;
@@ -80,6 +91,7 @@
 
     private DocumentIndex<Type, SuffixTrieSearchIndex> searchIndex = default!;
 
+    private string[] continuations = [];
     private List<Type> filteredTypes = [];
     private Type? singleExactMatch = null;
 
@@ -87,6 +99,7 @@
 
     [SupplyParameterFromQuery(Name = "q")]
     public string SearchTerm { get; set; } = "";
+    private string searchTermDiff = "";
 
     [SupplyParameterFromQuery(Name = "o")]
     public string? CompressedObject { get; set; }
@@ -126,11 +139,17 @@
         }
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         if (SearchTerm is null)
         {
             SearchTerm = "";
+        }
+
+        if (searchTermDiff != SearchTerm)
+        {
+            searchTermDiff = SearchTerm;
+            await Search();
         }
     }
 
@@ -178,6 +197,7 @@
         else
         {
             results = searchIndex.ExactSearch(SearchTerm.ToLower()).Select(sr => sr.Element).ToArray();
+            continuations = searchIndex.ContinuationsSortedByOccurrences(SearchTerm.ToLower(), [' '], 5, mustBeAfterBreakChar: true);
         }
         singleExactMatch = results.FirstOrDefault(e => e.Name.ToLower() == SearchTerm.ToLower());
 
