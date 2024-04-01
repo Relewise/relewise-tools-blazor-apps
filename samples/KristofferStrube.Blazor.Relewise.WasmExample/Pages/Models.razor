@@ -232,22 +232,15 @@
 
     private void UpdateSearchQueryString(bool replace = true)
     {
-        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        if (relativePath.Split("?") is { Length: >= 2 } parts)
-        {
-            relativePath = parts[0];
-        }
-        if (relativePath.EndsWith("/"))
-        {
-            relativePath = relativePath[..^1];
-        }
+        Dictionary<string, object?> queryStrings = new Dictionary<string, object?>();
 
-        string url = SearchTerm is "" ? relativePath : $"{relativePath}?q={SearchTerm}";
+        if (SearchTerm is not "")
+            queryStrings.Add("q", SearchTerm);
 
         if (CompressedObject is not null)
-        {
-            url += $"{(SearchTerm is "" ? "?" : "&")}o=" + CompressedObject;
-        }
+            queryStrings.Add("o", CompressedObject);
+
+        string url = NavigationManager.GetUriWithQueryParameters(queryStrings);
 
         if (!SearchTerm.EndsWith(" "))
         {

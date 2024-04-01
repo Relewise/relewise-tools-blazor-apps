@@ -1,5 +1,9 @@
-﻿@using KristofferStrube.Blazor.Relewise.TypeEditors
+﻿@using KristofferStrube.Blazor.DOM
+@using KristofferStrube.Blazor.DOM.Extensions
+@using KristofferStrube.Blazor.Relewise.TypeEditors
+@using KristofferStrube.Blazor.Window
 @page "/Products"
+@implements IAsyncDisposable
 
 <PageTitle>Blazor Relewise - Products</PageTitle>
 
@@ -30,20 +34,23 @@
     <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
 </div>
 <br />
-<div class="input-group">
-    <div class="input-group-prepend">
-        <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
+@if (!StaticDatasetStorage.NoMenu || StaticDatasetStorage.ApiKey is "")
+{
+    <div class="input-group">
+        <div class="input-group-prepend">
+            <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
+        </div>
+        <input @bind=StaticDatasetStorage.DatasetId class="form-control" id="datasetId" />
     </div>
-    <input @bind=StaticDatasetStorage.DatasetId class="form-control" id="datasetId" />
-</div>
-<br />
-<div class="input-group">
-    <div class="input-group-prepend">
-        <label for="apiKey" class="input-group-text" style="width:120px;">API Key</label>
+    <br />
+    <div class="input-group">
+        <div class="input-group-prepend">
+            <label for="apiKey" class="input-group-text" style="width:120px;">API Key</label>
+        </div>
+        <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
     </div>
-    <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
-</div>
-<br />
+    <br />
+}
 
 @if (dataAccessor is null || tracker is null)
 {
@@ -79,6 +86,8 @@ else
 }
 
 @code {
+    private EventListener<MessageEvent>? messageEventListener;
+    private Window? window;
     private string? error;
     private string? message;
     private string productId = "";
@@ -86,6 +95,38 @@ else
     private DataAccessor? dataAccessor;
     private Tracker? tracker;
     private Product? product;
+
+    [Inject]
+    public required IWindowService WindowService { get; set; }
+
+    [Inject]
+    public required IJSRuntime JSRuntime { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Listen for post messages.
+        window = await WindowService.GetWindowAsync();
+        messageEventListener = await EventListener<MessageEvent>.CreateAsync(JSRuntime, async (e) =>
+        {
+            try
+            {
+                Authentication a = await e.GetDataAsync<Authentication>();
+                StaticDatasetStorage.ApiKey = a.apiKey;
+                StateHasChanged();
+            }
+            catch (Exception) { }
+        });
+
+        await window.AddOnMessageEventListenerAsync(messageEventListener);
+
+        // Post message to parent.
+        await using Window? parent = await window.GetParentAsync();
+        if (parent is not null)
+        {
+            await using CustomEvent readyEvent = await CustomEvent.CreateAsync(JSRuntime, "MyRelewiseAppReady");
+            await parent.DispatchEventAsync(readyEvent);
+        }
+    }
 
     private bool Connect()
     {
@@ -119,18 +160,18 @@ else
                     DisplayName = productResult.DisplayName,
                     Assortments = productResult.Assortments?.ToList(),
                     CategoryPaths = productResult.CategoryPaths
-                            ?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })
-                            ?.ToList(),
+                                ?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })
+                                ?.ToList(),
                     Data = productResult.Data,
                     Custom = productResult.Custom,
                     Brand = productResult.Brand is null
-                        ? null
-                        : new Brand(productResult.Brand.BrandId)
-                        {
-                            DisplayName = productResult.Brand.DisplayName,
-                            Assortments = productResult.Brand.Assortments?.ToList(),
-                            Data = productResult.Brand.Data
-                        },
+                            ? null
+                            : new Brand(productResult.Brand.BrandId)
+                            {
+                                DisplayName = productResult.Brand.DisplayName,
+                                Assortments = productResult.Brand.Assortments?.ToList(),
+                                Data = productResult.Brand.Data
+                            },
                     ListPrice = productResult.ListPrice,
                     SalesPrice = productResult.SalesPrice
                 };
@@ -201,4 +242,17 @@ else
             message = null;
         }
     }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Remove event handler for messages and dispose wrappers.
+        if (window is not null && messageEventListener is not null)
+        {
+            await window.RemoveOnMessageEventListenerAsync(messageEventListener);
+            await window.DisposeAsync();
+            await messageEventListener.DisposeAsync();
+        }
+    }
+
+    public record Authentication(string apiKey);
 }

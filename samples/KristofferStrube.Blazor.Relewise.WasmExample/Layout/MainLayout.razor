@@ -1,16 +1,52 @@
-﻿@inherits LayoutComponentBase
+﻿@using KristofferStrube.Blazor.DOM
+@using KristofferStrube.Blazor.Window
+@inherits LayoutComponentBase
+
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <small>An unofficial tool for Relewise made by <a style="margin-left:0px;" href="https://twitter.com/KStrubeG">@@KStrubeG</a></small>
-        </div>
-
+    @if (StaticDatasetStorage.NoMenu)
+    {
         <article class="content px-4">
             @Body
         </article>
-    </main>
+    }
+    else
+    {
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+
+        <main>
+            <div class="top-row px-4">
+                <small>An unofficial tool for Relewise made by <a style="margin-left:0px;" href="https://twitter.com/KStrubeG">@@KStrubeG</a></small>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    }
 </div>
+
+@code {
+    [Inject]
+    public required NavigationManager NavigationManager { get; set; }
+
+    [Inject]
+    public required IJSRuntime JSRuntime { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? datasetId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (datasetId is not null)
+        {
+            // Don't show menu.
+            StaticDatasetStorage.NoMenu = true;
+
+            // Get dataset from querystring and remove it.
+            StaticDatasetStorage.DatasetId = datasetId;
+            NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter("datasetId", (string?)null), false);
+        }
+    }
+}
