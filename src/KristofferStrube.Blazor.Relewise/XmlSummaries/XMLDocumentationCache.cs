@@ -27,7 +27,7 @@ public class XMLDocumentationCache
     {
         var httpClient = new HttpClient();
 
-        var content = await httpClient.GetStringAsync($"https://kristoffer-strube.dk/API/NugetXMLDocs/Relewise.Client/1.132.0");
+        var content = await httpClient.GetStringAsync($"https://kristoffer-strube.dk/API/NugetXMLDocs/Relewise.Client/1.147.0");
 
         XmlDocumentation result = new();
 
