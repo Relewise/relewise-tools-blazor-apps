@@ -132,7 +132,6 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
             }
 
             string serialized = JsonConvert.SerializeObject(request, serializedType, jsonSerializerSettings);
-            Console.WriteLine(serialized);
             string compressed = ToGzip(serialized);
 
             string url = $"{NavigationManager.BaseUri}Recommendations?q={request?.GetType().Name}&o={compressed}";
@@ -156,7 +155,6 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
             }
 
             string serialized = JsonConvert.SerializeObject(request, serializedType, jsonSerializerSettings);
-            Console.WriteLine(serialized);
             string compressed = ToGzip(serialized);
 
             string url = $"{NavigationManager.BaseUri}Searches?q={request?.GetType().Name}&o={compressed}";

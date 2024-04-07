@@ -232,10 +232,10 @@
 
     private void UpdateSearchQueryString(bool replace = true)
     {
-        Dictionary<string, object?> queryStrings = new Dictionary<string, object?>();
-
-        if (SearchTerm is not "")
-            queryStrings.Add("q", SearchTerm);
+        Dictionary<string, object?> queryStrings = new Dictionary<string, object?>()
+        {
+            { "q", SearchTerm is "" ? null : SearchTerm }
+        };
 
         if (CompressedObject is not null)
             queryStrings.Add("o", CompressedObject);

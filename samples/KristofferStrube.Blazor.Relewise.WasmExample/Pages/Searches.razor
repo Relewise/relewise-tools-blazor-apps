@@ -110,18 +110,21 @@
     [SupplyParameterFromQuery(Name = "o")]
     public string? CompressedObject { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         if (SearchTerm is null)
         {
             SearchTerm = "";
         }
 
-        initValues = allSearchRequestTypes
-            .ToDictionary(
-                keySelector: t => t,
-                elementSelector: t => (SearchRequest)t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)!
-            );
+        if (initValues is null)
+        {
+            initValues = allSearchRequestTypes
+                .ToDictionary(
+                    keySelector: t => t,
+                    elementSelector: t => (SearchRequest)t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)!
+                );
+        }
 
         await Search();
 

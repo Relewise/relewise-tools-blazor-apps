@@ -106,18 +106,21 @@
     [SupplyParameterFromQuery(Name = "o")]
     public string? CompressedObject { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         if (SearchTerm is null)
         {
             SearchTerm = "";
         }
 
-        initValues = RecommendationGroupings.SelectMany(g => g.Value)
-            .ToDictionary(
-                keySelector: t => t,
-                elementSelector: t => (LicensedRequest)t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)!
-            );
+        if (initValues is null)
+        {
+            initValues = RecommendationGroupings.SelectMany(g => g.Value)
+                .ToDictionary(
+                    keySelector: t => t,
+                    elementSelector: t => (LicensedRequest)t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)!
+                );
+        }
 
         await Search();
 
