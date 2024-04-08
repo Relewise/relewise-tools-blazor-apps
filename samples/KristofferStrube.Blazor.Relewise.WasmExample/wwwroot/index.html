@@ -40,6 +40,11 @@
             window.location.replace(window.location.origin + window.location.pathname + '/' + window.location.search);
         }
     </script>
+    <script>
+        function createMessageEvent() {
+            return new MessageEvent();
+        }
+    </script>
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
