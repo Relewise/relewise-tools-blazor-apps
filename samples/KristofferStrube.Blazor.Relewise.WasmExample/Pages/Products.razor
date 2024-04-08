@@ -1,41 +1,31 @@
 ﻿@using KristofferStrube.Blazor.DOM
-@using KristofferStrube.Blazor.DOM.Extensions
 @using KristofferStrube.Blazor.Relewise.TypeEditors
 @using KristofferStrube.Blazor.Window
+@using KristofferStrube.Blazor.Window.Options
 @page "/Products"
 @implements IAsyncDisposable
 
 <PageTitle>Blazor Relewise - Products</PageTitle>
 
 <h1>Products</h1>
-<p>Here you can get a product using the <code>DataAccessor</code>, then make changes to it, and in the end track the changes with the <code>Tracker</code>. You can likewise enable or disable the selected product.</p>
-<p>
-    First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
-    <br />
-    <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>DataAccessor</code> and the <code>Tracker</code> to use this.</small>
-</p>
 
-@if (error is not null)
+<p>Here you can get a product using the <code>DataAccessor</code>, then make changes to it, and in the end track the changes with the <code>Tracker</code>. You can likewise enable or disable the selected product.</p>
+
+@if (StaticDatasetStorage.ParentOrigin is null || StaticDatasetStorage.ApiKey is "")
 {
-    <code>@error</code>
-    <br />
-    <br />
-}
-@if (message is not null)
-{
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
-}
-<div class="input-group">
-    <div class="input-group-prepend">
-        <label for="serverUrl" class="input-group-text" style="width:120px;">Server URL</label>
+    <p>
+        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
+        <br />
+        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>DataAccessor</code> and the <code>Tracker</code> to use this.</small>
+    </p>
+
+    <div class="input-group">
+        <div class="input-group-prepend">
+            <label for="serverUrl" class="input-group-text" style="width:120px;">Server URL</label>
+        </div>
+        <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
     </div>
-    <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
-</div>
-<br />
-@if (!StaticDatasetStorage.NoMenu || StaticDatasetStorage.ApiKey is "")
-{
+    <br />
     <div class="input-group">
         <div class="input-group-prepend">
             <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
@@ -49,6 +39,19 @@
         </div>
         <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
     </div>
+    <br />
+}
+
+@if (error is not null)
+{
+    <code>@error</code>
+    <br />
+    <br />
+}
+@if (message is not null)
+{
+    <span style="color:green;">@message</span>
+    <br />
     <br />
 }
 
@@ -113,6 +116,7 @@ else
                 Authentication a = await e.GetDataAsync<Authentication>();
                 StaticDatasetStorage.ApiKey = a.apiKey;
                 StaticDatasetStorage.ServerUrl = a.serverUrl;
+                Connect();
                 StateHasChanged();
             }
             catch (Exception) { }
@@ -122,9 +126,16 @@ else
 
         // Post message to parent.
         await using Window? parent = await window.GetParentAsync();
-        if (parent is not null)
+        if (parent is not null && StaticDatasetStorage.ParentOrigin is not null)
         {
-            await parent.PostMessage(new { MyRelewiseAppReady = true });
+            object payload = new { MyRelewiseAppReady = true };
+
+            var options = new WindowPostMessageOptions()
+                {
+                    TargetOrigin = StaticDatasetStorage.ParentOrigin
+                };
+
+            await parent.PostMessage(payload, options);
         }
     }
 
@@ -160,18 +171,18 @@ else
                     DisplayName = productResult.DisplayName,
                     Assortments = productResult.Assortments?.ToList(),
                     CategoryPaths = productResult.CategoryPaths
-                                ?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })
-                                ?.ToList(),
+                                        ?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })
+                                        ?.ToList(),
                     Data = productResult.Data,
                     Custom = productResult.Custom,
                     Brand = productResult.Brand is null
-                            ? null
-                            : new Brand(productResult.Brand.BrandId)
-                            {
-                                DisplayName = productResult.Brand.DisplayName,
-                                Assortments = productResult.Brand.Assortments?.ToList(),
-                                Data = productResult.Brand.Data
-                            },
+                                    ? null
+                                    : new Brand(productResult.Brand.BrandId)
+                                    {
+                                        DisplayName = productResult.Brand.DisplayName,
+                                        Assortments = productResult.Brand.Assortments?.ToList(),
+                                        Data = productResult.Brand.Data
+                                    },
                     ListPrice = productResult.ListPrice,
                     SalesPrice = productResult.SalesPrice
                 };

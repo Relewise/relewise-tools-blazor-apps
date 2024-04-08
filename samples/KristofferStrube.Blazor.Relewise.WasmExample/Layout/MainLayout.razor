@@ -3,28 +3,22 @@
 @inherits LayoutComponentBase
 
 <div class="page">
-    @if (StaticDatasetStorage.NoMenu)
-    {
-        <article class="content px-4">
-            @Body
-        </article>
-    }
-    else
+    @if (StaticDatasetStorage.ParentOrigin is null)
     {
         <div class="sidebar">
             <NavMenu />
         </div>
-
-        <main>
-            <div class="top-row px-4">
-                <small>An unofficial tool for Relewise made by <a style="margin-left:0px;" href="https://twitter.com/KStrubeG">@@KStrubeG</a></small>
-            </div>
-
-            <article class="content px-4">
-                @Body
-            </article>
-        </main>
     }
+
+    <main>
+        <div class="top-row px-4">
+            <small>A tool for using the Relewise API made by <a style="margin-left:0px;" href="https://twitter.com/KStrubeG">@@KStrubeG</a></small>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
 </div>
 
 @code {
@@ -37,12 +31,15 @@
     [SupplyParameterFromQuery]
     public string? datasetId { get; set; }
 
+    [SupplyParameterFromQuery]
+    public string? parentOrigin { get; set; }
+
     protected override async Task OnParametersSetAsync()
     {
-        if (datasetId is not null)
+        if (datasetId is not null && parentOrigin is not null)
         {
             // Don't show menu.
-            StaticDatasetStorage.NoMenu = true;
+            StaticDatasetStorage.ParentOrigin = parentOrigin;
 
             // Get dataset from querystring and remove it.
             StaticDatasetStorage.DatasetId = datasetId;
