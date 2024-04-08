@@ -112,6 +112,7 @@ else
             {
                 Authentication a = await e.GetDataAsync<Authentication>();
                 StaticDatasetStorage.ApiKey = a.apiKey;
+                StaticDatasetStorage.ServerUrl = a.serverUrl;
                 StateHasChanged();
             }
             catch (Exception) { }
@@ -123,9 +124,7 @@ else
         await using Window? parent = await window.GetParentAsync();
         if (parent is not null)
         {
-            await using IJSObjectReference messageObject = await JSRuntime.InvokeAsync<IJSObjectReference>("createMessageEvent");
-            await using MessageEvent readyEvent = await MessageEvent.CreateAsync(JSRuntime, messageObject);
-            await parent.DispatchEventAsync(readyEvent);
+            await parent.PostMessage(new { MyRelewiseAppReady = true });
         }
     }
 
@@ -255,5 +254,5 @@ else
         }
     }
 
-    public record Authentication(string apiKey);
+    public record Authentication(string apiKey, string serverUrl);
 }
