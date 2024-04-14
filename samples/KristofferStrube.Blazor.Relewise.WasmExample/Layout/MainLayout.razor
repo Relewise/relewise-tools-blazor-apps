@@ -54,7 +54,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // If the ParentMessageEventListener is already set dont set up.
-        if (StaticDatasetStorage.ParentMessageEventListener is not null)
+        if (!firstRender || StaticDatasetStorage.ParentMessageEventListener is not null)
             return;
 
         // Listen for post messages.
