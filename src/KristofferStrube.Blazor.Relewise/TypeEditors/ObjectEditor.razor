@@ -112,7 +112,7 @@
                             <div @key=@($"{property.Name}-value")>
                                 @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)) is { } editor)
                                 {
-                                    var parameters = new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => property.SetValue(Value, obj) };
+                                    var parameters = new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => { property.SetValue(Value, obj); Setter(Value); } };
                                     var editorType = editor.EditorType(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType);
                                     <ErrorBoundary>
                                         <ChildContent>

@@ -21,7 +21,7 @@ else
                 {
                     <ErrorBoundary>
                         <ChildContent>
-                            <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="@(new Dictionary<string, object?>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = Value[k], ["Setter"] = (object? obj) => { Value[k] = (T)obj!; } })" />
+                            <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="@(new Dictionary<string, object?>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = Value[k], ["Setter"] = (object? obj) => { Value[k] = (T)obj!; Setter(Value); } })" />
                         </ChildContent>
                         <ErrorContent>
                             <code>Failed to initialize editor part for @Settings.Name(typeof(T))</code>

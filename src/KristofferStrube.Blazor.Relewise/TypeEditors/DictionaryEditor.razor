@@ -39,7 +39,7 @@ else
                 {
                     <ErrorBoundary>
                         <ChildContent>
-                            <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = Value[localKey], ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; } })" />
+                            <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = Value[localKey], ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; Setter(Value); } })" />
                         </ChildContent>
                         <ErrorContent>
                             <code>Failed to initialize editor part for @Settings.Name(typeof(TValue))</code>
