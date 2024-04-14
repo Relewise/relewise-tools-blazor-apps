@@ -1,0 +1,9 @@
+﻿.input-container {
+    display:flex;
+    flex-direction:row;
+    flex: 1;
+}
+
+input {
+    flex: 1;
+}

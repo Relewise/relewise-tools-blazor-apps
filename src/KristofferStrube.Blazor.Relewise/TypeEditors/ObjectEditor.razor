@@ -123,7 +123,7 @@
                                             <code>Failed to initialize editor part for @Settings.Name(property.PropertyType)</code>
                                         </ErrorContent>
                                     </ErrorBoundary>
-                                    @if (property.Name.EndsWith("Minutes") && property.PropertyType == typeof(int) && property.GetValue(Value) is int { } minutes)
+                                    @if (property.Name.Contains("Minutes") && property.PropertyType == typeof(int) && property.GetValue(Value) is int { } minutes)
                                     {
                                         <Info>@TimeSpan.FromMinutes(minutes).Humanize(4)</Info>
                                     }

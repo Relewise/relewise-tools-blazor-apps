@@ -1,6 +1,7 @@
 ﻿.box {
     border: 1px solid var(--color-blue-light);
     border-radius: 5px;
+    flex: 1;
 }
 
 .three-column-grid {
