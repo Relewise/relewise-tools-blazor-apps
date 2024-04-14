@@ -13,7 +13,7 @@
     </summary>
     <div style="margin:5px;">
         <h3>Request</h3>
-        <ObjectEditor OpenDetails=true T=SearchRequest Value="Request" ShowModelShareLink="true" Setter="(object? obj) => { Request = (SearchRequest?)obj; }" />
+        <ObjectEditor OpenDetails=true T=SearchRequest Value="Request" ShowModelShareLink="true" Setter="(object? obj) => { Request = (SearchRequest?)obj; response = null; StateHasChanged(); }" />
         <br />
         @if (Searcher is null)
         {
@@ -101,7 +101,7 @@
             var responseTask = (Task<SearchResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Searcher, Request])!;
 
             response = await responseTask;
-            message = "Successfully recommended.";
+            message = "Successfully searched.";
             error = null;
         }
         catch (Exception ex)

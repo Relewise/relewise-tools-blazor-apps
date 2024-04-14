@@ -6,6 +6,7 @@
 @using global::Relewise.Client.Responses
 @using global::Relewise.Client.Responses.Triggers
 @page "/Triggers"
+@implements IDisposable
 
 <PageTitle>Blazor Relewise - Triggers</PageTitle>
 
@@ -29,27 +30,36 @@
     <br />
     <br />
 }
-<div class="input-group">
-    <div class="input-group-prepend">
-        <label for="serverUrl" class="input-group-text" style="width:120px;">Server URL</label>
+@if (StaticDatasetStorage.ParentOrigin is null || StaticDatasetStorage.ApiKey is "")
+{
+    <p>
+        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
+        <br />
+        <small>You can't use your Master key in this application so you will have to create some separate key that has access to edit Triggers to use this.</small>
+    </p>
+
+    <div class="input-group">
+        <div class="input-group-prepend">
+            <label for="serverUrl" class="input-group-text" style="width:120px;">Server URL</label>
+        </div>
+        <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
     </div>
-    <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
-</div>
-<br />
-<div class="input-group">
-    <div class="input-group-prepend">
-        <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
+    <br />
+    <div class="input-group">
+        <div class="input-group-prepend">
+            <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
+        </div>
+        <input @bind=StaticDatasetStorage.DatasetId class="form-control" id="datasetId" />
     </div>
-    <input @bind=StaticDatasetStorage.DatasetId class="form-control" id="datasetId" />
-</div>
-<br />
-<div class="input-group">
-    <div class="input-group-prepend">
-        <label for="apiKey" class="input-group-text" style="width:120px;">API Key</label>
+    <br />
+    <div class="input-group">
+        <div class="input-group-prepend">
+            <label for="apiKey" class="input-group-text" style="width:120px;">API Key</label>
+        </div>
+        <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
     </div>
-    <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
-</div>
-<br />
+    <br />
+}
 
 @if (triggerAccessor is null)
 {
@@ -116,6 +126,21 @@ else if (configurations is not null)
     private object? triggerAccessor;
     private TriggerConfiguration[]? configurations;
     private TriggerConfiguration? selectedConfiguration;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (StaticDatasetStorage.DatasetId is not "" && StaticDatasetStorage.ApiKey is not "")
+        {
+            Connect();
+        }
+        StaticDatasetStorage.AuthenticationReceived += Authenticated;
+    }
+
+    private void Authenticated(object? sender, EventArgs args)
+    {
+        Connect();
+        StateHasChanged();
+    }
 
     private bool Connect()
     {
@@ -226,5 +251,10 @@ else if (configurations is not null)
     {
         var taskResponse = (Task<T>)method.Invoke(triggerAccessor, parameters)!;
         return await taskResponse;
+    }
+
+    public void Dispose()
+    {
+        StaticDatasetStorage.AuthenticationReceived -= Authenticated;
     }
 }

@@ -20,7 +20,7 @@
         </summary>
     <div style="margin:5px;">
         <h3>Request</h3>
-        <ObjectEditor OpenDetails=true T=LicensedRequest Value="Request" ShowModelShareLink="true" Setter="(object? obj) => { Request = (LicensedRequest?)obj; }" />
+        <ObjectEditor OpenDetails=true T=LicensedRequest Value="Request" ShowModelShareLink="true" Setter="(object? obj) => { Request = (LicensedRequest?)obj; response = null; StateHasChanged(); }" />
         <br />
         @if (Recommender is null)
         {
