@@ -1,5 +1,6 @@
 ﻿@using KristofferStrube.Blazor.DOM
 @using KristofferStrube.Blazor.Window
+@using KristofferStrube.Blazor.Window.Options
 @inherits LayoutComponentBase
 
 <div class="page">
@@ -34,6 +35,47 @@
     [SupplyParameterFromQuery]
     public string? parentOrigin { get; set; }
 
+    [Inject]
+    public required IWindowService WindowService { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // If the ParentMessageEventListener is already set dont set up.
+        if (StaticDatasetStorage.ParentMessageEventListener is not null)
+            return;
+
+        // Listen for post messages.
+        Window window = await WindowService.GetWindowAsync();
+        StaticDatasetStorage.ParentMessageEventListener = await EventListener<MessageEvent>.CreateAsync(JSRuntime, async (e) =>
+        {
+            try
+            {
+                Authentication a = await e.GetDataAsync<Authentication>();
+                StaticDatasetStorage.ApiKey = a.apiKey;
+                StaticDatasetStorage.ServerUrl = a.serverUrl;
+                StateHasChanged();
+                await StaticDatasetStorage.ParentMessageEventListener!.DisposeAsync();
+            }
+            catch (Exception) { }
+        });
+
+        await window.AddOnMessageEventListenerAsync(StaticDatasetStorage.ParentMessageEventListener);
+
+        // Post message to parent.
+        await using Window? parent = await window.GetParentAsync();
+        if (parent is not null && StaticDatasetStorage.ParentOrigin is not null)
+        {
+            object payload = new { MyRelewiseAppReady = true };
+
+            var options = new WindowPostMessageOptions()
+                {
+                    TargetOrigin = StaticDatasetStorage.ParentOrigin
+                };
+
+            await parent.PostMessageAsync(payload, options);
+        }
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (datasetId is not null && parentOrigin is not null)
@@ -46,4 +88,6 @@
             NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter("datasetId", (string?)null), false);
         }
     }
+
+    public record Authentication(string apiKey, string serverUrl);
 }

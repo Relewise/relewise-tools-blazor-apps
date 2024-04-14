@@ -1,9 +1,7 @@
 ﻿@using KristofferStrube.Blazor.DOM
 @using KristofferStrube.Blazor.Relewise.TypeEditors
 @using KristofferStrube.Blazor.Window
-@using KristofferStrube.Blazor.Window.Options
 @page "/Products"
-@implements IAsyncDisposable
 
 <PageTitle>Blazor Relewise - Products</PageTitle>
 
@@ -89,8 +87,6 @@ else
 }
 
 @code {
-    private EventListener<MessageEvent>? messageEventListener;
-    private Window? window;
     private string? error;
     private string? message;
     private string productId = "";
@@ -100,43 +96,10 @@ else
     private Product? product;
 
     [Inject]
-    public required IWindowService WindowService { get; set; }
-
-    [Inject]
     public required IJSRuntime JSRuntime { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        // Listen for post messages.
-        window = await WindowService.GetWindowAsync();
-        messageEventListener = await EventListener<MessageEvent>.CreateAsync(JSRuntime, async (e) =>
-        {
-            try
-            {
-                Authentication a = await e.GetDataAsync<Authentication>();
-                StaticDatasetStorage.ApiKey = a.apiKey;
-                StaticDatasetStorage.ServerUrl = a.serverUrl;
-                Connect();
-                StateHasChanged();
-            }
-            catch (Exception) { }
-        });
-
-        await window.AddOnMessageEventListenerAsync(messageEventListener);
-
-        // Post message to parent.
-        await using Window? parent = await window.GetParentAsync();
-        if (parent is not null && StaticDatasetStorage.ParentOrigin is not null)
-        {
-            object payload = new { MyRelewiseAppReady = true };
-
-            var options = new WindowPostMessageOptions()
-                {
-                    TargetOrigin = StaticDatasetStorage.ParentOrigin
-                };
-
-            await parent.PostMessageAsync(payload, options);
-        }
     }
 
     private bool Connect()
@@ -253,17 +216,4 @@ else
             message = null;
         }
     }
-
-    public async ValueTask DisposeAsync()
-    {
-        // Remove event handler for messages and dispose wrappers.
-        if (window is not null && messageEventListener is not null)
-        {
-            await window.RemoveOnMessageEventListenerAsync(messageEventListener);
-            await window.DisposeAsync();
-            await messageEventListener.DisposeAsync();
-        }
-    }
-
-    public record Authentication(string apiKey, string serverUrl);
 }

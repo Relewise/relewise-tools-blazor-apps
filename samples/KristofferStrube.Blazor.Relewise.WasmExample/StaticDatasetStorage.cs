@@ -1,4 +1,7 @@
-﻿namespace KristofferStrube.Blazor.Relewise.WasmExample;
+﻿using KristofferStrube.Blazor.DOM;
+using KristofferStrube.Blazor.Window;
+
+namespace KristofferStrube.Blazor.Relewise.WasmExample;
 
 public static class StaticDatasetStorage
 {
@@ -6,4 +9,5 @@ public static class StaticDatasetStorage
     public static string DatasetId { get; set; } = "";
     public static string ApiKey { get; set; } = "";
     public static string? ParentOrigin { get; set; }
+    public static EventListener<MessageEvent>? ParentMessageEventListener { get; set; }
 }
