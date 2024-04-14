@@ -38,7 +38,20 @@
     [Inject]
     public required IWindowService WindowService { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
+    {
+        if (datasetId is not null && parentOrigin is not null)
+        {
+            // Don't show menu.
+            StaticDatasetStorage.ParentOrigin = parentOrigin;
+
+            // Get dataset from querystring and remove it.
+            StaticDatasetStorage.DatasetId = datasetId;
+            NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter("datasetId", (string?)null), false);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // If the ParentMessageEventListener is already set dont set up.
         if (StaticDatasetStorage.ParentMessageEventListener is not null)
@@ -73,19 +86,6 @@
                 };
 
             await parent.PostMessageAsync(payload, options);
-        }
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (datasetId is not null && parentOrigin is not null)
-        {
-            // Don't show menu.
-            StaticDatasetStorage.ParentOrigin = parentOrigin;
-
-            // Get dataset from querystring and remove it.
-            StaticDatasetStorage.DatasetId = datasetId;
-            NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter("datasetId", (string?)null), false);
         }
     }
 
