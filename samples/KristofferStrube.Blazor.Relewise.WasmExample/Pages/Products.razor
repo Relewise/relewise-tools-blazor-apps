@@ -100,6 +100,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (StaticDatasetStorage.DatasetId is not "" && StaticDatasetStorage.ApiKey is not "")
+        {
+            Connect();
+        }
     }
 
     private bool Connect()
