@@ -54,7 +54,7 @@
                 StaticDatasetStorage.ApiKey = a.apiKey;
                 StaticDatasetStorage.ServerUrl = a.serverUrl;
                 StateHasChanged();
-                await StaticDatasetStorage.ParentMessageEventListener!.DisposeAsync();
+                StaticDatasetStorage.NotifyAuthenticationReceived();
             }
             catch (Exception) { }
         });

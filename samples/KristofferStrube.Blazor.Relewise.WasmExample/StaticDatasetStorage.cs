@@ -10,4 +10,10 @@ public static class StaticDatasetStorage
     public static string ApiKey { get; set; } = "";
     public static string? ParentOrigin { get; set; }
     public static EventListener<MessageEvent>? ParentMessageEventListener { get; set; }
+    public static event EventHandler? AuthenticationReceived;
+
+    public static void NotifyAuthenticationReceived()
+    {
+        AuthenticationReceived?.Invoke(null, EventArgs.Empty);
+    }
 }

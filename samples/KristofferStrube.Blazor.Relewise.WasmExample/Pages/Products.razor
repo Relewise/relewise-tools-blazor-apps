@@ -2,6 +2,7 @@
 @using KristofferStrube.Blazor.Relewise.TypeEditors
 @using KristofferStrube.Blazor.Window
 @page "/Products"
+@implements IDisposable
 
 <PageTitle>Blazor Relewise - Products</PageTitle>
 
@@ -104,6 +105,13 @@ else
         {
             Connect();
         }
+        StaticDatasetStorage.AuthenticationReceived += Authenticated;
+    }
+
+    private void Authenticated(object? sender, EventArgs args)
+    {
+        Connect();
+        StateHasChanged();
     }
 
     private bool Connect()
@@ -219,5 +227,10 @@ else
             error = ex.Message;
             message = null;
         }
+    }
+
+    public void Dispose()
+    {
+        StaticDatasetStorage.AuthenticationReceived -= Authenticated;
     }
 }
