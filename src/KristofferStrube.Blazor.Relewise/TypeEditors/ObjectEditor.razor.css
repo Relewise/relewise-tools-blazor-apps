@@ -15,3 +15,8 @@ summary {
     background-color: var(--color-blue-light);
     color: white;
 }
+
+.object-value {
+    display:flex;
+    flex-direction:row;
+}

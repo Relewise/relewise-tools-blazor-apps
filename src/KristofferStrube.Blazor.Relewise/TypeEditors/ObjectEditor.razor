@@ -1,4 +1,5 @@
 ﻿@using System.Reflection
+@using Humanizer
 @using KristofferStrube.Blazor.Relewise.XmlSummaries
 @using Microsoft.JSInterop
 @using Newtonsoft.Json
@@ -109,7 +110,7 @@
                                     <Info>@summary</Info>
                                 }
                             </div>
-                            <div @key=@($"{property.Name}-value")>
+                            <div @key=@($"{property.Name}-value") class="object-value">
                                 @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)) is { } editor)
                                 {
                                     var parameters = new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => { property.SetValue(Value, obj); Setter(Value); } };
@@ -122,6 +123,10 @@
                                             <code>Failed to initialize editor part for @Settings.Name(property.PropertyType)</code>
                                         </ErrorContent>
                                     </ErrorBoundary>
+                                    @if (property.Name.EndsWith("Minutes") && property.PropertyType == typeof(int) && property.GetValue(Value) is int { } minutes)
+                                    {
+                                        <Info>@TimeSpan.FromMinutes(minutes).Humanize(4)</Info>
+                                    }
                                 }
                                 else
                                 {
