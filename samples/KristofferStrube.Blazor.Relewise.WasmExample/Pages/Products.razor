@@ -70,10 +70,21 @@ else
         <input @bind=productId class="form-control" id="productId" />
     </div>
     <br />
-    <button class="btn btn-primary" @onclick=Fetch>Fetch</button>
-    <button class="btn btn-success" @onclick=EnableProduct>Enable</button>
-    <button class="btn btn-warning" @onclick=DisableProduct>Disable</button>
-    <br />
+    <div style="display:flex;grid-gap:5px;flex-direction:row;">
+        <button class="btn btn-primary" @onclick=Fetch>Fetch</button>
+        @if (productIsDisabled)
+        {
+            <button class="btn btn-success" style="width:80px;" @onclick=EnableProduct>Enable</button>
+        }
+        else
+        {
+            <button class="btn btn-warning" style="width:80px;" @onclick=DisableProduct>Disable</button>
+        }
+        @if (product is not null)
+        {
+            <button class="btn btn-success" @onclick=Update>Update</button>
+        }
+    </div>
     <br />
 }
 @if (product is not null)
@@ -82,7 +93,31 @@ else
     <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
     <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Product Value="product" Setter="(Object? obj) => product = (Product?)obj" />
     <br />
-    <button class="btn btn-success" @onclick=Update>Update</button>
+    @if (productVariants is not null)
+    {
+        <details class="box" open="true">
+            <summary>
+                Variants
+            </summary>
+            <div class="two-column-grid">
+                @for (int i = 0; i < productVariants.Count; i++)
+                {
+                    int j = i;
+                    @if (productVariantsAreDisabled[i])
+                    {
+                        <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => EnableVariant(j)">Enable</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-warning btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => DisableVariant(j)">Disable</button>
+                    }
+                    <div>
+                        <ObjectEditor OpenDetails=openDetails T=ProductVariant Value="productVariants[j]" Setter="(Object? obj) => { productVariants[j] = (ProductVariant)obj!; variantsHaveChanges = true; }" />
+                    </div>
+                }
+            </div>
+        </details>
+    }
     <br />
     <br />
 }
@@ -95,6 +130,10 @@ else
     private DataAccessor? dataAccessor;
     private Tracker? tracker;
     private Product? product;
+    private bool productIsDisabled;
+    private List<ProductVariant>? productVariants;
+    private List<bool> productVariantsAreDisabled = new();
+    private bool variantsHaveChanges;
 
     [Inject]
     public required IJSRuntime JSRuntime { get; set; }
@@ -137,30 +176,62 @@ else
         if (!Connect()) return;
         try
         {
-            var result = await dataAccessor!.QueryAsync(new ProductQuery(productId));
+            var result = await dataAccessor!.QueryAsync(new ProductQuery(productId)
+            {
+                IncludeDisabledProducts = true,
+                IncludeDisabledVariants = true
+            });
             var productResult = result?.Products.Single();
             if (productResult is null) return;
 
+            productIsDisabled = productResult.Disabled;
             product = new Product(productResult.ProductId)
                 {
                     DisplayName = productResult.DisplayName,
                     Assortments = productResult.Assortments?.ToList(),
                     CategoryPaths = productResult.CategoryPaths
-                                        ?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })
-                                        ?.ToList(),
+                                                    ?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })
+                                                    ?.ToList(),
                     Data = productResult.Data,
                     Custom = productResult.Custom,
                     Brand = productResult.Brand is null
-                                    ? null
-                                    : new Brand(productResult.Brand.BrandId)
-                                    {
-                                        DisplayName = productResult.Brand.DisplayName,
-                                        Assortments = productResult.Brand.Assortments?.ToList(),
-                                        Data = productResult.Brand.Data
-                                    },
+                                                ? null
+                                                : new Brand(productResult.Brand.BrandId)
+                                                {
+                                                    DisplayName = productResult.Brand.DisplayName,
+                                                    Assortments = productResult.Brand.Assortments?.ToList(),
+                                                    Data = productResult.Brand.Data
+                                                },
                     ListPrice = productResult.ListPrice,
                     SalesPrice = productResult.SalesPrice
                 };
+
+            if (productResult.AllVariants?.Length > 0)
+            {
+                productVariants = new(productResult.AllVariants.Length);
+                productVariantsAreDisabled = new(productResult.AllVariants.Length);
+
+                foreach (VariantResultDetails productVariantResult in productResult.AllVariants)
+                {
+                    productVariantsAreDisabled.Add(productVariantResult.Disabled);
+                    productVariants.Add(new ProductVariant(productVariantResult.VariantId)
+                        {
+                            DisplayName = productVariantResult.DisplayName,
+                            Assortments = productVariantResult.Assortments?.ToList(),
+                            Specification = productVariantResult.Specification,
+                            Data = productVariantResult.Data,
+                            Custom = productVariantResult.Custom,
+                            ListPrice = productVariantResult.ListPrice,
+                            SalesPrice = productVariantResult.SalesPrice
+                        });
+                }
+            }
+            else
+            {
+                productVariants = null;
+            }
+            variantsHaveChanges = false;
+
             message = "Successfully fetched the product";
             error = null;
         }
@@ -170,6 +241,7 @@ else
             message = null;
             dataAccessor = null;
             tracker = null;
+            throw;
         }
     }
 
@@ -177,9 +249,24 @@ else
     {
         try
         {
-            await tracker!.TrackAsync(new ProductUpdate(product, ProductUpdate.UpdateKind.ReplaceProvidedProperties));
-            message = "Successfully updated the product";
+            if (variantsHaveChanges)
+            {
+                await tracker!.TrackAsync(
+                    new ProductUpdate(
+                        product,
+                        productVariants,
+                        ProductUpdate.UpdateKind.ReplaceProvidedProperties,
+                        ProductUpdate.UpdateKind.ReplaceProvidedProperties,
+                        replaceExistingVariants: true)
+                );
+            }
+            else
+            {
+                await tracker!.TrackAsync(new ProductUpdate(product, ProductUpdate.UpdateKind.ReplaceProvidedProperties));
+            }
+            message = "Successfully updated the product" + (variantsHaveChanges ? " and variants." : ".");
             product = null;
+            productVariants = null;
             error = null;
         }
         catch (Exception ex)
@@ -199,6 +286,7 @@ else
             await tracker!.TrackAsync(
                 new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.Enable)
             );
+            productIsDisabled = false;
             message = "Successfully enabled the product";
             error = null;
         }
@@ -219,7 +307,50 @@ else
             await tracker!.TrackAsync(
                 new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.Disable)
             );
+            productIsDisabled = true;
             message = "Successfully disabled the product";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    private async Task EnableVariant(int variantIndex)
+    {
+        if (!Connect() || productVariants is null) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.None, productVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Enable)
+            );
+            productVariantsAreDisabled[variantIndex] = false;
+            message = "Successfully enabled the variant";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    private async Task DisableVariant(int variantIndex)
+    {
+        if (!Connect() || productVariants is null) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.None, productVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Disable)
+            );
+            productVariantsAreDisabled[variantIndex] = true;
+            message = "Successfully disabled the variant";
             error = null;
         }
         catch (Exception ex)
