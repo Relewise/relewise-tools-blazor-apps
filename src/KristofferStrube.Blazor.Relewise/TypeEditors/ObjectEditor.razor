@@ -10,7 +10,6 @@
 @typeparam T
 
 <CascadingValue Value="HideDefaultValueProperties">
-
     @if (Value is null)
     {
         <div>
@@ -37,7 +36,7 @@
                             }
                         }
                     </select>
-                    <button class="btn btn-outline-success btn-sm" style="margin:2px;margin-top:0px;padding:3px;line-height:1.1" @onclick=Create>Create</button>
+                    <button class="btn btn-outline-success btn-sm" style="margin:2px;margin-top:0px;padding:1px;line-height:1.1" @onclick=Create>Create</button>
                 }
             }
         </div>
@@ -46,9 +45,8 @@
     {
         <details class="box" open=@(OpenDetails || SingleLevelOpenDetails)>
             <summary @onclick="() => hasBeenOpen = true">
-                @if (Value is not null && derivedTypes.Count > 0 && !ReadOnly && !OpenDetails)
+                @if (Value is not null && derivedTypes.Count > 0 && !ReadOnly && hasBeenOpen)
                 {
-                    <span>&nbsp;</span>
                     <select @onchange=TypeDropdownChanged>
                         @foreach (Type type in derivedTypes)
                         {
@@ -62,19 +60,21 @@
                             }
                         }
                     </select>
-                    <button class="btn btn-light btn-sm" style="margin:2px;margin-top:1px;padding:2px;line-height:1.1" @onclick=Create>Switch type</button>
+                    <button class="btn btn-light btn-sm" style="margin:2px;margin-top:0px;padding:1px;line-height:1.1" @onclick=Create>Switch type</button>
                 }
                 else
                 {
                     <i>
                         @Settings.Name(Value is not null ? Value.GetType() : typeof(T))
                     </i>
-                        @if (Value is not null && Properties?.FirstOrDefault(p => p.Name == "Id") is { } idProperty)
-                        {
-                            <text>
-                                &nbsp;<u>@idProperty.GetValue(Value)</u>
-                            </text>
-                        }
+                    @if (Value is not null
+                        && Properties?.FirstOrDefault(p => p.Name == "Id") is { } idProperty
+                        && idProperty.GetValue(Value) is string { } idValue)
+                    {
+                        <text>
+                            &nbsp;<u>@idValue</u>
+                        </text>
+                    }
                 }
                 @if (ShowModelShareLink)
                 {
@@ -119,10 +119,10 @@
                                 }
                             </div>
                             <div @key=@($"{property.Name}-value") class="object-value">
-                                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType)) is { } editor)
+                                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.PropertyType)) is { } editor)
                                 {
                                     var parameters = new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => { property.SetValue(Value, obj); Setter(Value); } };
-                                    var editorType = editor.EditorType(property.GetValue(Value) is { } actualized ? actualized.GetType() : property.PropertyType);
+                                    var editorType = editor.EditorType(property.PropertyType);
                                     <ErrorBoundary>
                                         <ChildContent>
                                             <DynamicComponent Type=editorType Parameters=parameters />
