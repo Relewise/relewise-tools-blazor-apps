@@ -47,7 +47,7 @@
             <h3>Response</h3>
             <label for="openDetails">Expand all: </label>
             <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-            <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=RecommendationResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (RecommendationResponse?)obj; }" />
+            <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=RecommendationResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (RecommendationResponse?)obj; StateHasChanged(); }" />
         }
     </div>
 </details>

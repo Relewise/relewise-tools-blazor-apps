@@ -67,7 +67,7 @@ else if (message is not null)
 
 @if (request is not null)
 {
-    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=readOnly T=LicensedRequest ShowModelShareLink=@(Models.Types.Contains(request?.GetType())) Value="request" Setter="(Object? obj) => request = (LicensedRequest?)obj" />
+    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=readOnly T=LicensedRequest ShowModelShareLink=@(Models.Types.Contains(request?.GetType())) Value="request" Setter="(Object? obj) => { request = (LicensedRequest?)obj; StateHasChanged(); }" />
     <br />
 }
 

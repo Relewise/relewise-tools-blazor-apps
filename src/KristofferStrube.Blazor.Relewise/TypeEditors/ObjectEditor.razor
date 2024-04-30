@@ -68,8 +68,8 @@
                         @Settings.Name(Value is not null ? Value.GetType() : typeof(T))
                     </i>
                     @if (Value is not null
-                        && Properties?.FirstOrDefault(p => p.Name == "Id") is { } idProperty
-                        && idProperty.GetValue(Value) is string { } idValue)
+                   && Properties?.FirstOrDefault(p => p.Name == "Id") is { } idProperty
+                   && idProperty.GetValue(Value) is string { } idValue)
                     {
                         <text>
                             &nbsp;<u>@idValue</u>
@@ -118,8 +118,9 @@
                                     <Info>@summary</Info>
                                 }
                             </div>
+                            var potentialEditor = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.PropertyType));
                             <div @key=@($"{property.Name}-value") class="object-value">
-                                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.PropertyType)) is { } editor)
+                                @if (potentialEditor is { } editor)
                                 {
                                     var parameters = new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = property.GetValue(Value), ["Setter"] = (object? obj) => { property.SetValue(Value, obj); Setter(Value); } };
                                     var editorType = editor.EditorType(property.PropertyType);
@@ -134,6 +135,10 @@
                                     @if (property.Name.Contains("Minutes") && property.PropertyType == typeof(int) && property.GetValue(Value) is int { } minutes)
                                     {
                                         <Info>@TimeSpan.FromMinutes(minutes).Humanize(4)</Info>
+                                    }
+                                    @if (!ReadOnly && property.GetValue(Value) != null && potentialEditor.EditorType(property.PropertyType).IsConstructedGenericType && potentialEditor.EditorType(property.PropertyType).GetGenericTypeDefinition() == typeof(ObjectEditor<>))
+                                    {
+                                        <button class="btn btn-sm btn-warning" style="padding-top:0;padding-bottom:0;" @onclick="() => RemoveProperty(property)">X</button>
                                     }
                                 }
                                 else
@@ -244,6 +249,12 @@
         var editor = Settings.Editors.First(e => e.CanHandle(selectedCreateType));
         Value = editor.InitValue(selectedCreateType);
         emptyInstanceOfValue = editor.InitValue(selectedCreateType);
+        Setter(Value);
+    }
+
+    private void RemoveProperty(PropertyInfo propertyInfo)
+    {
+        propertyInfo.SetValue(Value, null);
         Setter(Value);
     }
 

@@ -91,7 +91,7 @@ else
 {
     <label for="openDetails">Expand all: </label>
     <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-    <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Product Value="product" Setter="(Object? obj) => product = (Product?)obj" />
+    <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Product Value="product" Setter="(Object? obj) => { product = (Product?)obj;  StateHasChanged(); }" />
     <br />
     @if (productVariants is not null)
     {
@@ -112,7 +112,7 @@ else
                         <button class="btn btn-warning btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => DisableVariant(j)">Disable</button>
                     }
                     <div>
-                        <ObjectEditor OpenDetails=openDetails T=ProductVariant Value="productVariants[j]" Setter="(Object? obj) => { productVariants[j] = (ProductVariant)obj!; variantsHaveChanges = true; }" />
+                        <ObjectEditor OpenDetails=openDetails T=ProductVariant Value="productVariants[j]" Setter="(Object? obj) => { productVariants[j] = (ProductVariant)obj!; variantsHaveChanges = true; StateHasChanged(); }" />
                     </div>
                 }
             </div>

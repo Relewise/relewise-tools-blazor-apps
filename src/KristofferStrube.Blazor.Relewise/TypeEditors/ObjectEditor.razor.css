@@ -18,7 +18,8 @@ summary {
 }
 
 .object-value {
-    display:flex;
-    flex-direction:row;
+    display: flex;
+    flex-direction: row;
     flex: 1 0;
+    grid-gap: 5px;
 }
