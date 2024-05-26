@@ -54,7 +54,7 @@
     {
         @if (type.IsInterface || type.IsAbstract)
         {
-            <AbstractTypePresenter Type=type OpenDetails=@(searchTime is not null && filteredTypes.Count is 1 || type == singleExactMatch) />
+            <AbstractTypePresenter Type=type />
         }
         else if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
         {
