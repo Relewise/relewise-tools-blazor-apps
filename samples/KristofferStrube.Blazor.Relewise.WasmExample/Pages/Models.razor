@@ -52,7 +52,11 @@
     <br />
     @foreach (var type in SearchResults)
     {
-        @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
+        @if (type.IsInterface || type.IsAbstract)
+        {
+            <AbstractTypePresenter Type=type OpenDetails=@(searchTime is not null && filteredTypes.Count is 1 || type == singleExactMatch) />
+        }
+        else if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
         {
             if (editor.InitValue(type) is { } initValue && initValues[type] is null)
             {
@@ -68,12 +72,13 @@
             {
                 parameters.Add("ShowModelShareLink", true);
             }
+
             <ErrorBoundary>
                 <ChildContent>
                     <DynamicComponent Type=editor.EditorType(type) Parameters=parameters />
                 </ChildContent>
                 <ErrorContent>
-                    <code>Failed for @type.Name</code>
+                    <code>Failed for @Settings.Name(type)</code>
                 </ErrorContent>
             </ErrorBoundary>
         }
@@ -89,10 +94,12 @@
     private double? searchTime;
     private Dictionary<Type, object?> initValues = default!;
 
-    private DocumentIndex<Type, SuffixTrieSearchIndex> searchIndex = default!;
+    private DocumentIndex<Type, SuffixTrieSearchIndex> concreteTypesSearchIndex = default!;
+    private DocumentIndex<Type, SuffixTrieSearchIndex> abstractTypesSearchIndex = default!;
 
     private string[] continuations = [];
     private List<Type> filteredTypes = [];
+    private List<Type> filteredAbstractTypes = [];
     private Type? singleExactMatch = null;
 
     public IEnumerable<Type> SearchResults => singleExactMatch is null ? filteredTypes : filteredTypes.Where(t => t != singleExactMatch).Prepend(singleExactMatch);
@@ -111,13 +118,14 @@
             SearchTerm = "";
         }
 
-        initValues = Types
+        initValues = ConcreteTypes
             .ToDictionary(
                 keySelector: t => t,
                 elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
             );
 
-        searchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(Types.ToArray(), t => t.Name.ToLower());
+        concreteTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(ConcreteTypes.ToArray(), t => t.Name.ToLower());
+        abstractTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(AbstractTypes.ToArray(), t => t.Name.ToLower());
 
         await Search();
 
@@ -159,7 +167,7 @@
             .GetTypes()
             .ToList();
 
-    public static List<Type> Types = AssemblyTypes
+    public static List<Type> ConcreteTypes = AssemblyTypes
             .Where(t =>
                 !t.IsGenericType
                 && t.DeclaringType is null
@@ -170,7 +178,15 @@
             .OrderBy(t => t.Name.ToLower().Trim())
             .ToList();
 
-    private static Dictionary<Type, Type> EditorTypes = Types
+    public static List<Type> AbstractTypes = AssemblyTypes
+            .Where(t =>
+                !t.IsGenericType
+                && t.DeclaringType is null
+                && (t.IsAbstract || t.IsInterface))
+            .OrderBy(t => t.Name.ToLower().Trim())
+            .ToList();
+
+    private static Dictionary<Type, Type> EditorTypes = ConcreteTypes
         .ToDictionary(
             keySelector: t => t,
             elementSelector: t => typeof(ObjectEditor<>).MakeGenericType(new Type[] { t })
@@ -189,22 +205,25 @@
 
         var sw = Stopwatch.StartNew();
 
-        Type[] results;
+        Type[] concreteResults;
+        Type[] abstractResults;
 
         if (SearchTerm is "")
         {
-            results = Types.ToArray();
+            concreteResults = ConcreteTypes.ToArray();
+            abstractResults = AbstractTypes.ToArray();
         }
         else
         {
-            results = searchIndex.ExactSearch(SearchTerm.ToLower()).Select(sr => sr.Element).ToArray();
-            continuations = searchIndex.ContinuationsSortedByOccurrences(SearchTerm.ToLower(), [' '], 5, mustBeAfterBreakChar: true);
+            concreteResults = concreteTypesSearchIndex.ExactSearch(SearchTerm.ToLower()).Select(sr => sr.Element).ToArray();
+            continuations = concreteTypesSearchIndex.ContinuationsSortedByOccurrences(SearchTerm.ToLower(), [' '], 5, mustBeAfterBreakChar: true);
+            abstractResults = abstractTypesSearchIndex.ExactSearch(SearchTerm.ToLower()).Select(sr => sr.Element).ToArray();
         }
-        singleExactMatch = results.FirstOrDefault(e => e.Name.ToLower() == SearchTerm.ToLower());
+        singleExactMatch = concreteResults.Concat(abstractResults).FirstOrDefault(e => e.Name.ToLower() == SearchTerm.ToLower());
 
-        if (results.Length > 10)
+        if (concreteResults.Length > 10)
         {
-            foreach (var chunk in results.Chunk(10))
+            foreach (var chunk in concreteResults.Concat(abstractResults).Chunk(10))
             {
                 filteredTypes.AddRange(chunk);
                 await InvokeAsync(StateHasChanged);
@@ -217,7 +236,7 @@
         }
         else
         {
-            filteredTypes = results.ToList();
+            filteredTypes = concreteResults.Concat(abstractResults).ToList();
         }
 
         if (SearchTerm is "")

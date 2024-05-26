@@ -1,0 +1,11 @@
+﻿.box {
+    border: 1px solid var(--color-yellow);
+    border-radius: 5px;
+    flex: 1;
+}
+
+summary {
+    padding-left: 5px;
+    background-color: var(--color-yellow);
+    color: white;
+}
