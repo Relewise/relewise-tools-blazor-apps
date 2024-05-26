@@ -3,7 +3,7 @@
 @using global::Relewise.Client
 <details class="box" open=@OpenDetails>
     <summary @onclick="() => hasBeenOpen = true">
-        <i>@Settings.Name(Type) <small>(abstract)</small></i>
+        <i>@Settings.Name(Type) <small>(abstract type with @derivedTypes.Count concrete @(derivedTypes.Count is 1 ? "type" : "types"))</small></i>
         @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(Type) is { } summary)
         {
             <Info>@summary</Info>
