@@ -52,8 +52,6 @@
 
     protected override void OnParametersSet()
     {
-        hasBeenOpen = hasBeenOpen || OpenDetails;
-
         var assembly = Assembly.GetAssembly(typeof(ClientBase));
         derivedTypes = assembly!
             .GetTypes()
