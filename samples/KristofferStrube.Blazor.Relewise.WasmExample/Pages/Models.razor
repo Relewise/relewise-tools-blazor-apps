@@ -58,7 +58,7 @@
             {
                 initValues[type] = initValue;
             }
-            var parameters = new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => { StateHasChanged(); } };
+            var parameters = new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => { initValues[type] = obj; StateHasChanged(); } };
             var editorType = editor.EditorType(type);
             if (searchTime is not null && filteredTypes.Count is 1 || type == singleExactMatch)
             {
