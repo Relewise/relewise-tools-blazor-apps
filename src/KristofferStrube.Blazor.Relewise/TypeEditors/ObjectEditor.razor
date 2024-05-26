@@ -75,6 +75,10 @@
                             &nbsp;<u>@idValue</u>
                         </text>
                     }
+                    @if (Value is not null && xmlDocumentation is not null && xmlDocumentation.GetSummary(Value.GetType()) is { } summary)
+                    {
+                        <Info>@summary</Info>
+                    }
                 }
                 @if (ShowModelShareLink)
                 {

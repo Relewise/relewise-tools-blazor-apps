@@ -26,7 +26,7 @@ public class XmlDocumentation
         if (Summaries.FirstOrDefault(kvp => kvp.Key.ToLower().EndsWith(endsWith.ToLower())) is
             { Key: { } matchingKey, Value: { Length: > 0 } matchingSummary })
         {
-            return matchingSummary;
+            return matchingSummary[0..1].ToUpper() + matchingSummary[1..];
         }
 
         return null;

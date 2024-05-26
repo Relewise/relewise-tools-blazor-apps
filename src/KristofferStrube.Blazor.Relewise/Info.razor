@@ -40,6 +40,10 @@
                     new(ModifierName.Arrow) {
                         Options = new ArrowOptions {Element = arrow},
                     },
+                    new (ModifierName.Offset)
+                    {
+                        Options = new OffsetOptions { Offset = new double[] { 0, 5 } }
+                    },
                     new("applyArrowHide", true, ModifierPhases.Write, (args) =>
                     {
                         if(args.State.Elements.Contains("arrow"))
@@ -51,7 +55,8 @@
                                     hiddenArrow = true;
                                     StateHasChanged();
                                 }
-                            } else
+                            }
+                            else
                             {
                                 if(hiddenArrow)
                                 {
