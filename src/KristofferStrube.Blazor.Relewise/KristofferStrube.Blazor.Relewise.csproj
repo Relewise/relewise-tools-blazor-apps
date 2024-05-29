@@ -15,7 +15,7 @@
     <PackageReference Include="Humanizer" Version="2.14.1" />
     <PackageReference Include="KristofferStrube.Blazor.Popper" Version="0.5.1" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
-    <PackageReference Include="Relewise.Client" Version="1.147.0" />
+    <PackageReference Include="Relewise.Client" Version="1.157.0" />
     <PackageReference Include="AngleSharp.Xml" Version="1.0.0" />
   </ItemGroup>
 
