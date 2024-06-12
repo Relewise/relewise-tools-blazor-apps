@@ -96,7 +96,7 @@
         {
             var method = typeof(Searcher)
                 .GetMethods()
-                .Single(m => m.Name is "SearchAsync" or "PredictAsync" && m.GetParameters() is [var requestParam, var tokenParam] && requestParam.ParameterType == Request.GetType());
+                .Single(m => m.Name is "SearchAsync" or "PredictAsync" or "BatchAsync" && m.GetParameters() is [var requestParam, var tokenParam] && requestParam.ParameterType == Request.GetType());
 
             var responseTask = (Task<SearchResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Searcher, Request])!;
 
