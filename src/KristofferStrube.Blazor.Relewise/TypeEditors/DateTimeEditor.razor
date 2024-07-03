@@ -1,0 +1,30 @@
+﻿@if (Value is null)
+{
+    @if (!ReadOnly)
+    {
+        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new DateTime</button>
+    }
+}
+else
+{
+    <input type="datetime-local" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
+}
+@code {
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Parameter]
+    public bool OpenDetails { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required DateTime? Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+
+    public void Create()
+    {
+        Value = default(DateTime);
+        Setter(Value);
+    }
+}
