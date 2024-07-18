@@ -1,0 +1,82 @@
+﻿@using KristofferStrube.Blazor.WebAudio
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject HttpClient HttpClient
+
+<button @attributes=AdditionalAttributes @onclick=Click>@ChildContent</button>
+
+@code {
+    private AudioContext? context;
+    private AudioBuffer? audio;
+    private GainNode? mixer;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    [Parameter, EditorRequired]
+    public required string SoundFile { get; set; }
+
+    [Parameter]
+    public required RenderFragment ChildContent { get; set; }
+
+    [Parameter]
+    public Action? OnClick { get; set; }
+
+    [Parameter]
+    public Func<Task>? OnClickAsync { get; set; }
+
+    [Parameter]
+    public float Volume { get; set; } = 0.5f;
+
+    protected override async Task OnInitializedAsync()
+    {
+        context = await AudioContext.CreateAsync(JSRuntime);
+
+        byte[] audioData = await HttpClient.GetByteArrayAsync(SoundFile);
+        audio = await context.DecodeAudioDataAsync(audioData);
+
+        await using AudioDestinationNode destination = await context.GetDestinationAsync();
+        mixer = await context.CreateGainAsync();
+        await mixer.ConnectAsync(destination);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (mixer is null) return;
+
+        await using AudioParam gain = await mixer.GetGainAsync();
+        await gain.SetValueAsync(Volume);
+    }
+
+    public async Task Click()
+    {
+        if (context is null || mixer is null || audio is null) return;
+
+        await using AudioBufferSourceNode sourceNode = await AudioBufferSourceNode.CreateAsync(JSRuntime, context, new() { Buffer = audio });
+
+        await sourceNode.ConnectAsync(mixer);
+        await sourceNode.StartAsync();
+
+        if (OnClick is not null) OnClick();
+        if (OnClickAsync is not null) await OnClickAsync();
+
+        double duration = await audio.GetDurationAsync();
+        await Task.Delay((int)(duration * 1000));
+        await sourceNode.DisconnectAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (context is not null)
+            await context.DisposeAsync();
+
+        if (mixer is not null)
+        {
+            await mixer.DisconnectAsync();
+            await mixer.DisposeAsync();
+        }
+
+        if (audio is not null)
+            await audio.DisposeAsync();
+    }
+}
