@@ -1,0 +1,336 @@
+﻿@page "/Versions"
+@using System.Reflection
+@inject NugetClient NugetClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Blazor Relewise - Versions</PageTitle>
+
+<h1>Versions</h1>
+<p>
+    Here you can compare different versions of the Relewise SDK to see what features have been added between versions.
+    <br />
+    Select a version on the right and the left.
+</p>
+
+@if (versions.Count is 0)
+{
+    <text>Loading Versions ...</text>
+    return;
+}
+
+@if (selectingVersions)
+{
+    <center>
+        <button style="width:200px;" class="btn @(ReadyToCompare ? "btn-success" : "btn-secondary")" disabled="@(!ReadyToCompare)" @onclick=Compare>Compare!</button>
+    </center>
+    <br />
+    <div style="display:flex;flex-direction:row;">
+        <div class="list">
+            @foreach (var version in versions)
+            {
+                <div @onclick="() => LeftVersion = version.Version" style="@(version.Version == LeftVersion ? "background-color:lightBlue" : "")">
+                    @version.Version
+                    <small>&nbsp;(@version.Published.ToString("d"))</small>
+                </div>
+            }
+        </div>
+        <div class="list">
+            @foreach (var version in versions)
+            {
+                <div @onclick="() => RightVersion = version.Version" style="@(version.Version == RightVersion ? "background-color:lightBlue" : "")">
+                    @version.Version
+                    <small>&nbsp;(@version.Published.ToString("d"))</small>
+                </div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <center>
+        <h2>
+            Comparing from <code>@LeftVersion</code> <span style="font-size:medium;">(@(VersionTime(LeftVersion).ToString("d")))</span> to <code>@RightVersion</code> <span style="font-size:medium;">(@(VersionTime(RightVersion).ToString("d")))</span>
+        </h2>
+        <button style="width:200px;" class="btn btn-secondary btn-sm" @onclick=Reset>Select New Versions</button>
+        <br />
+    </center>
+    <br />
+
+    <hr />
+    <details open>
+        <summary style="font-size:xx-large">
+            Enums with added values (@(changedEnums?.Count ?? 0))
+        </summary>
+        @if (changedEnums is null)
+        {
+            <p>Loading changed enums ...</p>
+        }
+        else
+        {
+            if (changedEnums.Count == 0)
+            {
+                <p>There were no changed enums between these versions.</p>
+            }
+            @foreach ((Type type, var values) in changedEnums)
+            {
+                <h4>@Settings.Name(type)</h4>
+                <ul>
+                    @foreach (var value in values)
+                    {
+                        <li style="color:green;">@value</li>
+                    }
+                </ul>
+            }
+        }
+    </details>
+
+    <hr />
+    <details open>
+        <summary style="font-size:xx-large">
+            Enums types that were added (@(addedEnums?.Count ?? 0))
+        </summary>
+        @if (addedEnums is null)
+        {
+            <p>Loading added enums ...</p>
+        }
+        else
+        {
+            if (addedEnums.Count == 0)
+            {
+                <p>There were no added enums between these versions.</p>
+            }
+            @foreach (Type type in addedEnums)
+            {
+                <h4 style="color:green;">@Settings.Name(type)</h4>
+            }
+        }
+    </details>
+
+    <hr />
+    <details open>
+        <summary style="font-size:xx-large">
+            Types with changed properties (@(changedProperties?.Count ?? 0))
+        </summary>
+        @if (changedProperties is null)
+        {
+            <p>Loading changed properties ...</p>
+        }
+        else
+        {
+            if (changedProperties.Count == 0)
+            {
+                <p>There were no properties that were changed between these versions.</p>
+            }
+            @foreach ((Type type, var properties) in changedProperties)
+            {
+                <h4>@Settings.Name(type)</h4>
+                <ul>
+                    @foreach (var property in properties)
+                    {
+                        <li>@property.Name : <s style="color:red;">@property.OldType</s> <span style="color:green;">@property.NewType</span></li>
+                    }
+                </ul>
+            }
+        }
+    </details>
+
+    <hr />
+    <details open>
+        <summary style="font-size:xx-large">
+            Types with added properties (@(addedProperties?.Count ?? 0))
+        </summary>
+        @if (addedProperties is null)
+        {
+            <p>Loading added properties ...</p>
+        }
+        else
+        {
+            if (addedProperties.Count == 0)
+            {
+                <p>There were no added properties between these versions.</p>
+            }
+            @foreach ((Type type, var properties) in addedProperties)
+            {
+                <h4>@Settings.Name(type)</h4>
+                <ul>
+                    @foreach (var property in properties)
+                    {
+                        <li style="color:green;">@property.Name : @Settings.PropertyTypeName(property)</li>
+                    }
+                </ul>
+            }
+        }
+    </details>
+
+    <hr />
+    <details open>
+        <summary style="font-size:xx-large">
+            Added Types (@(addedTypes?.Count ?? 0))
+        </summary>
+        @if (addedTypes is null)
+        {
+            <p>Loading added types ...</p>
+        }
+        else
+        {
+            if (addedTypes.Count == 0)
+            {
+                <p>There were no added types between these versions.</p>
+            }
+            @foreach (Type type in addedTypes)
+            {
+                <h4 style="color:green;">@Settings.Name(type)</h4>
+            }
+        }
+    </details>
+}
+
+@code {
+    private List<NugetClient.PackageVersion> versions = new();
+    private bool selectingVersions = true;
+
+    public bool ReadyToCompare => LeftVersion is not null && RightVersion is not null;
+
+    List<Type>? addedEnums;
+    List<(Type, List<string>)>? changedEnums;
+    List<Type>? addedTypes;
+    List<(Type Type, List<(string Name, string OldType, string NewType)> PropertiesChanged)>? changedProperties;
+    List<(Type Type, List<PropertyInfo> PropertiesAdded)>? addedProperties;
+
+
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? LeftVersion { get; set; }
+
+    [SupplyParameterFromQuery(Name = "to")]
+    public string? RightVersion { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        versions = await NugetClient.Versions("Relewise.Client");
+
+        if (!versions.Any(v => v.Version == LeftVersion))
+            LeftVersion = null;
+
+        if (!versions.Any(v => v.Version == RightVersion))
+            RightVersion = null;
+    }
+
+    private DateTimeOffset VersionTime(string version) => versions.Single(v => v.Version == version).Published;
+
+    private void Reset()
+    {
+        selectingVersions = true;
+        addedEnums = null;
+        changedEnums = null;
+        addedTypes = null;
+        addedProperties = null;
+        changedProperties = null;
+    }
+
+    private async Task Compare()
+    {
+        selectingVersions = false;
+        StateHasChanged();
+        // Switch to right order if the left was not the smallest.
+        if (versions.IndexOf(versions.Single(v => v.Version == RightVersion)) > versions.IndexOf(versions.Single(v => v.Version == LeftVersion)))
+        {
+            (LeftVersion, RightVersion) = (RightVersion, LeftVersion);
+        }
+
+        string url = NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>()
+        {
+            { "from", LeftVersion },
+            { "to", RightVersion }
+        });
+        NavigationManager.NavigateTo(url, replace: true);
+
+        var oldestDLL = await NugetClient.DLL("Relewise.Client", LeftVersion!);
+        var newestDLL = await NugetClient.DLL("Relewise.Client", RightVersion!);
+
+        var oldestAssembly = Assembly.Load(oldestDLL);
+        var newestAssembly = Assembly.Load(newestDLL);
+
+        var oldConcreteTypes = Models.GetConcreteTypes(oldestAssembly.GetTypes());
+        var newConcreteTypes = Models.GetConcreteTypes(newestAssembly.GetTypes());
+
+        var oldEnumTypes = Models.GetEnumTypes(oldestAssembly.GetTypes());
+        var newEnumTypes = Models.GetEnumTypes(newestAssembly.GetTypes());
+
+        addedEnums = new();
+        changedEnums = new();
+
+        foreach (var newType in newEnumTypes)
+        {
+            if (oldEnumTypes.FirstOrDefault(oldType => oldType.FullName == newType.FullName) is { } matchingOldType)
+            {
+                List<string> oldValues = new();
+                foreach (var value in Enum.GetValues(matchingOldType))
+                {
+                    oldValues.Add(value.ToString());
+                }
+                List<string> newValues = new();
+                foreach (var value in Enum.GetValues(newType))
+                {
+                    newValues.Add(value.ToString());
+                }
+
+                List<string> addedEnumValues = newValues.Where(newValue => !oldValues.Contains(newValue)).ToList();
+
+                if (addedEnumValues.Count > 0)
+                {
+                    changedEnums.Add((newType, addedEnumValues));
+                    StateHasChanged();
+                    await Task.Delay(1);
+                }
+            }
+            else
+            {
+                addedEnums.Add(newType);
+                StateHasChanged();
+                await Task.Delay(1);
+            }
+        }
+
+        addedTypes = new();
+        addedProperties = new();
+        changedProperties = new();
+
+        foreach (var newType in newConcreteTypes)
+        {
+            if (oldConcreteTypes.FirstOrDefault(oldType => oldType.FullName == newType.FullName) is { } matchingOldType)
+            {
+                var oldProperties = Settings.GetProperties(matchingOldType);
+                var newProperties = Settings.GetProperties(newType);
+
+                List<PropertyInfo> newlyAddedProperties = newProperties
+                    .Where(p => !oldProperties.Any(old => old.Name == p.Name))
+                    .ToList();
+
+                if (newlyAddedProperties.Count > 0)
+                {
+                    addedProperties.Add((newType, newlyAddedProperties));
+                    StateHasChanged();
+                    await Task.Delay(1);
+                }
+
+                List<PropertyInfo> newlyTypedProperties = newProperties
+                    .Where(p => oldProperties.Any(old => old.Name == p.Name && Settings.PropertyTypeName(old) != Settings.PropertyTypeName(p)))
+                    .ToList();
+
+                if (newlyTypedProperties.Count > 0)
+                {
+                    changedProperties.Add((newType, newlyTypedProperties.Select(p => (p.Name, Settings.PropertyTypeName(oldProperties.Single(o => o.Name == p.Name)), Settings.PropertyTypeName(p))).ToList()));
+                    StateHasChanged();
+                    await Task.Delay(1);
+                }
+            }
+            else
+            {
+                addedTypes.Add(newType);
+                StateHasChanged();
+                await Task.Delay(1);
+            }
+
+        }
+    }
+}

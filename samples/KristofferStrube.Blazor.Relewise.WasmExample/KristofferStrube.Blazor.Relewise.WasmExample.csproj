@@ -8,6 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Pages\Versions.razor.css" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Pages\Versions.razor.css" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="KristofferStrube.Blazor.WebAudio" Version="0.1.0-alpha.8" />
     <PackageReference Include="KristofferStrube.Blazor.Window" Version="0.1.0-alpha.3" />
     <PackageReference Include="KristofferStrube.DocumentSearching.SuffixTrie" Version="0.1.0-alpha.3" />

@@ -1,7 +1,11 @@
 ﻿@page "/"
+@using System.Reflection
 
 <PageTitle>Blazor Relewise</PageTitle>
 
 <h1>Blazor Relewise</h1>
 
-Hello, this is a collection of tools for interacting with the <a href="https://relewise.com">Relewise API</a> using the <a href="https://www.nuget.org/packages/Relewise.Client">Relewise .NET SDK</a>
+Hello, this is a collection of tools for interacting with the <a href="https://relewise.com">Relewise API</a> using the <a href="https://www.nuget.org/packages/Relewise.Client">Relewise .NET SDK</a>.
+<br />
+<br />
+This version of the tools are generated from version <code>@(Assembly.GetAssembly(typeof(ClientBase))!.GetName().Version!.ToString()[..^2])</code> of the Relewise .NET SDK.

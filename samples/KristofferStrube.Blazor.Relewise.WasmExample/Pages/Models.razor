@@ -167,17 +167,24 @@
             .GetTypes()
             .ToList();
 
-    public static List<Type> ConcreteTypes = AssemblyTypes
-            .Where(t =>
-                !t.IsGenericType
-                && t.DeclaringType is null
-                && !t.IsAbstract
-                && !t.IsInterface
-                && !AssemblyTypes.Any(d => d != t && d.IsAssignableTo(t))
-                && t.GetConstructors().Any(c => c.GetParameters().Length is 0))
-            .OrderBy(t => t.Name.ToLower().Trim())
-            .ToList();
+    public static List<Type> ConcreteTypes = GetConcreteTypes(AssemblyTypes);
 
+    public static List<Type> GetConcreteTypes(IEnumerable<Type> input) => input
+        .Where(t =>
+            !t.IsGenericType
+            && t.DeclaringType is null
+            && !t.IsAbstract
+            && !t.IsInterface
+            && !AssemblyTypes.Any(d => d != t && d.IsAssignableTo(t))
+            && t.GetConstructors().Any(c => c.GetParameters().Length is 0))
+        .OrderBy(t => t.Name.ToLower().Trim())
+        .ToList();
+
+    public static List<Type> GetEnumTypes(IEnumerable<Type> input) => input
+        .Where(t => t.IsEnum)
+        .OrderBy(t => t.Name.ToLower().Trim())
+        .ToList();
+        
     public static List<Type> AbstractTypes = AssemblyTypes
             .Where(t =>
                 !t.IsGenericType

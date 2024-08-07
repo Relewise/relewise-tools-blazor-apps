@@ -1,0 +1,11 @@
+﻿.list {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    cursor: pointer;
+}
+
+.list>div:is(:hover) {
+    background-color:aliceblue;
+}
+

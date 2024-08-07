@@ -1,5 +1,6 @@
 ﻿using KristofferStrube.Blazor.Relewise.TypeEditors;
 using Relewise.Client.DataTypes;
+using System.Reflection;
 
 namespace KristofferStrube.Blazor.Relewise;
 
@@ -103,4 +104,33 @@ public static class Settings
 
         return name;
     }
+
+    public static string PropertyTypeName(PropertyInfo type)
+    {
+        if (Nullable.GetUnderlyingType(type.PropertyType) is { } simpleType)
+        {
+            return $"{Name(simpleType)}?";
+        }
+
+        if (new NullabilityInfoContext().Create(type).WriteState is NullabilityState.Nullable)
+        {
+            return $"{Name(type.PropertyType)}?";
+        }
+
+        var name = type.PropertyType.Name.Replace("`1", "").Replace("`2", "");
+
+        if (type.PropertyType.DeclaringType is { } nestedType)
+        {
+            name = $"{Name(nestedType)}.{name}";
+        }
+
+        if (type.PropertyType.GenericTypeArguments is { Length: > 0 } args)
+        {
+            name += $"<{string.Join(", ", args.Select(t => Name(t)))}>";
+        }
+
+        return name;
+    }
+
+    public static IEnumerable<PropertyInfo> GetProperties(Type type) => type.GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret");
 }

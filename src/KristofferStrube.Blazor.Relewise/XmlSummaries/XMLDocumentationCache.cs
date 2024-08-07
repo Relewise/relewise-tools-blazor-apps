@@ -1,4 +1,6 @@
 ﻿using AngleSharp;
+using Relewise.Client;
+using System.Reflection;
 using System.Threading;
 using System.Web;
 
@@ -27,7 +29,9 @@ public class XMLDocumentationCache
     {
         var httpClient = new HttpClient();
 
-        var content = await httpClient.GetStringAsync($"https://kristoffer-strube.dk/API/NugetXMLDocs/Relewise.Client/1.162.0");
+        var assembly = Assembly.GetAssembly(typeof(ClientBase));
+
+        var content = await httpClient.GetStringAsync($"https://kristoffer-strube.dk/API/NugetXMLDocs/Relewise.Client/{assembly!.GetName().Version!.ToString()[..^2]}");
 
         XmlDocumentation result = new();
 

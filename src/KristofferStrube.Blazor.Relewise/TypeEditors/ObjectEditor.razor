@@ -329,5 +329,5 @@
         return Convert.ToBase64String(result);
     }
 
-    private IEnumerable<PropertyInfo>? Properties => Value?.GetType().GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret");
+    private IEnumerable<PropertyInfo>? Properties => Value is null ? null : Settings.GetProperties(Value.GetType());
 }
