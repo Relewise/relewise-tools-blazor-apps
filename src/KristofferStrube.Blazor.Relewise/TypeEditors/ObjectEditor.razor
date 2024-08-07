@@ -116,10 +116,18 @@
                         if (HideDefaultValueProperties is not true || (Value is null && emptyInstanceOfValue is null) || (Value is not null && emptyInstanceOfValue is not null && JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue))))
                         {
                             <div @key=@($"{property.Name}-label")>
-                                <b>@property.Name</b>
-                                @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(property.DeclaringType, property.Name) is { } summary)
+                                @if (property.GetCustomAttribute<ObsoleteAttribute>() is ObsoleteAttribute { Message: { } obsoleteReason })
                                 {
-                                    <Info>@summary</Info>
+                                    <s><b>@property.Name</b></s>
+                                    <Info>@obsoleteReason</Info>
+                                }
+                                else
+                                {
+                                    <b>@property.Name</b>
+                                    @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(property.DeclaringType, property.Name) is { } summary)
+                                    {
+                                        <Info>@summary</Info>
+                                    }
                                 }
                             </div>
                             var potentialEditor = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.PropertyType));
