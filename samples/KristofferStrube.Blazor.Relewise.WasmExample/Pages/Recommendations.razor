@@ -27,7 +27,7 @@
     <br />
 }
 
-@if (StaticDatasetStorage.ParentOrigin is null || StaticDatasetStorage.ApiKey is "")
+@if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
 {
     <p>
         First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
@@ -35,27 +35,7 @@
         <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Recommender</code>.</small>
     </p>
 
-    <div class="input-group">
-        <div class="input-group-prepend">
-            <label for="serverUrl" class="input-group-text" style="width:120px;">Server URL</label>
-        </div>
-        <input @bind=StaticDatasetStorage.ServerUrl class="form-control" id="serverUrl" />
-    </div>
-    <br />
-    <div class="input-group">
-        <div class="input-group-prepend">
-            <label for="datasetId" class="input-group-text" style="width:120px;">Dataset Id</label>
-        </div>
-        <input @bind=StaticDatasetStorage.DatasetId class="form-control" id="datasetId" />
-    </div>
-    <br />
-    <div class="input-group">
-        <div class="input-group-prepend">
-            <label for="apiKey" class="input-group-text" style="width:120px;">API Key</label>
-        </div>
-        <input type="password" @bind=StaticDatasetStorage.ApiKey class="form-control" id="apiKey" />
-    </div>
-    <br />
+    <ConnectionCredentials />
 }
 
 @if (recommender is null)
@@ -119,7 +99,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (StaticDatasetStorage.DatasetId is not "" && StaticDatasetStorage.ApiKey is not "")
+        if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
         {
             Connect();
         }
