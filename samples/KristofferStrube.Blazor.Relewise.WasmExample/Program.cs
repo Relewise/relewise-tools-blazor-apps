@@ -5,6 +5,8 @@ using KristofferStrube.Blazor.Window;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
+AppContext.SetSwitch("System.Reflection.NullabilityInfoContext.IsSupported", true);
+
 WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
