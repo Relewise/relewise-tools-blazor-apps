@@ -206,7 +206,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        versions = await NugetClient.Versions("Relewise.Client");
+        versions = await NugetClient.Versions("relewise.client");
 
         if (!versions.Any(v => v.Version == LeftVersion))
             LeftVersion = null;
