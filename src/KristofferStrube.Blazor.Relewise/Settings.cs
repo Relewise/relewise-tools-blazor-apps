@@ -76,12 +76,21 @@ public static class Settings
                 {
                     return parameterLessConstructor.Invoke(null);
                 }
-                var someConstructor = t.GetConstructors().First();
-                var parameterTypes = someConstructor.GetParameters().Select(p => p.ParameterType);
-                var defaultValuesForParameters = parameterTypes.Select(t => t.IsValueType ? Activator.CreateInstance(t) : null).ToArray();
-                return someConstructor.Invoke(defaultValuesForParameters);
+                try {
+                    var someConstructor = t.GetConstructors().First();
+                    var parameterTypes = someConstructor.GetParameters().Select(p => p.ParameterType);
+                    var defaultValuesForParameters = parameterTypes.Select(t => t.IsValueType ? Activator.CreateInstance(t) : null).ToArray();
+                    return someConstructor.Invoke(defaultValuesForParameters);
+                }
+                catch {
+                    return null;
+                }
             })
     ];
+
+    public static bool CanCreateNoneNullInitValue(Type type) =>
+        Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor
+        && editor.InitValue(type) is not null;
 
     public static string Name(Type type)
     {
@@ -117,7 +126,7 @@ public static class Settings
             return $"{Name(type.PropertyType)}?";
         }
 
-        var name = type.PropertyType.Name.Replace("`1", "").Replace("`2", "");
+        var name = type.PropertyType.Name.Replace("`1", "").Replace("`2", "").Replace("`3", "");
 
         if (type.PropertyType.DeclaringType is { } nestedType)
         {

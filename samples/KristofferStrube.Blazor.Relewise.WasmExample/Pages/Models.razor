@@ -124,8 +124,8 @@
                 elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
             );
 
-        concreteTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(ConcreteTypes.ToArray(), t => t.Name.ToLower());
-        abstractTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(AbstractTypes.ToArray(), t => t.Name.ToLower());
+        concreteTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(ConcreteTypes.ToArray(), t => Settings.Name(t).ToLower());
+        abstractTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(AbstractTypes.ToArray(), t => Settings.Name(t).ToLower());
 
         await Search();
 
@@ -170,19 +170,13 @@
     public static List<Type> ConcreteTypes = GetConcreteTypes(AssemblyTypes);
 
     public static List<Type> GetConcreteTypes(IEnumerable<Type> input) => input
-        .Where(t =>
-            !t.IsGenericType
-            && t.DeclaringType is null
-            && !t.IsAbstract
-            && !t.IsInterface
-            && !AssemblyTypes.Any(d => d != t && d.IsAssignableTo(t))
-            && t.GetConstructors().Any(c => c.GetParameters().Length is 0))
-        .OrderBy(t => t.Name.ToLower().Trim())
+        .Where(t => !t.IsGenericType && !t.IsAbstract && !t.IsInterface && t.IsClass && t.IsVisible && Settings.CanCreateNoneNullInitValue(t))
+        .OrderBy(t => Settings.Name(t).ToLower().Trim())
         .ToList();
 
     public static List<Type> GetEnumTypes(IEnumerable<Type> input) => input
         .Where(t => t.IsEnum)
-        .OrderBy(t => t.Name.ToLower().Trim())
+        .OrderBy(t => Settings.Name(t).ToLower().Trim())
         .ToList();
         
     public static List<Type> AbstractTypes = AssemblyTypes
@@ -190,7 +184,7 @@
                 !t.IsGenericType
                 && t.DeclaringType is null
                 && (t.IsAbstract || t.IsInterface))
-            .OrderBy(t => t.Name.ToLower().Trim())
+            .OrderBy(t => Settings.Name(t).ToLower().Trim())
             .ToList();
 
     private static Dictionary<Type, Type> EditorTypes = ConcreteTypes
