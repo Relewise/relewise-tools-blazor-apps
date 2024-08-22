@@ -9,7 +9,7 @@
 <p>
     Here you can compare different versions of the Relewise SDK to see what features have been added between versions.
     <br />
-    Select a version on the right and the left.
+    Select a version on the left and the right to compare them.
 </p>
 
 @if (versions.Count is 0)
@@ -49,7 +49,28 @@ else
 {
     <center>
         <h2>
-            Comparing from <code>@LeftVersion</code> <span style="font-size:medium;">(@(VersionTime(LeftVersion).ToString("d")))</span> to <code>@RightVersion</code> <span style="font-size:medium;">(@(VersionTime(RightVersion).ToString("d")))</span>
+            <div style="display:flex;flex-direction:column;">
+                <div>
+                    Comparing
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto 1fr">
+                    <div style="display:flex;flex-direction:row;justify-content:right;">
+                        <div style="display:flex;flex-direction:column;padding-right:20px;">
+                            <code>@LeftVersion</code>
+                            <span style="font-size:medium;">(@(VersionTime(LeftVersion).ToString("d")))</span>
+                        </div>
+                    </div>
+                    <div>
+                        ⇒
+                    </div>
+                    <div style="display:flex;flex-direction:row;justify-content:left;">
+                        <div style="display:flex;flex-direction:column;padding-left:20px;">
+                            <code>@RightVersion</code>
+                            <span style="font-size:medium;">(@(VersionTime(RightVersion).ToString("d")))</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </h2>
         <button style="width:200px;" class="btn btn-secondary btn-sm" @onclick=Reset>Select New Versions</button>
         <br />
@@ -204,6 +225,9 @@ else
     [SupplyParameterFromQuery(Name = "to")]
     public string? RightVersion { get; set; }
 
+    [SupplyParameterFromQuery(Name = "compareToPreviousVersion")]
+    public string? CompareToPreviousVersion { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         versions = await NugetClient.Versions("relewise.client");
@@ -213,6 +237,17 @@ else
 
         if (!versions.Any(v => v.Version == RightVersion))
             RightVersion = null;
+
+        if (versions.Count > 0
+            && versions.FirstOrDefault(v => v.Version == CompareToPreviousVersion) is { } comparingVersion
+            && versions.Last() != comparingVersion)
+        {
+            LeftVersion = versions[versions.IndexOf(comparingVersion) + 1].Version;
+            RightVersion = comparingVersion.Version;
+        }
+
+        if (LeftVersion is not null && RightVersion is not null)
+            await Compare();
     }
 
     private DateTimeOffset VersionTime(string version) => versions.Single(v => v.Version == version).Published;
@@ -240,7 +275,8 @@ else
         string url = NavigationManager.GetUriWithQueryParameters(new Dictionary<string, object?>()
         {
             { "from", LeftVersion },
-            { "to", RightVersion }
+            { "to", RightVersion },
+            { "compareToPreviousVersion", null }
         });
         NavigationManager.NavigateTo(url, replace: true);
 
