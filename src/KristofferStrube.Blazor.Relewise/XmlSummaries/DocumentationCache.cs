@@ -1,28 +1,35 @@
 ﻿using AngleSharp;
 using Relewise.Client;
+using System.Net.Http.Json;
 using System.Reflection;
 using System.Threading;
 using System.Web;
 
 namespace KristofferStrube.Blazor.Relewise.XmlSummaries;
 
-public class XMLDocumentationCache
+public class DocumentationCache
 {
     private XmlDocumentation? xmlDocumentation;
+    private CommunityDocumentation? communityDocumentation;
 
     static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
-    public async Task<XmlDocumentation> GetAsync()
+
+    public async Task<(XmlDocumentation xml, CommunityDocumentation community)> GetAsync()
     {
-        if (xmlDocumentation is null)
+        if (xmlDocumentation is null || communityDocumentation is null)
         {
             await semaphoreSlim.WaitAsync();
             if (xmlDocumentation is null)
             {
                 xmlDocumentation = await getAsync();
             }
+            if (communityDocumentation is null)
+            {
+                communityDocumentation = await GetCommunityDocumentation();
+            }
         }
 
-        return xmlDocumentation;
+        return (xmlDocumentation, communityDocumentation);
     }
 
     private static async Task<XmlDocumentation> getAsync()
@@ -49,7 +56,7 @@ public class XMLDocumentationCache
             }
             else
             {
-                seeReference.OuterHtml = "damm";
+                seeReference.OuterHtml = "\"could not resolve reference\"";
             }
         }
 
@@ -74,6 +81,13 @@ public class XMLDocumentationCache
         }
 
         return result;
+    }
+
+    public async Task<CommunityDocumentation> GetCommunityDocumentation()
+    {
+        var httpClient = new HttpClient();
+
+        return new CommunityDocumentation(await httpClient.GetFromJsonAsync<List<CommunityDocumentationEntry>>("https://kristoffer-strube.dk/API/communitydocs/list"));
     }
 
     private static string JoinInOneLine(string text) => string.Join(" ", text.Split("\n").Select(line => line.Trim())).Trim();

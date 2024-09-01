@@ -77,7 +77,11 @@
                     }
                     @if (Value is not null && xmlDocumentation is not null && xmlDocumentation.GetSummary(Value.GetType()) is { } summary)
                     {
-                        <Info>@summary</Info>
+                        <TrustedInfo>@summary</TrustedInfo>
+                    }
+                    else if (Value is not null && communityDocumentation is not null && communityDocumentation.GetSummary(Value.GetType()) is { } communitySummary)
+                    {
+                        <CommunityInfo Summary="@communitySummary"></CommunityInfo>
                     }
                 }
                 @if (ShowModelShareLink)
@@ -119,14 +123,18 @@
                                 @if (property.GetCustomAttribute<ObsoleteAttribute>() is ObsoleteAttribute { Message: { } obsoleteReason })
                                 {
                                     <s><b>@property.Name</b></s>
-                                    <Info>@obsoleteReason</Info>
+                                    <TrustedInfo>@obsoleteReason</TrustedInfo>
                                 }
                                 else
                                 {
                                     <b>@property.Name</b>
                                     @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(property.DeclaringType, property.Name) is { } summary)
                                     {
-                                        <Info>@summary</Info>
+                                        <TrustedInfo>@summary</TrustedInfo>
+                                    }
+                                    else if (communityDocumentation is not null && communityDocumentation.GetSummary(property.DeclaringType, property.Name) is { } communitySummary)
+                                    {
+                                        <CommunityInfo Summary="@communitySummary"></CommunityInfo>
                                     }
                                 }
                             </div>
@@ -146,7 +154,7 @@
                                     </ErrorBoundary>
                                     @if (property.Name.Contains("Minutes") && property.PropertyType == typeof(int) && property.GetValue(Value) is int { } minutes)
                                     {
-                                        <Info>@TimeSpan.FromMinutes(minutes).Humanize(4)</Info>
+                                        <TrustedInfo>@TimeSpan.FromMinutes(minutes).Humanize(4)</TrustedInfo>
                                     }
                                     @if (!ReadOnly && property.GetValue(Value) != null && potentialEditor.EditorType(property.PropertyType).IsConstructedGenericType && potentialEditor.EditorType(property.PropertyType).GetGenericTypeDefinition() == typeof(ObjectEditor<>))
                                     {
@@ -172,6 +180,7 @@
     private List<Type> derivedTypes = new();
     private Type selectedCreateType = typeof(T);
     private XmlDocumentation? xmlDocumentation;
+    private CommunityDocumentation? communityDocumentation;
 
     [Parameter]
     public bool ShowModelShareLink { get; set; } = false;
@@ -204,11 +213,11 @@
     public required NavigationManager NavigationManager { get; set; }
 
     [Inject]
-    public required XMLDocumentationCache XMLDocumentationCache { get; set; }
+    public required DocumentationCache XMLDocumentationCache { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
-        xmlDocumentation = await XMLDocumentationCache.GetAsync();
+        (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
 
         hasBeenOpen = hasBeenOpen || OpenDetails || SingleLevelOpenDetails;
 

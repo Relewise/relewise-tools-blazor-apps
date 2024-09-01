@@ -6,7 +6,11 @@
         <i>@Settings.Name(Type) <small>(abstract type with @derivedTypes.Count concrete @(derivedTypes.Count is 1 ? "type" : "types"))</small></i>
         @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(Type) is { } summary)
         {
-            <Info>@summary</Info>
+            <TrustedInfo>@summary</TrustedInfo>
+        }
+        else if (communityDocumentation is not null && communityDocumentation.GetSummary(Type) is { } communitySummary)
+        {
+            <CommunityInfo Summary="@communitySummary"></CommunityInfo>
         }
     </summary>
     <div style="padding: 5px;">
@@ -47,6 +51,7 @@
 @code {
     private bool hasBeenOpen;
     private XmlDocumentation? xmlDocumentation;
+    private CommunityDocumentation? communityDocumentation;
     private List<Type> derivedTypes = new();
     private Dictionary<Type, object?> initValues = default!;
 
@@ -57,11 +62,11 @@
     public required Type Type { get; set; }
 
     [Inject]
-    public required XMLDocumentationCache XMLDocumentationCache { get; set; }
+    public required DocumentationCache XMLDocumentationCache { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
-        xmlDocumentation = await XMLDocumentationCache.GetAsync();
+        (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
 
         hasBeenOpen = hasBeenOpen || OpenDetails;
 

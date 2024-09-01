@@ -45,13 +45,13 @@ There are @propertyCount properties and @documentedPropertyCount of them are off
     private int summaries;
 
     [Inject]
-    public XMLDocumentationCache XMLDocumentationCache { get; set; }
+    public DocumentationCache XMLDocumentationCache { get; set; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        var documentation = await XMLDocumentationCache.GetAsync();
+        var (documentation, _) = await XMLDocumentationCache.GetAsync();
         foreach (var summary in documentation.Summaries)
         {
             summaries++;

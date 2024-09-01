@@ -1,0 +1,18 @@
+@using Markdig
+
+<Info>
+    @(new MarkupString(Markdown.ToHtml(Summary)))
+    <div style="pointer-events:none;">
+        <hr />
+        <small>
+            This comment is contributed by the community. This means that it should only be used as general guidance.
+            <br />
+            For trusted documentation consult the Relewise Documentation or Relewise Support.
+        </small>
+    </div>
+</Info>
+
+@code {
+    [Parameter]
+    public string Summary { get; set; }
+}
