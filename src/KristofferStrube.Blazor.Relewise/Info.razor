@@ -54,17 +54,4 @@
             }
         }
     }
-
-    public async Task DeactivateImmediately()
-    {
-        if (active)
-        {
-            active = false;
-            if (instance is not null)
-            {
-                await instance.Destroy();
-                instance = null;
-            }
-        }
-    }
 }
