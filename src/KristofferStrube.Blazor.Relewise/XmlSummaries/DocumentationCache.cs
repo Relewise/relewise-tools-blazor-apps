@@ -14,19 +14,26 @@ public class DocumentationCache
 
     static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
-    public async Task<(XmlDocumentation xml, CommunityDocumentation community)> GetAsync()
+    public async Task<(XmlDocumentation? xml, CommunityDocumentation? community)> GetAsync()
     {
-        if (xmlDocumentation is null || communityDocumentation is null)
+        try
         {
-            await semaphoreSlim.WaitAsync();
-            if (xmlDocumentation is null)
+            if (xmlDocumentation is null || communityDocumentation is null)
             {
-                xmlDocumentation = await getAsync();
+                await semaphoreSlim.WaitAsync();
+                if (xmlDocumentation is null)
+                {
+                    xmlDocumentation = await getAsync();
+                }
+                if (communityDocumentation is null)
+                {
+                    communityDocumentation = await GetCommunityDocumentation();
+                }
             }
-            if (communityDocumentation is null)
-            {
-                communityDocumentation = await GetCommunityDocumentation();
-            }
+        } catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+            return (null, null);
         }
 
         return (xmlDocumentation, communityDocumentation);
