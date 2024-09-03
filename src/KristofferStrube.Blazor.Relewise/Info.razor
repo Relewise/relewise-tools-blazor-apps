@@ -43,14 +43,10 @@
         if (active)
         {
             active = false;
-            await Task.Delay(200);
-            if (!active) // We check here again in case it was re-activated.
+            if (instance is not null)
             {
-                if (instance is not null)
-                {
-                    await instance.Destroy();
-                    instance = null;
-                }
+                await instance.Destroy();
+                instance = null;
             }
         }
     }
