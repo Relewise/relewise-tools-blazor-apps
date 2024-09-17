@@ -1,10 +1,13 @@
 &nbsp;<span class="round light" @ref=reference aria-describedby="tooltip" @onpointerover=Activate @onpointerout=Deactivate>?</span>
 
-<span style="width:0;height:0;overflow:hidden;display: inline-block;">
-    <span class="popper" @ref=tooltip role="tooltip">
-        @ChildContent
+@if (active)
+{
+    <span style="width:0;height:0;overflow:hidden;display: inline-block;">
+        <span class="popper" @ref=tooltip role="tooltip">
+            @ChildContent
+        </span>
     </span>
-</span>
+}
 
 @code {
     private bool active;
