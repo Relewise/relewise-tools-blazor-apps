@@ -80,7 +80,7 @@ else if (configurations is not null)
 {
     <h2>All Trigger Configurations</h2>
     <hr />
-    foreach (TriggerConfiguration configuration in configurations)
+    foreach (TriggerConfiguration configuration in configurations.OrderBy(c => int.TryParse(c.Group, out int rank) ? rank : int.MaxValue))
     {
         <div>
             <h3>@configuration.Name (<code>@configuration.GetType().Name)</code></h3>
