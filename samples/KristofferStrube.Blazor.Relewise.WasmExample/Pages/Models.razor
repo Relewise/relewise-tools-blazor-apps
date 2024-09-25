@@ -37,18 +37,32 @@
 </div>
 
 <div style="@(SearchTerm is "" ? "min-height:100vh;" : "")">
+    @if (corrections.Length is not 0)
+    {
+        <div>
+            <small>
+                <span>query corrections </span>
+                @foreach (string correction in corrections)
+                {
+                    <text> — </text>
+                    <u style="color:#00A; cursor: pointer;" @onclick=@(() => { SearchTerm = correction; UpdateSearchQueryString(replace: false); })>@correction</u>
+                }
+            </small>
+        </div>
+    }
     @if (continuations.Length is not 0)
     {
-        <small>
-            <span>query continuations </span>
-            @foreach (string continuation in continuations)
-            {
-                <text> — </text>
-                <u style="color:#00A; cursor: pointer;" @onclick=@(() => { SearchTerm = continuation; UpdateSearchQueryString(replace: false); })>@continuation</u>
-            }
-        </small>
+        <div>
+            <small>
+                <span>query continuations </span>
+                @foreach (string continuation in continuations)
+                {
+                    <text> — </text>
+                    <u style="color:#00A; cursor: pointer;" @onclick=@(() => { SearchTerm = continuation; UpdateSearchQueryString(replace: false); })>@continuation</u>
+                }
+            </small>
+        </div>
     }
-    <br />
     <br />
     @foreach (var type in SearchResults)
     {
@@ -97,6 +111,7 @@
     private DocumentIndex<Type, SuffixTrieSearchIndex> concreteTypesSearchIndex = default!;
     private DocumentIndex<Type, SuffixTrieSearchIndex> abstractTypesSearchIndex = default!;
 
+    private string[] corrections = [];
     private string[] continuations = [];
     private List<Type> filteredTypes = [];
     private List<Type> filteredAbstractTypes = [];
@@ -178,7 +193,7 @@
         .Where(t => t.IsEnum)
         .OrderBy(t => Settings.Name(t).ToLower().Trim())
         .ToList();
-        
+
     public static List<Type> AbstractTypes = AssemblyTypes
             .Where(t =>
                 !t.IsGenericType
@@ -209,6 +224,9 @@
         Type[] concreteResults;
         Type[] abstractResults;
 
+        var searchTermLower = SearchTerm.ToLower();
+        var searchTermLowerSplit = SearchTerm.ToLower().Trim().Split(" ").Select(p => p.Trim()).ToArray();
+
         if (SearchTerm is "")
         {
             concreteResults = ConcreteTypes.ToArray();
@@ -216,11 +234,33 @@
         }
         else
         {
-            concreteResults = concreteTypesSearchIndex.ExactSearch(SearchTerm.ToLower()).Select(sr => sr.Element).ToArray();
-            continuations = concreteTypesSearchIndex.ContinuationsSortedByOccurrences(SearchTerm.ToLower(), [' '], 5, mustBeAfterBreakChar: true);
-            abstractResults = abstractTypesSearchIndex.ExactSearch(SearchTerm.ToLower()).Select(sr => sr.Element).ToArray();
+            var concreteSearchIndexMatches = concreteTypesSearchIndex.ApproximateSearch(searchTermLower, 2);
+            var abstractSearchIndexMatches = abstractTypesSearchIndex.ApproximateSearch(searchTermLower, 2);
+
+            Dictionary<string, int> correctionSet = new();
+
+            int[] encodedInput = concreteTypesSearchIndex.SearchIndex.Input;
+            foreach (var result in concreteSearchIndexMatches)
+            {
+                foreach (var match in result.Matches.Where(m => m.Edits >= 1 && m.ExpandedCigar.First() is EditType.Match or EditType.MisMatch))
+                {
+                    string typeName = Settings.Name(result.Element);
+                    string constructedString = typeName[match.Position..Math.Min(match.Position + match.Length, typeName.Length)].ToLower();
+
+                    if (constructedString.Contains(".") || constructedString.Length < 2 || searchTermLowerSplit.Contains(constructedString))
+                        continue;
+
+                    correctionSet.TryGetValue(constructedString, out int count);
+                    correctionSet[constructedString] = count + 1;
+                }
+            }
+            corrections = correctionSet.OrderByDescending(kvp => kvp.Value).Select(kvp => kvp.Key).Take(5).ToArray();
+
+            concreteResults = concreteSearchIndexMatches.Select(sr => sr.Element).ToArray();
+            continuations = concreteTypesSearchIndex.ContinuationsSortedByOccurrences(searchTermLower, [' '], 5, mustBeAfterBreakChar: true);
+            abstractResults = abstractSearchIndexMatches.Select(sr => sr.Element).ToArray();
         }
-        singleExactMatch = concreteResults.Concat(abstractResults).FirstOrDefault(e => e.Name.ToLower() == SearchTerm.ToLower());
+        singleExactMatch = concreteResults.Concat(abstractResults).FirstOrDefault(e => Settings.Name(e).ToLower() == searchTermLower);
 
         if (concreteResults.Length > 10)
         {
