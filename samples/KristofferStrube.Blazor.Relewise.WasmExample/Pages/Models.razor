@@ -41,7 +41,7 @@
     {
         <div>
             <small>
-                <span>query corrections </span>
+                <span>search alternatives </span>
                 @foreach (string correction in corrections)
                 {
                     <text> — </text>
@@ -54,7 +54,7 @@
     {
         <div>
             <small>
-                <span>query continuations </span>
+                <span>search continuations </span>
                 @foreach (string continuation in continuations)
                 {
                     <text> — </text>
@@ -234,8 +234,8 @@
         }
         else
         {
-            var concreteSearchIndexMatches = concreteTypesSearchIndex.ApproximateSearch(searchTermLower, 2);
-            var abstractSearchIndexMatches = abstractTypesSearchIndex.ApproximateSearch(searchTermLower, 2);
+            var concreteSearchIndexMatches = concreteTypesSearchIndex.ApproximateSearch(searchTermLower, 1);
+            var abstractSearchIndexMatches = abstractTypesSearchIndex.ApproximateSearch(searchTermLower, 1);
 
             Dictionary<string, int> correctionSet = new();
 
