@@ -257,7 +257,7 @@
             corrections = correctionSet.OrderByDescending(kvp => kvp.Value).Select(kvp => kvp.Key).Take(5).ToArray();
 
             concreteResults = concreteSearchIndexMatches.Select(sr => sr.Element).ToArray();
-            continuations = concreteTypesSearchIndex.ContinuationsSortedByOccurrences(searchTermLower, [' '], 5, mustBeAfterBreakChar: true);
+            continuations = concreteTypesSearchIndex.ContinuationsSortedByOccurrences(searchTermLower, [' ', '.'], 5, mustBeAfterBreakChar: true);
             abstractResults = abstractSearchIndexMatches.Select(sr => sr.Element).ToArray();
         }
         singleExactMatch = concreteResults.Concat(abstractResults).FirstOrDefault(e => Settings.Name(e).ToLower() == searchTermLower);
