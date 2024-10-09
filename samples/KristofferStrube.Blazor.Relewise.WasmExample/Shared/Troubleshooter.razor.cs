@@ -214,7 +214,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     }
                 );
 
-                int show = Math.Min(response.Results.Length, 30); // We only show at most 30 results;
+                int show = Math.Min(response.Results.Length, 100); // We only show at most 100 results;
                 for (int i = 0; i < show; i++)
                 {
                     var result = response.Results[i];
