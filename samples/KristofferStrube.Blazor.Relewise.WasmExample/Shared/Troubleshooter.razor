@@ -68,7 +68,8 @@ else if (results?.Length > 0)
         @foreach (var result in results)
         {
             <div class="position">
-                @(result.Position).
+                @(result.Position).<br />
+                <small style="color:green;" title="It's ranking among the 1000 first result only with regards to relevance to the user; Not textual match.">(@result.PopularityIndex)</small>
             </div>
             <div>
                 <h4>

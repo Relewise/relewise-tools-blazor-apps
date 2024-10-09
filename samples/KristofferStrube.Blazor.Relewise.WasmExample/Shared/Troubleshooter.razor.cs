@@ -6,6 +6,7 @@ using Newtonsoft.Json.Converters;
 using Relewise.Client;
 using Relewise.Client.DataTypes;
 using Relewise.Client.DataTypes.Search;
+using Relewise.Client.Requests.Filters;
 using Relewise.Client.Requests.Queries;
 using Relewise.Client.Requests.Search;
 using Relewise.Client.Requests.Shared;
@@ -90,7 +91,13 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 jsonSerializerSettings.Converters.Add(new StringEnumConverter());
                 var duplicateRequest = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(searchRequest, jsonSerializerSettings), jsonSerializerSettings)!;
 
-                duplicateRequest.Take = 200; // We increase the number of response to make analysis on the tail.
+                duplicateRequest.Take = 1000; // We increase the number of response to make analysis on the tail.
+                if (duplicateRequest.Settings is not null)
+                {
+                    duplicateRequest.Settings.SelectedProductProperties = new();
+                    duplicateRequest.Settings.SelectedVariantProperties = new();
+                    duplicateRequest.Settings.SelectedBrandProperties = new();
+                }
 
                 string? language = duplicateRequest.Language?.Value;
 
@@ -121,6 +128,15 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 }
 
                 var response = await searcher!.SearchAsync(duplicateRequest);
+
+                // Prepare for the search without term, but limited to the same products and only with relevance.
+                string? term = duplicateRequest.Term;
+                duplicateRequest.Term = null;
+                duplicateRequest.Sorting = null;
+                duplicateRequest.Filters = new(new ProductIdFilter(response.Results.Select(r => r.ProductId)));
+                duplicateRequest.Facets = null;
+
+                var relevanceResponse = await searcher!.SearchAsync(duplicateRequest);
 
                 SelectedProductDetailsPropertiesSettings selectedProductProperties = new()
                 {
@@ -226,10 +242,10 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                         if (indexedValue is not null)
                         {
                             List<Match>? matches = null;
-                            if (duplicateRequest.Term is not null)
+                            if (term is not null)
                             {
                                 var documentIndex = DocumentIndex<string, SuffixTrieSearchIndex>.Create([indexedValue], s => s.ToLower());
-                                var searchResults = documentIndex.ApproximateSearch(duplicateRequest.Term.ToLower(), duplicateRequest.Term.Length > 6 ? 2 : 1);
+                                var searchResults = documentIndex.ApproximateSearch(term.ToLower(), term.Length > 6 ? 2 : 1);
                                 if (searchResults.FirstOrDefault() is { } matchCollection)
                                 {
                                     var lowestNumberOfEdits = matchCollection.Matches.Min(m => m.Edits);
@@ -246,6 +262,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     localResults.Add(new()
                     {
                         Position = i + 1,
+                        PopularityIndex = relevanceResponse.Results.ToList().IndexOf(relevanceResponse.Results.First(r => r.ProductId == result.ProductId)) + 1,
                         Id = result.ProductId,
                         DisplayName = productQueryResult.DisplayName?.Values?.FirstOrDefault(d => d.Language.Value.Equals(language, StringComparison.OrdinalIgnoreCase))?.Text,
                         IndexedValues = indexedValues
@@ -275,6 +292,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
         public class SearchResult
         {
             public required int Position { get; set; }
+            public required int PopularityIndex { get; set; }
             public required string Id { get; set; }
             public string? DisplayName { get; set; }
             public required List<IndexedValue> IndexedValues { get; set; }

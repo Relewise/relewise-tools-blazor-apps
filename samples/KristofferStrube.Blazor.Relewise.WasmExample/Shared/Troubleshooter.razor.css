@@ -6,6 +6,5 @@
 }
 
 .position {
-    justify-content: right;
-    align-items: end;
+    text-align:right;
 }
