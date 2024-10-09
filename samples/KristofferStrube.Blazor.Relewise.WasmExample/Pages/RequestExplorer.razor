@@ -6,7 +6,9 @@
 @using Newtonsoft.Json.Converters
 @using global::Relewise.Client.Requests
 @using global::Relewise.Client.Requests.Recommendations
+@using global::Relewise.Client.Requests.Search
 @using global::Relewise.Client.Responses
+@using KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
 <PageTitle>Blazor Relewise - Request Explorer</PageTitle>
 
@@ -69,5 +71,6 @@ else if (message is not null)
 {
     <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=readOnly T=LicensedRequest ShowModelShareLink=@(Models.ConcreteTypes.Contains(request?.GetType())) Value="request" Setter="(Object? obj) => { request = (LicensedRequest?)obj; StateHasChanged(); }" />
     <br />
+    <Troubleshooter Request="request" />
+    <br />
 }
-

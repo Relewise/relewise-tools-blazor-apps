@@ -1,0 +1,11 @@
+.grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-gap: 5px;
+    font-size: large;
+}
+
+.position {
+    justify-content: right;
+    align-items: end;
+}

@@ -7,15 +7,7 @@
     <RunAOTCompilation>true</RunAOTCompilation>
     <NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Remove="Pages\Versions.razor.css" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Pages\Versions.razor.css" />
-  </ItemGroup>
-
+  
   <ItemGroup>
     <PackageReference Include="KristofferStrube.Blazor.WebAudio" Version="0.1.0-alpha.11" />
     <PackageReference Include="KristofferStrube.Blazor.Window" Version="0.1.0-alpha.6" />
@@ -23,10 +15,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.0" PrivateAssets="all" />
   </ItemGroup>
-
+  
   <ItemGroup>
-    <ProjectReference Include="..\..\..\DocumentSearching\src\KristofferStrube.DocumentSearching.SuffixTree\KristofferStrube.DocumentSearching.SuffixTrie.csproj" />
-    <ProjectReference Include="..\..\..\DocumentSearching\src\KristofferStrube.DocumentSearching\KristofferStrube.DocumentSearching.csproj" />
     <ProjectReference Include="..\..\src\KristofferStrube.Blazor.Relewise\KristofferStrube.Blazor.Relewise.csproj" />
   </ItemGroup>
 
