@@ -191,6 +191,14 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     }
                 }
 
+                if (response.Results.Length is 0)
+                {
+                    results = [];
+                    message = "Search gave no results.";
+                    error = null;
+                    return;
+                }
+
                 var productQueryResponse = await dataAccessor!.QueryAsync(
                     new ProductQuery(
                         response.Results.Select(r => r.ProductId),
@@ -217,18 +225,22 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                         var indexedValue = indexedKey.selector?.Invoke(productQueryResult);
                         if (indexedValue is not null)
                         {
-                            Match? match = null;
+                            List<Match>? matches = null;
                             if (duplicateRequest.Term is not null)
                             {
                                 var documentIndex = DocumentIndex<string, SuffixTrieSearchIndex>.Create([indexedValue], s => s.ToLower());
-                                var searchResults = documentIndex.ApproximateSearch(duplicateRequest.Term.ToLower(), duplicateRequest.Term.Length > 8 ? 3 : duplicateRequest.Term.Length > 6 ? 2 : duplicateRequest.Term.Length > 4 ? 1 : 0);
-                                if (searchResults.FirstOrDefault() is { } matchCollection
-                                    && matchCollection.Matches.OrderBy(m => m.Edits).ThenBy(m => m.Position).FirstOrDefault() is { } bestAndFirstMatch)
+                                var searchResults = documentIndex.ApproximateSearch(duplicateRequest.Term.ToLower(), duplicateRequest.Term.Length > 6 ? 2 : 1);
+                                if (searchResults.FirstOrDefault() is { } matchCollection)
                                 {
-                                    match = bestAndFirstMatch;
+                                    var lowestNumberOfEdits = matchCollection.Matches.Min(m => m.Edits);
+                                    var goodEnoughMatches = matchCollection.Matches.Where(m => m.Edits <= lowestNumberOfEdits + 1).OrderBy(m => m.Edits).ThenBy(m => m.Position);
+                                    if (goodEnoughMatches.Count() > 0)
+                                    {
+                                        matches = goodEnoughMatches.ToList();
+                                    }
                                 }
                             }
-                            indexedValues.Add(new(indexedKey.name, indexedKey.weight, indexedValue, match));
+                            indexedValues.Add(new(indexedKey.name, indexedKey.weight, indexedValue, matches));
                         }
                     }
                     localResults.Add(new()
@@ -268,7 +280,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
             public required List<IndexedValue> IndexedValues { get; set; }
         }
         
-        public record IndexedValue(string Name, int Weight, string Content, Match? TermMatch);
+        public record IndexedValue(string Name, int Weight, string Content, List<Match>? TermMatches);
 
         public record Improvement(Severity Severity, string Message);
 

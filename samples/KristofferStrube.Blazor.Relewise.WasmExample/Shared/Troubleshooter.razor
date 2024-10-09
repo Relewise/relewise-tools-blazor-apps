@@ -79,34 +79,53 @@ else if (results?.Length > 0)
                     {
                         <b title="Has weight @indexedValue.Weight"> @indexedValue.Name</b>
                         <div>
-                            @if (indexedValue.TermMatch is not { } match)
+                            @if (indexedValue.TermMatches is not { } matches)
                             {
                                 @indexedValue.Content
                             }
                             else
                             {
-                                int offset = 0;
-                                @indexedValue.Content[..match.Position]
-                                for (int i = 0; i < match.ExpandedCigar.Length; i++)
+                                @for (int i = 0; i < indexedValue.Content.Length; i++)
                                 {
-                                    if (match.ExpandedCigar[i] is EditType.Match)
+                                    if (matches.FirstOrDefault(m => i == m.Position) is { } match && match.Length is not 0)
                                     {
-                                        <span style="background-color:#9F9;">@indexedValue.Content[match.Position + i + offset]</span>
+                                        int offset = 0;
+                                        for (int j = 0; j < match.ExpandedCigar.Length && i + j + offset < indexedValue.Content.Length; j++)
+                                        {
+                                            if (match.ExpandedCigar[j] is EditType.Match)
+                                            {
+                                                <span style="background-color:#9F9;">@indexedValue.Content[i + j + offset]</span>
+                                            }
+                                            else if (match.ExpandedCigar[j] is EditType.MisMatch)
+                                            {
+                                                <span style="background-color:#EE9;">@indexedValue.Content[i + j + offset]</span>
+                                            }
+                                            else if (match.ExpandedCigar[j] is EditType.Insert)
+                                            {
+                                                <span style="background-color:#EE9;">@indexedValue.Content[i + j + offset]</span>
+                                            }
+                                            else if (match.ExpandedCigar[j] is EditType.Delete)
+                                            {
+                                                offset--;
+                                            }
+                                        }
+                                        i += match.Length - 1;
                                     }
-                                    else if (match.ExpandedCigar[i] is EditType.MisMatch)
+                                    else
                                     {
-                                        <span style="background-color:#EE9;">@indexedValue.Content[match.Position + i + offset]</span>
-                                    }
-                                    else if (match.ExpandedCigar[i] is EditType.Insert)
-                                    {
-                                        <span style="background-color:#EE9;">@indexedValue.Content[match.Position + i + offset]</span>
-                                    }
-                                    else if (match.ExpandedCigar[i] is EditType.Delete)
-                                    {
-                                        offset--;
+                                        int nextMatch = matches.FirstOrDefault(m => m.Position >= i).Position;
+                                        if (nextMatch != 0)
+                                        {
+                                            <span>@indexedValue.Content[i..(nextMatch)]</span>
+                                            i = nextMatch - 1;
+                                        }
+                                        else
+                                        {
+                                            <span>@indexedValue.Content[i..]</span>
+                                            i = indexedValue.Content.Length;
+                                        }
                                     }
                                 }
-                                @indexedValue.Content[(match.Position + match.Length)..]
                             }
                         </div>
                     }
