@@ -221,7 +221,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                             if (duplicateRequest.Term is not null)
                             {
                                 var documentIndex = DocumentIndex<string, SuffixTrieSearchIndex>.Create([indexedValue], s => s.ToLower());
-                                var searchResults = documentIndex.ApproximateSearch(duplicateRequest.Term.ToLower(), 3, thresholdForUsingApproximate: 5);
+                                var searchResults = documentIndex.ApproximateSearch(duplicateRequest.Term.ToLower(), duplicateRequest.Term.Length > 8 ? 3 : duplicateRequest.Term.Length > 6 ? 2 : duplicateRequest.Term.Length > 4 ? 1 : 0);
                                 if (searchResults.FirstOrDefault() is { } matchCollection
                                     && matchCollection.Matches.OrderBy(m => m.Edits).ThenBy(m => m.Position).FirstOrDefault() is { } bestAndFirstMatch)
                                 {
