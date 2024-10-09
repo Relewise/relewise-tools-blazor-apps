@@ -233,7 +233,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                                 if (searchResults.FirstOrDefault() is { } matchCollection)
                                 {
                                     var lowestNumberOfEdits = matchCollection.Matches.Min(m => m.Edits);
-                                    var goodEnoughMatches = matchCollection.Matches.Where(m => m.Edits <= lowestNumberOfEdits + 1).OrderBy(m => m.Edits).ThenBy(m => m.Position);
+                                    var goodEnoughMatches = matchCollection.Matches.Where(m => m.Edits <= lowestNumberOfEdits + 1).OrderBy(m => m.Position).ThenBy(m => m.Edits);
                                     if (goodEnoughMatches.Count() > 0)
                                     {
                                         matches = goodEnoughMatches.ToList();
