@@ -75,7 +75,7 @@ else if (results?.Length > 0)
             <div class="card" @key=@result>
                 <div class="header">
                     <div class="name">
-                        @result.ProductId @(result.VariantId is not null ? " — " + result.VariantId : "") &nbsp;
+                        @result.ProductId @(result.VariantId is not null ? " - " + result.VariantId : "") &nbsp;
                     </div>
                     <div class="icons">
                         @foreach (var ruleSummary in result.MerchandisingRules)
