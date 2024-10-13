@@ -306,11 +306,6 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 if (!rule.Enabled)
                     continue;
 
-                if (rule.Conditions.User?.Conditions?.Items?.Count > 0)
-                {
-                    improvements.Add(new Improvement(Severity.Message, $"We found matches for the Boost and Burry Rule '{rule.Name}' but it had user conditions which we could not validate so it might not show accurate matches."));
-                }
-
                 var contextFilters = rule.Conditions.Context.Filters;
 
                 bool anyContextMatches = false;
@@ -326,6 +321,11 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                 if (!anyContextMatches)
                     continue;
+
+                if (rule.Conditions.User?.Conditions?.Items?.Count > 0)
+                {
+                    improvements.Add(new Improvement(Severity.Message, $"We found matches for the Boost and Burry Rule '{rule.Name}' but it had user conditions which we currently don't validate so there might be false positive matches."));
+                }
 
                 var queryForProductsFittingFilters = new ProductQuery(productIds, request.Language, request.Currency);
                 queryForProductsFittingFilters.Filters!.Items!.AddRange(rule.Conditions.Target.Filters.Items ?? []);
