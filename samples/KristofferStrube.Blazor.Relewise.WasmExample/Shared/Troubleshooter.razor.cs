@@ -11,11 +11,14 @@ using Relewise.Client.DataTypes.Merchandising.Rules;
 using Relewise.Client.DataTypes.Search;
 using Relewise.Client.Requests.Filters;
 using Relewise.Client.Requests.Queries;
+using Relewise.Client.Requests.RelevanceModifiers;
 using Relewise.Client.Requests.Search;
 using Relewise.Client.Requests.Shared;
+using Relewise.Client.Requests.ValueSelectors;
 using Relewise.Client.Responses.Search;
 using Relewise.Client.Search;
 using System.Linq;
+using static Relewise.Client.DataTypes.RetailMedia.RetailMediaResult.Placement.ResultEntity;
 
 namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 {
@@ -29,12 +32,15 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
         private MerchandisingAccessor? merchandisingAccessor;
         private SearchResult[]? results;
         private List<Improvement> improvements = [];
+        private Dictionary<BoostAndBuryRule, List<(string productId, string? variantId)>> resultsWithoutMerchandisingRule = new();
 
         [Parameter, EditorRequired]
         public required object Request { get; set; }
 
         protected override async Task OnInitializedAsync()
         {
+            jsonSerializerSettings.Converters.Add(new StringEnumConverter());
+
             if (Request is not { } ProductSearchRequest)
                 return;
 
@@ -79,6 +85,14 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
             }
         }
 
+
+        private JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings
+        {
+            TypeNameHandling = TypeNameHandling.Auto,
+            NullValueHandling = NullValueHandling.Ignore,
+            Formatting = Formatting.None
+        };
+
         private async Task ExecuteProductSearchRequest(ProductSearchRequest searchRequest)
         {
             try
@@ -87,13 +101,6 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                 improvements.Clear();
 
-                var jsonSerializerSettings = new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.Auto,
-                    NullValueHandling = NullValueHandling.Ignore,
-                    Formatting = Formatting.None
-                };
-                jsonSerializerSettings.Converters.Add(new StringEnumConverter());
                 var duplicateRequest = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(searchRequest, jsonSerializerSettings), jsonSerializerSettings)!;
 
                 duplicateRequest.Skip = 0;
@@ -136,13 +143,15 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 var response = await searcher!.SearchAsync(duplicateRequest);
 
                 // Prepare for the search without term, but limited to the same products and only with relevance.
-                string? term = duplicateRequest.Term;
-                duplicateRequest.Term = null;
-                duplicateRequest.Sorting = null;
-                duplicateRequest.Filters = new(new ProductIdFilter(response.Results.Select(r => r.ProductId)));
-                duplicateRequest.Facets = null;
+                var requestWithoutTerm = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(duplicateRequest, jsonSerializerSettings), jsonSerializerSettings)!;
 
-                var relevanceResponse = await searcher!.SearchAsync(duplicateRequest);
+                string? term = requestWithoutTerm.Term;
+                requestWithoutTerm.Term = null;
+                requestWithoutTerm.Sorting = null;
+                requestWithoutTerm.Filters = new(new ProductIdFilter(response.Results.Select(r => r.ProductId)));
+                requestWithoutTerm.Facets = null;
+
+                var relevanceResponse = await searcher!.SearchAsync(requestWithoutTerm);
 
                 SelectedProductDetailsPropertiesSettings selectedProductProperties = new()
                 {
@@ -150,27 +159,33 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     DataKeys = []
                 };
 
-                List<(string name, int weight, Func<ProductResultDetails, string?> selector)> indexedKeys = new();
+                SelectedVariantDetailsPropertiesSettings selectedVariantProperties = new()
+                {
+                    DisplayName = true,
+                    DataKeys = [],
+                };
+
+                List<(string name, int weight, Func<ProductResultDetails, VariantResultDetails?, string?> selector)> indexedKeys = new();
 
                 if (searchIndex is not null)
                 {
                     var productIndex = searchIndex.Configuration.Product;
                     if (productIndex.Id?.Included == true)
                     {
-                        indexedKeys.Add(("Id", productIndex.Id.Weight, p => p.ProductId));
+                        indexedKeys.Add(("Id", productIndex.Id.Weight, (p, _) => p.ProductId));
                     }
                     if (productIndex.DisplayName?.Included == true)
                     {
-                        indexedKeys.Add(("Display Name", productIndex.DisplayName.Weight, p => p.DisplayName?.Values?.FirstOrDefault(d => d.Language.Value.Equals(language, StringComparison.OrdinalIgnoreCase))?.Text));
+                        indexedKeys.Add(("Display Name", productIndex.DisplayName.Weight, (p, _) => p.DisplayName?.Values?.FirstOrDefault(d => d.Language.Value.Equals(language, StringComparison.OrdinalIgnoreCase))?.Text));
                     }
                     if (productIndex.Brand?.Id?.Included == true)
                     {
-                        indexedKeys.Add(("Brand Id", productIndex.Brand.Id.Weight, p => p.Brand?.BrandId));
+                        indexedKeys.Add(("Brand Id", productIndex.Brand.Id.Weight, (p, _) => p.Brand?.BrandId));
                         selectedProductProperties.Brand = true;
                     }
                     if (productIndex.Brand?.DisplayName?.Included == true)
                     {
-                        indexedKeys.Add(("Brand Display Name", productIndex.Brand.DisplayName.Weight, p => p.Brand?.DisplayName));
+                        indexedKeys.Add(("Brand Display Name", productIndex.Brand.DisplayName.Weight, (p, _) => p.Brand?.DisplayName));
                         selectedProductProperties.Brand = true;
                     }
                     if (productIndex.Category?.Unspecified?.Id?.Included == true)
@@ -178,7 +193,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                         indexedKeys.Add((
                             "Category Ids",
                             productIndex.Category.Unspecified.Id.Weight,
-                            p => string.Join(" | ", p.CategoryPaths.Select(path => string.Join(">", path.BreadcrumbPathStartingFromRoot.Select(b => b.Id))))));
+                            (p, _) => string.Join(" | ", p.CategoryPaths.Select(path => string.Join(">", path.BreadcrumbPathStartingFromRoot.Select(b => b.Id))))));
 
                         selectedProductProperties.CategoryPaths = true;
                     }
@@ -187,7 +202,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                         indexedKeys.Add((
                             "Category Display Names",
                             productIndex.Category.Unspecified.DisplayName.Weight,
-                            p => string.Join(
+                            (p, _) => string.Join(
                                 " | ",
                                 p.CategoryPaths?.Select(path =>
                                     string.Join(
@@ -208,7 +223,26 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                         if (field.Value.Included)
                         {
                             selectedProductProperties.DataKeys = [field.Key, .. selectedProductProperties.DataKeys];
-                            indexedKeys.Add((field.Key, field.Value.Weight, p => (p.Data?.TryGetValue(field.Key, out var fieldValue) == true ? DataValueAsString(fieldValue, language) : null)));
+                            indexedKeys.Add((field.Key, field.Value.Weight, (p, _) => p.Data?.TryGetValue(field.Key, out var fieldValue) == true ? DataValueAsString(fieldValue, language) : null));
+                        }
+                    }
+
+                    var variantIndex = searchIndex.Configuration.Product?.Variants;
+                    if (variantIndex?.Id?.Included == true)
+                    {
+                        indexedKeys.Add(("Variant: Id", variantIndex.Id.Weight, (_, v) => v?.VariantId));
+                    }
+                    if (variantIndex?.DisplayName?.Included == true)
+                    {
+                        indexedKeys.Add(("Variant: Display Name", variantIndex.DisplayName.Weight, (_, v) => v?.DisplayName?.Values?.FirstOrDefault(d => d.Language.Value.Equals(language, StringComparison.OrdinalIgnoreCase))?.Text));
+                    }
+
+                    foreach (var field in searchIndex.Configuration.Product?.Variants?.Data?.Keys ?? [])
+                    {
+                        if (field.Value.Included)
+                        {
+                            selectedVariantProperties.DataKeys = [field.Key, .. selectedVariantProperties.DataKeys];
+                            indexedKeys.Add(("Variant: " + field.Key, field.Value.Weight, (_, v) => v?.Data?.TryGetValue(field.Key, out var fieldValue) == true ? DataValueAsString(fieldValue, language) : null));
                         }
                     }
                 }
@@ -221,32 +255,69 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     return;
                 }
 
-                var merchandisingRulesForProducts = await MatchingMerchandisingRules(response.Results.Select(r => r.ProductId).ToList());
+                var merchandisingRulesForProducts = await MatchingMerchandisingRules(searchRequest, response.Results);
 
-                var productQueryResponse = await dataAccessor!.QueryAsync(
+                var allMatchingMerchandisingRules = merchandisingRulesForProducts
+                    .SelectMany(m => m.Value.Select(s => s.Rule));
+
+                var allDataDoubleSelectors = allMatchingMerchandisingRules
+                    .Where(r => r.MultiplierSelector is DataDoubleSelector)
+                    .Select(r => (DataDoubleSelector)r.MultiplierSelector)
+                    .ToList();
+
+                foreach(var selector in allDataDoubleSelectors)
+                {
+                    selectedProductProperties.DataKeys = [selector.Key, .. selectedProductProperties.DataKeys];
+                    selectedVariantProperties.DataKeys = [selector.Key, .. selectedVariantProperties.DataKeys];
+                }
+
+                if (searchRequest.Settings?.ExplodedVariants > 0 || searchRequest.Term is not null)
+                {
+                    List<ProductAndVariantId> specificVariants = new();
+                    foreach (var result in response.Results)
+                    {
+                        if (result.Variant?.VariantId is { } variantId)
+                        {
+                            specificVariants.Add(new(result.ProductId, variantId));
+                        }
+                    }
+                    selectedProductProperties.FilteredVariants = new()
+                    {
+                        Filters = new(new ProductAndVariantIdFilter(specificVariants))
+                    };
+                }
+
+                var resultDetailsResponse = await dataAccessor!.QueryAsync(
                     new ProductQuery(
                         response.Results.Select(r => r.ProductId),
                         language: duplicateRequest.Language,
                         currency: duplicateRequest.Currency
-                    )
+                        )
                     {
                         ResultSettings = new()
                         {
                             SelectedProductDetailsProperties = selectedProductProperties,
-                            SelectedVariantDetailsProperties = new()
+                            SelectedVariantDetailsProperties = selectedVariantProperties,
                         }
-                    }
-                );
+                    });
+
+                resultsWithoutMerchandisingRule = new();
+
+                foreach(var rule in allMatchingMerchandisingRules)
+                {
+                    resultsWithoutMerchandisingRule[rule] = await RequestWithoutMerchandisingRule(rule, merchandisingRulesForProducts.Where(kvp => kvp.Value.Any(s => s.Rule == rule)).Select(kvp => kvp.Key).ToList(), resultDetailsResponse.Products, duplicateRequest);
+                }
 
                 int show = Math.Min(response.Results.Length, 100); // We only show at most 100 results;
                 for (int i = 0; i < show; i++)
                 {
                     var result = response.Results[i];
-                    var productQueryResult = productQueryResponse.Products.First(p => p.ProductId == result.ProductId);
+                    var productQueryResult = resultDetailsResponse.Products.First(p => p.ProductId == result.ProductId);
+                    var variantQueryResult = productQueryResult.FilteredVariants?.FirstOrDefault(v => v.VariantId == result.Variant?.VariantId);
                     List<IndexedValue> indexedValues = new();
                     foreach (var indexedKey in indexedKeys.OrderByDescending(k => k.weight))
                     {
-                        var indexedValue = indexedKey.selector?.Invoke(productQueryResult);
+                        var indexedValue = indexedKey.selector?.Invoke(productQueryResult, variantQueryResult);
                         if (indexedValue is not null)
                         {
                             List<Match>? matches = null;
@@ -271,10 +342,11 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     {
                         Position = i + 1,
                         PopularityIndex = relevanceResponse.Results.ToList().IndexOf(relevanceResponse.Results.First(r => r.ProductId == result.ProductId)) + 1,
-                        Id = result.ProductId,
+                        ProductId = result.ProductId,
+                        VariantId = result.Variant?.VariantId,
                         DisplayName = productQueryResult.DisplayName?.Values?.FirstOrDefault(d => d.Language.Value.Equals(language, StringComparison.OrdinalIgnoreCase))?.Text,
                         IndexedValues = indexedValues,
-                        MerchandisingRules = merchandisingRulesForProducts.TryGetValue(result.ProductId, out var list) ? list : [],
+                        MerchandisingRules = merchandisingRulesForProducts.TryGetValue((result.ProductId, result.Variant?.VariantId), out var set) ? set.ToList() : [],
                     });
                 }
                 results = localResults.ToArray();
@@ -292,14 +364,11 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
         private static readonly Dictionary<Type, byte> _typeToUnion = typeof(SearchRequest).GetCustomAttributes(typeof(UnionAttribute), false).Cast<UnionAttribute>().ToDictionary(k => k.SubType, v => (byte)v.Key);
 
-        public async Task<Dictionary<string, List<MerchandisingRuleSummary>>> MatchingMerchandisingRules(List<string> productIds)
+        public async Task<Dictionary<(string productId, string? variantId), HashSet<MerchandisingRuleSummary>>> MatchingMerchandisingRules(ProductSearchRequest request, ProductResult[] productResults)
         {
-            Dictionary<string, List<MerchandisingRuleSummary>> results = new();
+            Dictionary<(string productId, string? variantId), HashSet<MerchandisingRuleSummary>> results = new();
 
             var merchandisingRulesRepsonse = await merchandisingAccessor!.LoadAsync<BoostAndBuryRule>();
-
-            if (Request is not ProductSearchRequest { } request)
-                return null!;
 
             foreach (var rule in merchandisingRulesRepsonse.Rules)
             {
@@ -327,22 +396,84 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     improvements.Add(new Improvement(Severity.Message, $"We found matches for the Boost and Burry Rule '{rule.Name}' but it had user conditions which we currently don't validate so there might be false positive matches."));
                 }
 
-                var queryForProductsFittingFilters = new ProductQuery(productIds, request.Language, request.Currency);
+                List<string> productsToFilter = productResults
+                    .Select(r => r.ProductId)
+                    .Distinct()
+                    .ToList();
+
+                var queryForProductsFittingFilters = new ProductQuery(productsToFilter, request.Language, request.Currency);
+
                 queryForProductsFittingFilters.Filters!.Items!.AddRange(rule.Conditions.Target.Filters.Items ?? []);
+
+                List<ProductAndVariantId> variantsToFilter = productResults
+                    .Where(r => r.Variant?.VariantId is not null)
+                    .Select(r => new ProductAndVariantId(r.ProductId, r.Variant.VariantId))
+                    .ToList();
+
+                queryForProductsFittingFilters.ResultSettings = new()
+                {
+                    SelectedProductDetailsProperties = new()
+                    {
+                        FilteredVariants = new()
+                        {
+                            Filters = new(new ProductAndVariantIdFilter(variantsToFilter))
+                        }
+                    },
+                    SelectedVariantDetailsProperties = new(),
+                };
 
                 var productsFittingMerchandisingFilters = await dataAccessor!.QueryAsync(queryForProductsFittingFilters);
 
-                foreach(var product in productsFittingMerchandisingFilters.Products.Select(p => p.ProductId).Distinct())
+                foreach(var result in productsFittingMerchandisingFilters.Products)
                 {
-                    if (!results.TryGetValue(product, out var merchandisingRules)) {
-                        merchandisingRules = new();
-                        results[product] = merchandisingRules;
+                    if (result.FilteredVariants?.Length > 0)
+                    {
+                        foreach(var variant in result.FilteredVariants)
+                        {
+                            if (!results.TryGetValue((result.ProductId, variant.VariantId), out var merchandisingRules))
+                            {
+                                merchandisingRules = new();
+                                results[(result.ProductId, variant.VariantId)] = merchandisingRules;
+                            }
+                            merchandisingRules.Add(new(rule.Name, rule.Description, rule));
+                        }
                     }
-                    merchandisingRules.Add(new(rule.Name, rule.Description));
+                    else
+                    {
+                        if (!results.TryGetValue((result.ProductId, null), out var merchandisingRules))
+                        {
+                            merchandisingRules = new();
+                            results[(result.ProductId, null)] = merchandisingRules;
+                        }
+                        merchandisingRules.Add(new(rule.Name, rule.Description, rule));
+                    }
                 }
             }
 
             return results;
+        }
+
+        private async Task<List<(string productId, string? variantId)>> RequestWithoutMerchandisingRule(BoostAndBuryRule rule, List<(string productId, string? variantId)> resultsThatMatchRule, ProductResultDetails[] products, ProductSearchRequest searchRequest)
+        {
+            var duplicateRequest = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(searchRequest, jsonSerializerSettings), jsonSerializerSettings)!;
+
+            duplicateRequest.RelevanceModifiers ??= new() { Items = new() };
+
+            if (rule.MultiplierSelector is FixedDoubleValueSelector fixedValue)
+            {
+                duplicateRequest.RelevanceModifiers.Add(new ProductIdRelevanceModifier(resultsThatMatchRule.Select(r => r.productId).Distinct(), 1 / fixedValue.Value));
+                //duplicateRequest.RelevanceModifiers.Add(new VariantIdRelevanceModifier(resultsThatMatchRule.Where(r => r.variantId is not null).Select(r => r.variantId).Distinct(), 1 / fixedValue.Value));
+            }
+            if (rule.MultiplierSelector is DataDoubleSelector dataValueSelector)
+            {
+                // TODO
+            }
+
+            var response = await searcher!.SearchAsync(duplicateRequest);
+
+            return response.Results
+                .Select(r => (r.ProductId, r.Variant?.VariantId))
+                .ToList();
         }
 
         private bool RequestIsValidSearchRequest(RequestContextFilter filter, ProductSearchRequest request)
@@ -383,7 +514,8 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
         {
             public required int Position { get; set; }
             public required int PopularityIndex { get; set; }
-            public required string Id { get; set; }
+            public required string ProductId { get; set; }
+            public required string? VariantId { get; set; }
             public string? DisplayName { get; set; }
             public required List<IndexedValue> IndexedValues { get; set; }
             public required List<MerchandisingRuleSummary> MerchandisingRules { get; set; }
@@ -393,7 +525,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
         public record Improvement(Severity Severity, string Message);
 
-        public record MerchandisingRuleSummary(string Name, string Description);
+        public record MerchandisingRuleSummary(string Name, string Description, BoostAndBuryRule Rule);
 
         public enum Severity
         {
@@ -408,5 +540,9 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
             Severity.Warning => "orange",
             _ => "black",
         };
+
+        private interface IFilter
+        {
+        }
     }
 }

@@ -75,12 +75,17 @@ else if (results?.Length > 0)
             <div class="card" @key=@result>
                 <div class="header">
                     <div class="name">
-                        @result.Id &nbsp;
+                        @result.ProductId @(result.VariantId is not null ? " — " + result.VariantId : "") &nbsp;
                     </div>
                     <div class="icons">
-                        @foreach (var rule in result.MerchandisingRules)
+                        @foreach (var ruleSummary in result.MerchandisingRules)
                         {
-                            <div class="icon purple" title="Matched conditions for Merchandising Rule: @rule.Name - @rule.Description">
+                            var differenceInPosition = resultsWithoutMerchandisingRule.TryGetValue(ruleSummary.Rule, out var resultsWithoutBoostOrBurry)
+                            && resultsWithoutBoostOrBurry.FirstOrDefault(r => r == (result.ProductId, result.VariantId)) is { } resultInListWithoutMerchandisingRule
+                            ? (resultsWithoutBoostOrBurry.IndexOf(resultInListWithoutMerchandisingRule) - results.ToList().IndexOf(result)) : 0;
+
+                            <div class="icon purple" title="Matched conditions for Merchandising Rule: @ruleSummary.Name - @(ruleSummary.Description). It would have been @(differenceInPosition == 0 ? "in the same position without this rule (this is a guess)." : differenceInPosition > 0 ? Math.Abs(differenceInPosition) + $" position{(Math.Abs(differenceInPosition) is 1 ? "" : "s")} lower without this rule." : Math.Abs(differenceInPosition) + $" position{(Math.Abs(differenceInPosition) is 1 ? "" : "s")} higher without this rule.")">
+                                @differenceInPosition
                                 <svg width="20" class="bi" viewBox="0 0 16 16">
                                     <polygon stroke="#FFFFFF" stroke-width="2" fill="none" points="8,1 6,6 1,6 5,9 3,14 8,11 13,14 11,9 15,6 10,6" stroke-linecap="round" stroke-linejoin="round"></polygon>
                                 </svg>
