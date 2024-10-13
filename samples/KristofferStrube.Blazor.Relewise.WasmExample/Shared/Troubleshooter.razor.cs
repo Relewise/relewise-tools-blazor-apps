@@ -1,10 +1,13 @@
 using KristofferStrube.DocumentSearching;
 using KristofferStrube.DocumentSearching.SuffixTree;
+using MessagePack;
 using Microsoft.AspNetCore.Components;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Relewise.Client;
 using Relewise.Client.DataTypes;
+using Relewise.Client.DataTypes.Merchandising;
+using Relewise.Client.DataTypes.Merchandising.Rules;
 using Relewise.Client.DataTypes.Search;
 using Relewise.Client.Requests.Filters;
 using Relewise.Client.Requests.Queries;
@@ -12,6 +15,7 @@ using Relewise.Client.Requests.Search;
 using Relewise.Client.Requests.Shared;
 using Relewise.Client.Responses.Search;
 using Relewise.Client.Search;
+using System.Linq;
 
 namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 {
@@ -22,6 +26,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
         private Searcher? searcher;
         private DataAccessor? dataAccessor;
         private SearchAdministrator? searchAdministrator;
+        private MerchandisingAccessor? merchandisingAccessor;
         private SearchResult[]? results;
         private List<Improvement> improvements = [];
 
@@ -54,10 +59,10 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 searcher = new Searcher(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
                 dataAccessor = new DataAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
                 searchAdministrator = new SearchAdministrator(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+                merchandisingAccessor = new MerchandisingAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
 
-                message = "Successfully initialized the Searcher, DataAccessor, and SearchAdministator.";
+                message = "Successfully initialized the Searcher, DataAccessor, SearchAdministator, and MerchandisingAccessor.";
                 error = null;
-                await ExecuteRequest();
             }
             catch (Exception ex)
             {
@@ -91,6 +96,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 jsonSerializerSettings.Converters.Add(new StringEnumConverter());
                 var duplicateRequest = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(searchRequest, jsonSerializerSettings), jsonSerializerSettings)!;
 
+                duplicateRequest.Skip = 0;
                 duplicateRequest.Take = 1000; // We increase the number of response to make analysis on the tail.
                 if (duplicateRequest.Settings is not null)
                 {
@@ -121,7 +127,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                             var availableLanguagesInIndex = searchIndex.Configuration.Language.Languages.Select(l => l.Language.Value.ToLower());
                             if (!availableLanguagesInIndex.Contains(language.ToLower()))
                             {
-                                improvements.Add(new(Severity.Error, $"The supplied language '{language}' should be one of the ones defined in the search index {string.Join(", ", availableLanguagesInIndex)}"));
+                                improvements.Add(new(Severity.Error, $"The supplied language '{language}' should be one of the ones defined in the search index: '{string.Join(", ", availableLanguagesInIndex)}'."));
                             }
                         }
                     }
@@ -215,6 +221,8 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     return;
                 }
 
+                var merchandisingRulesForProducts = await MatchingMerchandisingRules(response.Results.Select(r => r.ProductId).ToList());
+
                 var productQueryResponse = await dataAccessor!.QueryAsync(
                     new ProductQuery(
                         response.Results.Select(r => r.ProductId),
@@ -265,7 +273,8 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                         PopularityIndex = relevanceResponse.Results.ToList().IndexOf(relevanceResponse.Results.First(r => r.ProductId == result.ProductId)) + 1,
                         Id = result.ProductId,
                         DisplayName = productQueryResult.DisplayName?.Values?.FirstOrDefault(d => d.Language.Value.Equals(language, StringComparison.OrdinalIgnoreCase))?.Text,
-                        IndexedValues = indexedValues
+                        IndexedValues = indexedValues,
+                        MerchandisingRules = merchandisingRulesForProducts.TryGetValue(result.ProductId, out var list) ? list : [],
                     });
                 }
                 results = localResults.ToArray();
@@ -279,6 +288,87 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 message = null;
             }
             StateHasChanged();
+        }
+
+        private static readonly Dictionary<Type, byte> _typeToUnion = typeof(SearchRequest).GetCustomAttributes(typeof(UnionAttribute), false).Cast<UnionAttribute>().ToDictionary(k => k.SubType, v => (byte)v.Key);
+
+        public async Task<Dictionary<string, List<MerchandisingRuleSummary>>> MatchingMerchandisingRules(List<string> productIds)
+        {
+            Dictionary<string, List<MerchandisingRuleSummary>> results = new();
+
+            var merchandisingRulesRepsonse = await merchandisingAccessor!.LoadAsync<BoostAndBuryRule>();
+
+            if (Request is not ProductSearchRequest { } request)
+                return null!;
+
+            foreach (var rule in merchandisingRulesRepsonse.Rules)
+            {
+                if (!rule.Enabled)
+                    continue;
+
+                if (rule.Conditions.User?.Conditions?.Items?.Count > 0)
+                {
+                    improvements.Add(new Improvement(Severity.Message, $"We found matches for the Boost and Burry Rule '{rule.Name}' but it had user conditions which we could not validate so it might not show accurate matches."));
+                }
+
+                var contextFilters = rule.Conditions.Context.Filters;
+
+                bool anyContextMatches = false;
+
+                foreach(var filter in contextFilters)
+                {
+                    if (RequestIsValidSearchRequest(filter, request))
+                    {
+                        anyContextMatches = true;
+                        break;
+                    }
+                }
+
+                if (!anyContextMatches)
+                    continue;
+
+                var queryForProductsFittingFilters = new ProductQuery(productIds, request.Language, request.Currency);
+                queryForProductsFittingFilters.Filters!.Items!.AddRange(rule.Conditions.Target.Filters.Items ?? []);
+
+                var productsFittingMerchandisingFilters = await dataAccessor!.QueryAsync(queryForProductsFittingFilters);
+
+                foreach(var product in productsFittingMerchandisingFilters.Products.Select(p => p.ProductId).Distinct())
+                {
+                    if (!results.TryGetValue(product, out var merchandisingRules)) {
+                        merchandisingRules = new();
+                        results[product] = merchandisingRules;
+                    }
+                    merchandisingRules.Add(new(rule.Name, rule.Description));
+                }
+            }
+
+            return results;
+        }
+
+        private bool RequestIsValidSearchRequest(RequestContextFilter filter, ProductSearchRequest request)
+        {
+            if (
+                (filter.Searches?.UnionCodes.Count != 0
+                    || filter.Recommendations?.UnionCodes.Count != 0) // There are either defined specific recommendation requests or search requests.
+                &&
+                (filter.Searches?.UnionCodes.Count is null or 0 // There are not defined specific search, so it must be specific recommendation requests.
+                    || filter.Searches?.UnionCodes.Contains(_typeToUnion[typeof(ProductSearchRequest)]) != true) // product search request is not part of the search requests defined.
+                )
+                return false;
+
+            if (filter.Locations?.Count != 0 && filter.Locations?.Contains(request.DisplayedAtLocation) != true)
+                return false;
+
+            if (filter.Languages?.Count != 0 && filter.Languages?.Any(l => l.Value.Equals(request.Language?.Value, StringComparison.OrdinalIgnoreCase)) != true)
+                return false;
+
+            if (filter.Currencies?.Count != 0 && filter.Currencies?.Any(c => c.Value.Equals(request.Currency?.Value, StringComparison.OrdinalIgnoreCase)) != true)
+                return false;
+
+            if (filter.Filters.Includes?.Items?.Count > 0 || filter.Filters.Excludes?.Items?.Count > 0)
+                return false;
+
+            return true;
         }
 
         public string? DataValueAsString(DataValue? value, string? language) => value?.Type switch
@@ -296,11 +386,14 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
             public required string Id { get; set; }
             public string? DisplayName { get; set; }
             public required List<IndexedValue> IndexedValues { get; set; }
+            public required List<MerchandisingRuleSummary> MerchandisingRules { get; set; }
         }
         
         public record IndexedValue(string Name, int Weight, string Content, List<Match>? TermMatches);
 
         public record Improvement(Severity Severity, string Message);
+
+        public record MerchandisingRuleSummary(string Name, string Description);
 
         public enum Severity
         {

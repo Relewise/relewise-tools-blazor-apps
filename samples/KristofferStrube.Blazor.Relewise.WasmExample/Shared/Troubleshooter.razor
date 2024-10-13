@@ -29,7 +29,7 @@
     <p>
         First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
         <br />
-        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>, <code>DataAccessor</code>, and <code>Search Administrator</code>.</small>
+        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>, <code>DataAccessor</code>, and <code>Search Administrator</code>, and listing all merchandising rules.</small>
     </p>
 
     <ConnectionCredentials />
@@ -64,22 +64,35 @@ else
 }
 else if (results?.Length > 0)
 {
-    <div class="grid">
+    <div class="grid big-grid">
         @foreach (var result in results)
         {
             <div class="position">
                 @(result.Position).<br />
                 <small style="color:green;" title="It's ranking among the 1000 first result only with regards to relevance to the user; Not textual match.">(@result.PopularityIndex)</small>
             </div>
-            <div>
-                <h4>
-                    @result.Id
-                </h4>
-                <div class="grid">
+
+            <div class="card" @key=@result>
+                <div class="header">
+                    <div class="name">
+                        @result.Id &nbsp;
+                    </div>
+                    <div class="icons">
+                        @foreach (var rule in result.MerchandisingRules)
+                        {
+                            <div class="icon purple" title="Matched conditions for Merchandising Rule: @rule.Name - @rule.Description">
+                                <svg width="20" class="bi" viewBox="0 0 16 16">
+                                    <polygon stroke="#FFFFFF" stroke-width="2" fill="none" points="8,1 6,6 1,6 5,9 3,14 8,11 13,14 11,9 15,6 10,6" stroke-linecap="round" stroke-linejoin="round"></polygon>
+                                </svg>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="content grid">
                     @foreach (var indexedValue in result.IndexedValues)
                     {
                         <b title="Has weight @indexedValue.Weight"> @indexedValue.Name</b>
-                        <div>
+                        <div @key=indexedValue>
                             @if (indexedValue.TermMatches is not { } matches)
                             {
                                 @indexedValue.Content

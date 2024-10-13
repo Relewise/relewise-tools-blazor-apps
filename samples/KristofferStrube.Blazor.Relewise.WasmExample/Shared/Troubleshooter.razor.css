@@ -5,6 +5,48 @@
     font-size: large;
 }
 
+.big-grid {
+    grid-gap: 15px;
+}
+
 .position {
     text-align:right;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    border: 2px solid black;
+    border-radius: 10px;
+}
+
+.header {
+    border-bottom: 2px solid black;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 5px;
+}
+
+.name {
+    font-weight: bold;
+}
+
+.content {
+    padding: 5px;
+}
+
+.icons {
+    display: flex;
+    flex-direction: row;
+    grid-gap: 5px;
+}
+
+.icon {
+    border-radius: 5px;
+    width: fit-content;
+    padding: 0 2px 2px 2px;
+}
+
+.purple {
+    background-color: #4207c1;
 }
