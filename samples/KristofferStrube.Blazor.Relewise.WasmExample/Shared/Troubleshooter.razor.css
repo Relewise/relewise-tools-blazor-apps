@@ -44,11 +44,26 @@
 .icon {
     border-radius: 5px;
     width: fit-content;
-    padding: 0px 2px 2px 4px;
+    padding: 0px 4px 2px 4px;
     font-weight: bold;
 }
 
 .purple {
     background-color: #4207c1;
+    color: white;
+}
+
+.green {
+    background-color: #42c107;
+    color: white;
+}
+
+.blue {
+    background-color: #07a5c1;
+    color: white;
+}
+
+.orange {
+    background-color: #c16807;
     color: white;
 }

@@ -67,9 +67,10 @@ else if (results?.Length > 0)
     <div class="grid big-grid">
         @foreach (var result in results)
         {
+            int indexOfResult = results.ToList().IndexOf(result);
             <div class="position">
                 @(result.Position).<br />
-                <small style="color:green;" title="It's ranking among the 1000 first result only with regards to relevance to the user; Not textual match.">(@result.PopularityIndex)</small>
+                <small style="color:green;" title="It's ranking among the 1000 first result only with regards to relevance to the user (including merchandising rules but not relevance modifiers); Not textual match.">(@result.PopularityIndex)</small>
             </div>
 
             <div class="card" @key=@result>
@@ -82,12 +83,43 @@ else if (results?.Length > 0)
                         {
                             var differenceInPosition = resultsWithoutMerchandisingRule.TryGetValue(ruleSummary.Rule, out var resultsWithoutBoostOrBurry)
                             && resultsWithoutBoostOrBurry.FirstOrDefault(r => r == (result.ProductId, result.VariantId)) is { } resultInListWithoutMerchandisingRule
-                            ? (resultsWithoutBoostOrBurry.IndexOf(resultInListWithoutMerchandisingRule) - results.ToList().IndexOf(result)) : 0;
+                            ? (resultsWithoutBoostOrBurry.IndexOf(resultInListWithoutMerchandisingRule) - indexOfResult) : 0;
 
                             <div class="icon purple" title="Matched conditions for Merchandising Rule: @ruleSummary.Name - @(ruleSummary.Description). It would have been @(differenceInPosition == 0 ? "in the same position without this rule (this is a guess)." : differenceInPosition > 0 ? Math.Abs(differenceInPosition) + $" position{(Math.Abs(differenceInPosition) is 1 ? "" : "s")} lower without this rule." : Math.Abs(differenceInPosition) + $" position{(Math.Abs(differenceInPosition) is 1 ? "" : "s")} higher without this rule.")">
                                 @differenceInPosition
                                 <svg width="20" class="bi" viewBox="0 0 16 16">
                                     <polygon stroke="#FFFFFF" stroke-width="2" fill="none" points="8,1 6,6 1,6 5,9 3,14 8,11 13,14 11,9 15,6 10,6" stroke-linecap="round" stroke-linejoin="round"></polygon>
+                                </svg>
+                            </div>
+                        }
+                        @if (result.WithoutPersonalizationIndex != indexOfResult)
+                        {
+                            <div class="icon green" title="This result was influnced by the previous behaviour of the specific user. If it had not been this user then it would have been @(result.WithoutPersonalizationIndex - indexOfResult == 0 ? "in the same position." : result.WithoutPersonalizationIndex - indexOfResult > 0 ? Math.Abs(result.WithoutPersonalizationIndex - indexOfResult) + $" position{(Math.Abs(result.WithoutPersonalizationIndex - indexOfResult) is 1 ? "" : "s")} lower." : Math.Abs(result.WithoutPersonalizationIndex - indexOfResult) + $" position{(Math.Abs(result.WithoutPersonalizationIndex - indexOfResult) is 1 ? "" : "s")} higher.")">
+                                @(result.WithoutPersonalizationIndex - indexOfResult)
+                                <svg width="20" class="bi" viewBox="0 0 16 16">
+                                    <path stroke="#FFFFFF" stroke-width="2" fill="#FFFFFF" d="M 1 15 C 1 8 15 8 15 15 Z"></path>
+                                    <circle stroke="#FFFFFF" stroke-width="2" fill="#FFFFFF" cx="8" cy="4" r="3"></circle>
+                                </svg>
+                            </div>
+                        }
+                        @if (result.WithoutClassificationsIndex != result.WithoutPersonalizationIndex)
+                        {
+                            <div class="icon blue" title="This result was influnced by the specific classification used. If the classification had not been specified then it would have been @(result.WithoutClassificationsIndex - result.WithoutPersonalizationIndex == 0 ? "in the same position." : result.WithoutClassificationsIndex - result.WithoutPersonalizationIndex > 0 ? Math.Abs(result.WithoutClassificationsIndex - result.WithoutPersonalizationIndex) + $" position{(Math.Abs(result.WithoutClassificationsIndex - result.WithoutPersonalizationIndex) is 1 ? "" : "s")} lower." : Math.Abs(result.WithoutClassificationsIndex - result.WithoutPersonalizationIndex) + $" position{(Math.Abs(result.WithoutClassificationsIndex - result.WithoutPersonalizationIndex) is 1 ? "" : "s")} higher.")">
+                                @(result.WithoutClassificationsIndex - result.WithoutPersonalizationIndex)
+                                <svg width="20" class="bi" viewBox="0 0 16 16">
+                                    <rect stroke="#FFFFFF" stroke-width="2" fill="none" x="1" y="1" width="5" height="5"></rect>
+                                    <rect stroke="#FFFFFF" stroke-width="2" fill="none" x="10" y="1" width="5" height="5"></rect>
+                                    <rect stroke="#FFFFFF" stroke-width="2" fill="none" x="10" y="10" width="5" height="5"></rect>
+                                    <rect stroke="#FFFFFF" stroke-width="2" fill="none" x="1" y="10" width="5" height="5"></rect>
+                                </svg>
+                            </div>
+                        }
+                        @if (result.WithoutRelevanceModifiersIndex != indexOfResult)
+                        {
+                            <div class="icon orange" title="This result was influnced by relevance modifiers sent with the request. If they/it had not been added then it would have been @(result.WithoutRelevanceModifiersIndex - indexOfResult == 0 ? "in the same position." : result.WithoutRelevanceModifiersIndex - indexOfResult > 0 ? Math.Abs(result.WithoutRelevanceModifiersIndex - indexOfResult) + $" position{(Math.Abs(result.WithoutRelevanceModifiersIndex - indexOfResult) is 1 ? "" : "s")} lower." : Math.Abs(result.WithoutRelevanceModifiersIndex - indexOfResult) + $" position{(Math.Abs(result.WithoutRelevanceModifiersIndex - indexOfResult) is 1 ? "" : "s")} higher.")">
+                                @(result.WithoutRelevanceModifiersIndex - indexOfResult)
+                                <svg width="20" class="bi" viewBox="0 0 16 16">
+                                    <polyline stroke="#FFFFFF" stroke-width="2" fill="none" points="1,15 4,5 6,12 9,7 12,9 15,1" stroke-linecap="round" stroke-linejoin="round"></polyline>
                                 </svg>
                             </div>
                         }

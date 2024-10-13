@@ -150,6 +150,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 requestWithoutTerm.Sorting = null;
                 requestWithoutTerm.Filters = new(new ProductIdFilter(response.Results.Select(r => r.ProductId)));
                 requestWithoutTerm.Facets = null;
+                requestWithoutTerm.RelevanceModifiers = null;
 
                 var relevanceResponse = await searcher!.SearchAsync(requestWithoutTerm);
 
@@ -220,7 +221,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                     foreach (var field in searchIndex.Configuration.Product?.Data?.Keys ?? [])
                     {
-                        if (field.Value.Included)
+                        if (field.Value?.Included == true)
                         {
                             selectedProductProperties.DataKeys = [field.Key, .. selectedProductProperties.DataKeys];
                             indexedKeys.Add((field.Key, field.Value.Weight, (p, _) => p.Data?.TryGetValue(field.Key, out var fieldValue) == true ? DataValueAsString(fieldValue, language) : null));
@@ -239,7 +240,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                     foreach (var field in searchIndex.Configuration.Product?.Variants?.Data?.Keys ?? [])
                     {
-                        if (field.Value.Included)
+                        if (field.Value?.Included == true)
                         {
                             selectedVariantProperties.DataKeys = [field.Key, .. selectedVariantProperties.DataKeys];
                             indexedKeys.Add(("Variant: " + field.Key, field.Value.Weight, (_, v) => v?.Data?.TryGetValue(field.Key, out var fieldValue) == true ? DataValueAsString(fieldValue, language) : null));
@@ -308,6 +309,10 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     resultsWithoutMerchandisingRule[rule] = await RequestWithoutMerchandisingRule(rule, merchandisingRulesForProducts.Where(kvp => kvp.Value.Any(s => s.Rule == rule)).Select(kvp => kvp.Key).ToList(), resultDetailsResponse.Products, duplicateRequest);
                 }
 
+                var resultsWithoutIdentifers = await RequestWithoutIdentifiers(resultDetailsResponse.Products, duplicateRequest);
+                var resultsWithoutClassifications = await RequestWithoutClassifications(resultDetailsResponse.Products, duplicateRequest);
+                var resultsWithoutRelevanceModifiers = await RequestWithoutRelevanceModifiers(resultDetailsResponse.Products, duplicateRequest);
+
                 int show = Math.Min(response.Results.Length, 100); // We only show at most 100 results;
                 for (int i = 0; i < show; i++)
                 {
@@ -342,6 +347,9 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     {
                         Position = i + 1,
                         PopularityIndex = relevanceResponse.Results.ToList().IndexOf(relevanceResponse.Results.First(r => r.ProductId == result.ProductId)) + 1,
+                        WithoutPersonalizationIndex = resultsWithoutIdentifers.FirstOrDefault(r => r.productId == result.ProductId && r.variantId == result.Variant?.VariantId) is { } matchingElementWithoutIdentifiers ? resultsWithoutIdentifers.IndexOf(matchingElementWithoutIdentifiers) : 1000,
+                        WithoutClassificationsIndex = resultsWithoutClassifications.FirstOrDefault(r => r.productId == result.ProductId && r.variantId == result.Variant?.VariantId) is { } matchingElementWithoutClassifications ? resultsWithoutClassifications.IndexOf(matchingElementWithoutClassifications) : 1000,
+                        WithoutRelevanceModifiersIndex = resultsWithoutRelevanceModifiers.FirstOrDefault(r => r.productId == result.ProductId && r.variantId == result.Variant?.VariantId) is { } matchingElementWithoutRelevanceModifiers ? resultsWithoutRelevanceModifiers.IndexOf(matchingElementWithoutRelevanceModifiers) : 1000,
                         ProductId = result.ProductId,
                         VariantId = result.Variant?.VariantId,
                         DisplayName = productQueryResult.DisplayName?.Values?.FirstOrDefault(d => d.Language.Value.Equals(language, StringComparison.OrdinalIgnoreCase))?.Text,
@@ -476,6 +484,57 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 .ToList();
         }
 
+        private async Task<List<(string productId, string? variantId)>> RequestWithoutIdentifiers(ProductResultDetails[] products, ProductSearchRequest searchRequest)
+        {
+            var duplicateRequest = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(searchRequest, jsonSerializerSettings), jsonSerializerSettings)!;
+
+            if (duplicateRequest.User is not null)
+            {
+                duplicateRequest.User.AuthenticatedId = null;
+                duplicateRequest.User.TemporaryId = null;
+                duplicateRequest.User.Email = null;
+                duplicateRequest.User.Fingerprint = null;
+                duplicateRequest.User.Identifiers = null;
+            }
+
+            var response = await searcher!.SearchAsync(duplicateRequest);
+
+            return response.Results
+                .Select(r => (r.ProductId, r.Variant?.VariantId))
+                .ToList();
+        }
+
+        private async Task<List<(string productId, string? variantId)>> RequestWithoutClassifications(ProductResultDetails[] products, ProductSearchRequest searchRequest)
+        {
+            var duplicateRequest = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(searchRequest, jsonSerializerSettings), jsonSerializerSettings)!;
+
+            duplicateRequest.User = null;
+
+            if (duplicateRequest.User is not null)
+            {
+                duplicateRequest.User.Classifications = new();
+            }
+
+            var response = await searcher!.SearchAsync(duplicateRequest);
+
+            return response.Results
+                .Select(r => (r.ProductId, r.Variant?.VariantId))
+                .ToList();
+        }
+
+        private async Task<List<(string productId, string? variantId)>> RequestWithoutRelevanceModifiers(ProductResultDetails[] products, ProductSearchRequest searchRequest)
+        {
+            var duplicateRequest = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(searchRequest, jsonSerializerSettings), jsonSerializerSettings)!;
+
+            duplicateRequest.RelevanceModifiers = null;
+
+            var response = await searcher!.SearchAsync(duplicateRequest);
+
+            return response.Results
+                .Select(r => (r.ProductId, r.Variant?.VariantId))
+                .ToList();
+        }
+
         private bool RequestIsValidSearchRequest(RequestContextFilter filter, ProductSearchRequest request)
         {
             if (
@@ -514,6 +573,9 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
         {
             public required int Position { get; set; }
             public required int PopularityIndex { get; set; }
+            public required int WithoutPersonalizationIndex { get; set; }
+            public required int WithoutClassificationsIndex { get; set; }
+            public required int WithoutRelevanceModifiersIndex { get; set; }
             public required string ProductId { get; set; }
             public required string? VariantId { get; set; }
             public string? DisplayName { get; set; }
