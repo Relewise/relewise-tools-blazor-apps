@@ -272,6 +272,9 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     selectedVariantProperties.DataKeys = [selector.Key, .. selectedVariantProperties.DataKeys];
                 }
 
+                selectedProductProperties.DataKeys = selectedProductProperties.DataKeys.Distinct().ToArray();
+                selectedVariantProperties.DataKeys = selectedVariantProperties.DataKeys.Distinct().ToArray();
+
                 if (searchRequest.Settings?.ExplodedVariants > 0 || searchRequest.Term is not null)
                 {
                     List<ProductAndVariantId> specificVariants = new();

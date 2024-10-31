@@ -1,0 +1,235 @@
+﻿@using KristofferStrube.Blazor.DOM
+@using KristofferStrube.Blazor.Relewise.TypeEditors
+@using KristofferStrube.Blazor.Window
+@page "/Content"
+@implements IDisposable
+
+<PageTitle>Blazor Relewise - Content</PageTitle>
+
+<h1>Content</h1>
+
+<p>Here you can get some content using the <code>DataAccessor</code>, then make changes to it, and in the end track the
+    changes with the <code>Tracker</code>. You can likewise enable or disable the selected content.</p>
+
+@if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+{
+    <p>
+        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these
+        at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
+        <br />
+        <small>You can't use your Master key in this application so you will have to create some separate key that can use
+            the <code>DataAccessor</code> and the <code>Tracker</code> to use this.</small>
+    </p>
+
+    <ConnectionCredentials />
+}
+
+@if (error is not null)
+{
+    <code>@error</code>
+    <br />
+    <br />
+}
+@if (message is not null)
+{
+    <span style="color:green;">@message</span>
+    <br />
+    <br />
+}
+
+@if (dataAccessor is null || tracker is null)
+{
+    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <br />
+}
+else
+{
+    <p>Now you need to find the id of some Content you want to inspect.</p>
+
+    <div class="input-group">
+        <div class="input-group-prepend">
+            <label for="contentId" class="input-group-text" style="width:120px;">Content Id</label>
+        </div>
+        <input @bind=contentId class="form-control" id="contentId" />
+    </div>
+    <br />
+    <div style="display:flex;grid-gap:5px;flex-direction:row;">
+        <button class="btn btn-primary" @onclick=Fetch>Fetch</button>
+        @if (contentIsDisabled)
+        {
+            <button class="btn btn-success" style="width:80px;" @onclick=EnableContent>Enable</button>
+        }
+        else
+        {
+            <button class="btn btn-warning" style="width:80px;" @onclick=DisableContent>Disable</button>
+        }
+        @if (content is not null)
+        {
+            <button class="btn btn-success" @onclick=Update>Update</button>
+        }
+    </div>
+    <br />
+}
+@if (content is not null)
+{
+    <label for="openDetails">Expand all: </label>
+    <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+    <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Content Value="content"
+        Setter="(Object? obj) => { content = (Content?)obj;  StateHasChanged(); }" />
+    <br />
+}
+
+@code {
+    private string? error;
+    private string? message;
+    private string contentId = "";
+    private bool openDetails;
+    private DataAccessor? dataAccessor;
+    private Tracker? tracker;
+    private Content? content;
+    private bool contentIsDisabled;
+
+    [Inject]
+    public required IJSRuntime JSRuntime { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+        {
+            Connect();
+        }
+        StaticDatasetStorage.AuthenticationReceived += Authenticated;
+    }
+
+    private void Authenticated(object? sender, EventArgs args)
+    {
+        Connect();
+        StateHasChanged();
+    }
+
+    private bool Connect()
+    {
+        try
+        {
+            dataAccessor = new DataAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey,
+            StaticDatasetStorage.ServerUrl);
+            tracker = new Tracker(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey,
+            StaticDatasetStorage.ServerUrl);
+            message = "Successfully initialized the DataAccessor and Tracker.";
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            return false;
+        }
+    }
+
+    private async Task Fetch()
+    {
+        if (!Connect()) return;
+        try
+        {
+            var result = await dataAccessor!.QueryAsync(new ContentQuery(contentId)
+                {
+                    IncludeDisabledContents = true
+                });
+            var contentResult = result?.Contents.FirstOrDefault();
+            if (contentResult is null)
+            {
+                error = "Could not find content without id";
+                message = null;
+                return;    
+            }
+
+            contentIsDisabled = contentResult.Disabled;
+            content = new Content(contentResult.ContentId)
+                {
+                    DisplayName = contentResult.DisplayName,
+                    Assortments = contentResult.Assortments?.ToList(),
+                    CategoryPaths = contentResult.CategoryPaths
+                ?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })
+                ?.ToList(),
+                    Data = contentResult.Data,
+                    Custom = contentResult.Custom
+                };
+
+            message = "Successfully fetched the content element.";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            dataAccessor = null;
+            tracker = null;
+            throw;
+        }
+    }
+
+    private async Task Update()
+    {
+        try
+        {
+            await tracker!.TrackAsync(new ContentUpdate(content, ContentUpdate.UpdateKind.ReplaceProvidedProperties));
+            message = "Successfully updated the content element.";
+            content = null;
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    private async Task EnableContent()
+    {
+        if (!Connect()) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ContentAdministrativeAction(null, null, contentId, ContentAdministrativeAction.UpdateKind.Enable)
+            );
+
+            contentIsDisabled = false;
+            message = "Successfully enabled the content element.";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    private async Task DisableContent()
+    {
+        if (!Connect()) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ContentAdministrativeAction(null, null, contentId, ContentAdministrativeAction.UpdateKind.Disable)
+            );
+            contentIsDisabled = true;
+            message = "Successfully disabled the content element.";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    public void Dispose()
+    {
+        StaticDatasetStorage.AuthenticationReceived -= Authenticated;
+    }
+}
