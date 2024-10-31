@@ -79,6 +79,9 @@
     [Parameter, EditorRequired]
     public required Action<object?> Setter { get; set; }
 
+    [Parameter]
+    public Type[] AncestorTypes { get; set; } = [];
+
     public void Create()
     {
         Value = Activator.CreateInstance<DataValue>();

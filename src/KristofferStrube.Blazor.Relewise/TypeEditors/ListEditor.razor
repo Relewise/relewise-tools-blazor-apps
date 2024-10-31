@@ -19,9 +19,17 @@ else
                 var k = i;
                 @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T))) is { } editor)
                 {
+                    var parameters = new Dictionary<string, object?>()
+                        {
+                            ["ReadOnly"] = ReadOnly,
+                            ["OpenDetails"] = OpenDetails,
+                            ["Value"] = Value[k],
+                            ["Setter"] = (object? obj) => { Value[k] = (T)obj!; Setter(Value); },
+                            ["AncestorTypes"] = AncestorTypes
+                        };
                     <ErrorBoundary>
                         <ChildContent>
-                            <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="@(new Dictionary<string, object?>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = Value[k], ["Setter"] = (object? obj) => { Value[k] = (T)obj!; Setter(Value); } })" />
+                            <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="parameters" />
                         </ChildContent>
                         <ErrorContent>
                             <code>Failed to initialize editor part for @Settings.Name(typeof(T))</code>
@@ -56,6 +64,9 @@ else
 
     [Parameter, EditorRequired]
     public required Action<object?> Setter { get; set; }
+
+    [Parameter]
+    public Type[] AncestorTypes { get; set; } = [];
 
     public void Create()
     {

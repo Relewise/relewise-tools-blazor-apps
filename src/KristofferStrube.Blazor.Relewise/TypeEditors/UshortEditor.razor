@@ -24,6 +24,9 @@ else
     [Parameter, EditorRequired]
     public required Action<object?> Setter { get; set; }
 
+    [Parameter]
+    public Type[] AncestorTypes { get; set; } = [];
+
     public void Set()
     {
         Value = 0;

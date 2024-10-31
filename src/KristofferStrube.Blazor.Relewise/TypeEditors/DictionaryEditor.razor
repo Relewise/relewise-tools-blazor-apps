@@ -37,9 +37,16 @@ else
                 </div>
                 @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue))) is { } valueEditor)
                 {
+                    var parameters = new Dictionary<string, object>() {
+                        ["ReadOnly"] = ReadOnly,
+                        ["OpenDetails"] = OpenDetails,
+                        ["Value"] = Value[localKey],
+                        ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; Setter(Value); },
+                        ["AncestorTypes"] = AncestorTypes
+                    };
                     <ErrorBoundary>
                         <ChildContent>
-                            <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = Value[localKey], ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; Setter(Value); } })" />
+                            <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="parameters" />
                         </ChildContent>
                         <ErrorContent>
                             <code>Failed to initialize editor part for @Settings.Name(typeof(TValue))</code>
@@ -78,6 +85,9 @@ else
 
     [Parameter, EditorRequired]
     public required Action<object?> Setter { get; set; }
+
+    [Parameter]
+    public Type[] AncestorTypes { get; set; } = [];
 
     public void Add()
     {
