@@ -71,7 +71,7 @@ namespace KristofferStrube.Blazor.Relewise.TypeEditors
                 .Where(type => type != typeof(T) && type.IsAssignableTo(typeof(T)) && !type.IsGenericType && !type.IsAbstract)
                 .ToList();
 
-            if (Settings.TypeInheritanceLimiters.FirstOrDefault(l => typeof(T).IsAssignableTo(l.BaseType) && AncestorTypes.Any(a => l.AncestorInterfaces.Any(ai => ai == a))) is { } limiter)
+            if (Settings.TypeInheritanceLimiters.FirstOrDefault(l => typeof(T).IsAssignableTo(l.BaseType) && AncestorTypes.Any(a => l.AncestorInterfaces.Any(ai => a.IsAssignableTo(ai)))) is { } limiter)
             {
                 derivedTypes = derivedTypes
                     .Where(t => limiter.TypeInhertianceLimit.Any(l => t.IsAssignableTo(l)))
