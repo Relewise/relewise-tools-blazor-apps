@@ -4,6 +4,10 @@
     flex: 1;
 }
 
+.box-invalid {
+    border: 1px solid var(--color-gray);
+}
+
 .two-column-grid {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -17,9 +21,14 @@ summary {
     color: white;
 }
 
+.summary-invalid {
+    background-color: var(--color-gray);
+}
+
 .object-value {
     display: flex;
     flex-direction: row;
     flex: 1 0;
     grid-gap: 5px;
 }
+
