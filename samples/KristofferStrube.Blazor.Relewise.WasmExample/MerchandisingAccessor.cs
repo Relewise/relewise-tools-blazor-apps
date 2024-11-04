@@ -19,4 +19,9 @@ public class MerchandisingAccessor(Guid datasetId, string apiKeySecret, string s
         var response = await PostAsync<MerchandisingRulesRequest, MerchandisingRuleCollectionResponse>(new MerchandisingRulesRequest(), token).ConfigureAwait(false);
         return response;
     }
+
+    public async Task SaveAsync(MerchandisingRule rule, string modifiedBy, CancellationToken token = default)
+    {
+        await PostAsync<SaveMerchandisingRuleRequest, MerchandisingRuleResponse>(new SaveMerchandisingRuleRequest(rule, modifiedBy), token);
+    }
 }

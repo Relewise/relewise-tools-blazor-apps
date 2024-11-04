@@ -1,0 +1,48 @@
+﻿@if (Value is null)
+{
+    <code>&lt;NULL&gt;</code>
+    @if (!ReadOnly)
+    {
+        <button class="btn btn-outline-success btn-sm" @onclick=SetValue>Set to non-null value</button>
+    }
+}
+else
+{
+    <div class="input-container">
+        <input type="checkbox" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
+        @if (!ReadOnly)
+        {
+            <text>&nbsp;</text>
+            <button class="btn btn-outline-danger btn-sm" @onclick=SetToNull><nobr>Set to NULL</nobr></button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Parameter]
+    public bool OpenDetails { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required bool? Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+
+    [Parameter]
+    public Type[] AncestorTypes { get; set; } = [];
+
+    public void SetValue()
+    {
+        Value = true;
+        Setter(Value);
+    }
+
+    public void SetToNull()
+    {
+        Value = null;
+        Setter(null);
+    }
+}

@@ -8,7 +8,7 @@
     public bool OpenDetails { get; set; } = false;
 
     [Parameter, EditorRequired]
-    public required bool? Value { get; set; }
+    public required bool Value { get; set; }
 
     [Parameter, EditorRequired]
     public required Action<object?> Setter { get; set; }

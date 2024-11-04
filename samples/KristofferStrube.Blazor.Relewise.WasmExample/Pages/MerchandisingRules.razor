@@ -1,0 +1,235 @@
+﻿@using KristofferStrube.Blazor.Relewise.TypeEditors
+@using System.Reflection
+@using System.Threading
+@using global::Relewise.Client.DataTypes.Merchandising.Rules
+@using global::Relewise.Client.Requests
+@using global::Relewise.Client.Responses
+@page "/MerchandisingRules"
+@implements IDisposable
+
+<PageTitle>Blazor Relewise - Merchandising Rules</PageTitle>
+
+<h1>Merchandising Rules</h1>
+<p>
+    Here you can create and edit merchandising rules.<br />
+    Most settings related to merchandising rules are also exposed through the interface in My Relewise which is much nicer to use in most cases,
+    <br />but there are a couple of niche features that only this tool exposes. Like:
+    <ul>
+        <li>All filters that the Relewise API support.</li>
+        <li>Settings for suppressing request filters and relevance modifiers.</li>
+        <li>Settings for overriding request recommendation settings.</li>
+    </ul>
+</p>
+
+@if (error is not null)
+{
+    <code>@error</code>
+    <br />
+    <br />
+}
+@if (message is not null)
+{
+    <span style="color:green;">@message</span>
+    <br />
+    <br />
+}
+@if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+{
+    <p>
+        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
+        <br />
+        <small>You can't use your Master key in this application so you will have to create some separate key that has access to edit merchandising rules to use this.</small>
+    </p>
+
+    <ConnectionCredentials />
+}
+
+@if (merchandisingAccessor is null)
+{
+    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <br />
+}
+else
+{
+    <p>Now you can get an overview over all the existing merchandising rules in the dataset or create a new.</p>
+
+    <button class="btn btn-primary" @onclick=ListAllRules>List All Rules</button>
+    <button class="btn btn-success" @onclick=CreateNewRule>Create New Rule</button>
+    <br />
+    <br />
+}
+
+@if (selectedRule is not null || creatingNew)
+{
+    <ObjectEditor OpenDetails=true ShowModelShareLink=true T=MerchandisingRule Value="selectedRule" Setter="(Object? obj) => { selectedRule = (MerchandisingRule?)obj; StateHasChanged(); }" />
+    <br />
+    <label for="name">Your name: </label>
+    <input @bind=name id="name" />
+    <br />
+    <br />
+    @if (creatingNew)
+    {
+        <button class="btn btn-success" disabled=@(selectedRule is null || string.IsNullOrEmpty(name)) @onclick=Create>Create</button>
+        @if (selectedRule is null || string.IsNullOrEmpty(name))
+        {
+            <i>You need to choose a specific rule and set the name before you can create the rule.</i>
+        }
+    }
+    else
+    {
+        <button class="btn btn-success" disabled=@string.IsNullOrEmpty(name) @onclick=Update>Update</button>
+        @if (string.IsNullOrEmpty(name))
+        {
+            <i>You need to set the name before you have update the rule.</i>
+        }
+    }
+}
+else if (rules is not null)
+{
+    <h2>All Merchandising Rules</h2>
+    <hr />
+    foreach (MerchandisingRule rule in rules.OrderBy(c => c.Priority))
+    {
+        <div>
+            <h3 style="display:inline;">
+                @rule.Name (<code>@rule.GetType().Name)</code>
+            </h3>
+            &nbsp;
+            @if (rule.Enabled)
+            {
+                <span class="badge bg-success">enabled</span>
+            }
+            else
+            {
+                <span class="badge bg-danger">disabled</span>
+            }
+            <br />
+            <p>@rule.Description</p>
+            <button class="btn btn-primary" @onclick="() => Edit(rule)">Edit</button>
+            <hr />
+        </div>
+    }
+}
+<br />
+<br />
+
+@code {
+    private string? error;
+    private string? message;
+    private string name = "";
+    private bool creatingNew = false;
+    private MerchandisingAccessor? merchandisingAccessor;
+    private MerchandisingRule[]? rules;
+    private MerchandisingRule? selectedRule;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+        {
+            Connect();
+        }
+        StaticDatasetStorage.AuthenticationReceived += Authenticated;
+        await Task.CompletedTask;
+    }
+
+    private void Authenticated(object? sender, EventArgs args)
+    {
+        Connect();
+        StateHasChanged();
+    }
+
+    private bool Connect()
+    {
+        try
+        {
+            merchandisingAccessor = new MerchandisingAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+
+            message = "Successfully initialized the Merchandising Accessor.";
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            return false;
+        }
+    }
+
+    private async Task ListAllRules()
+    {
+        if (!Connect()) return;
+        try
+        {
+            var response = await merchandisingAccessor!.LoadAsync();
+            rules = response.Rules;
+
+            message = "Successfully fetched all merchandising rules for this dataset.";
+            error = null;
+            selectedRule = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            merchandisingAccessor = null;
+        }
+    }
+
+    private void Edit(MerchandisingRule configuration)
+    {
+        selectedRule = configuration;
+    }
+
+    private async Task Update()
+    {
+        if (!Connect()) return;
+        try
+        {
+            await merchandisingAccessor!.SaveAsync(selectedRule!, name);
+
+            await ListAllRules();
+            message = "Successfully updated the merchandising rule.";
+            error = null;
+            selectedRule = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            merchandisingAccessor = null;
+        }
+    }
+
+    private void CreateNewRule()
+    {
+        creatingNew = true;
+        selectedRule = null;
+    }
+
+    private async Task Create()
+    {
+        if (!Connect()) return;
+        try
+        {
+            await merchandisingAccessor!.SaveAsync(selectedRule!, name);
+
+            await ListAllRules();
+            message = "Successfully created the merchandising rule.";
+            error = null;
+            selectedRule = null;
+            creatingNew = false;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            merchandisingAccessor = null;
+        }
+    }
+
+    public void Dispose()
+    {
+        StaticDatasetStorage.AuthenticationReceived -= Authenticated;
+    }
+}

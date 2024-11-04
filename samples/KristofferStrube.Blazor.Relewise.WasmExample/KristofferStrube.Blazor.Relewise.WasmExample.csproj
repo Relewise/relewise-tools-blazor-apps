@@ -19,5 +19,4 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\KristofferStrube.Blazor.Relewise\KristofferStrube.Blazor.Relewise.csproj" />
   </ItemGroup>
-
 </Project>
