@@ -200,6 +200,76 @@ public static class Settings
         ),
     ];
 
+    public static readonly List<PropertyInvalidContext> InvalidProperties = [
+        new([
+                typeof(RecentlyViewedProductsRequest),
+                typeof(SortProductsRequest),
+                typeof(SortVariantsRequest),
+                typeof(PopularProductsRequest),
+                typeof(PersonalProductRecommendationRequest),
+            ],
+            typeof(ProductRecommendationRequestSettings).GetProperty("AllowFillIfNecessaryToReachNumberOfRecommendations")!,
+            "Fill is not supported for this recommendation type."
+        ),
+        new([
+                typeof(PopularContentsRequest),
+                typeof(PersonalContentRecommendationRequest),
+            ],
+            typeof(ContentRecommendationRequestSettings).GetProperty("AllowFillIfNecessaryToReachNumberOfRecommendations")!,
+            "Fill is not supported for this recommendation type."
+        ),
+        new([
+                typeof(PopularBrandsRecommendationRequest),
+                typeof(PersonalBrandRecommendationRequest),
+            ],
+            typeof(BrandRecommendationRequestSettings).GetProperty("AllowFillIfNecessaryToReachNumberOfRecommendations")!,
+            "Fill is not supported for this recommendation type."
+        ),
+        new([
+                typeof(PopularProductCategoriesRecommendationRequest),
+            ],
+            typeof(ProductCategoryRecommendationRequestSettings).GetProperty("AllowFillIfNecessaryToReachNumberOfRecommendations")!,
+            "Fill is not supported for this recommendation type."
+        ),
+        new([
+                typeof(PersonalContentCategoryRecommendationRequest),
+                typeof(PopularContentCategoriesRecommendationRequest),
+            ],
+            typeof(ProductCategoryRecommendationRequestSettings).GetProperty("AllowFillIfNecessaryToReachNumberOfRecommendations")!,
+            "Fill is not supported for this recommendation type."
+        ),
+        new([
+                typeof(RecentlyViewedProductsRequest),
+                typeof(SearchTermBasedProductRecommendationRequest),
+                typeof(SimilarProductsRequest),
+                typeof(SortProductsRequest),
+                typeof(SortVariantsRequest),
+            ],
+            typeof(ProductRecommendationRequestSettings).GetProperty("AllowReplacingOfRecentlyShownRecommendations")!,
+            "Replacing of recently shown products is not supported for this recommendation type."
+        ),
+        new([
+                typeof(RecentlyViewedProductsRequest),
+                typeof(SearchTermBasedProductRecommendationRequest),
+                typeof(SimilarProductsRequest),
+                typeof(SortProductsRequest),
+                typeof(SortVariantsRequest),
+            ],
+            typeof(ProductRecommendationRequestSettings).GetProperty("PrioritizeDiversityBetweenRequests")!,
+            "Prioritization of products not recently recommended is not supported for this recommendation type."
+        ),
+        new([
+                typeof(RecentlyViewedProductsRequest),
+                typeof(SearchTermBasedProductRecommendationRequest),
+                typeof(SimilarProductsRequest),
+                typeof(SortProductsRequest),
+                typeof(SortVariantsRequest),
+            ],
+            typeof(ProductRecommendationRequestSettings).GetProperty("PrioritizeResultsNotRecommendedWithinSeconds")!,
+            "Prioritization of products not recently recommended is not supported for this recommendation type."
+        ),
+    ];
+
     public static bool CanCreateNoneNullInitValue(Type type) =>
         Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor
         && editor.InitValue(type) is not null;

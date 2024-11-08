@@ -1,14 +1,17 @@
 ﻿@if (Value is null)
 {
-    <code>&lt;NULL&gt;</code>
-    @if (!ReadOnly)
-    {
-        <button class="btn btn-outline-success btn-sm" @onclick=SetValue>Set to non-null value</button>
-    }
+    <div>
+        <code>&lt;NULL&gt;</code>
+        @if (!ReadOnly)
+        {
+            <text>&nbsp;</text>
+            <button class="btn btn-outline-success btn-sm" @onclick=SetValue>Set to non-null value</button>
+        }
+    </div>
 }
 else
 {
-    <div class="input-container">
+    <div>
         <input type="checkbox" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
         @if (!ReadOnly)
         {

@@ -1,10 +1,13 @@
 ﻿@if (Value is null)
 {
-    <code>&lt;NULL&gt;</code>
-    @if (!ReadOnly)
-    {
-        <button class="btn btn-outline-success btn-sm" @onclick=Set>Set to 0</button>
-    }
+    <div>
+        <code>&lt;NULL&gt;</code>
+        @if (!ReadOnly)
+        {
+            <text>&nbsp;</text>
+            <button class="btn btn-outline-success btn-sm" @onclick=Set>Set to 0</button>
+        }
+    </div>
 }
 else
 {

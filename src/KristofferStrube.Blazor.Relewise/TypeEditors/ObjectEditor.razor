@@ -134,17 +134,24 @@
                 <div class="two-column-grid">
                     @foreach (var property in Properties)
                     {
-                        if (HideDefaultValueProperties is not true || (Value is null && emptyInstanceOfValue is null) || (Value is not null && emptyInstanceOfValue is not null && JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue))))
+                        PropertyInvalidContext? invalidProperty = Settings.InvalidProperties.FirstOrDefault(pic =>
+                        property == pic.Property
+                        && AncestorTypes.Any(a => pic.AncestorInterfaces.Any(ai => a.IsAssignableTo(ai)))
+                        );
+
+                        string propertyColor = invalidProperty is not null ? "grey" : "black";
+
+                        if (HideDefaultValueProperties is not true || (Value is null && emptyInstanceOfValue is null) || (Value is not null && emptyInstanceOfValue is not null && (JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue)) && invalidProperty is null)))
                         {
                             <div @key=@($"{property.Name}-label")>
                                 @if (property.GetCustomAttribute<ObsoleteAttribute>() is ObsoleteAttribute { Message: { } obsoleteReason })
                                 {
-                                    <s><b>@property.Name</b></s>
+                                    <s><b style="color: @propertyColor">@property.Name</b></s>
                                     <TrustedInfo>@obsoleteReason</TrustedInfo>
                                 }
                                 else
                                 {
-                                    <b>@property.Name</b>
+                                    <b style="color: @propertyColor">@property.Name</b>
                                     @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(property.DeclaringType, property.Name) is { } summary)
                                     {
                                         <TrustedInfo>@summary</TrustedInfo>
@@ -153,6 +160,10 @@
                                     {
                                         <CommunityInfo Summary="@communitySummary"></CommunityInfo>
                                     }
+                                }
+                                @if (invalidProperty is not null)
+                                {
+                                    <Info Warning="true">@invalidProperty.Reason</Info>
                                 }
                             </div>
                             var potentialEditor = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.PropertyType));
