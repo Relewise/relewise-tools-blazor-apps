@@ -104,7 +104,8 @@ public static class Settings
                 typeof(ProductRecommendationRequest),
                 typeof(ProductSearchRequest),
                 typeof(ProductChangeTriggerConfiguration),
-                typeof(ProductQuery)
+                typeof(ProductQuery),
+                typeof(ProductAdministrativeAction)
             ],
             typeof(Filter),
             [
@@ -116,7 +117,8 @@ public static class Settings
                 typeof(IContentRelevanceModifier),
                 typeof(ContentRecommendationRequest),
                 typeof(ContentSearchRequest),
-                typeof(ContentQuery)
+                typeof(ContentQuery),
+                typeof(ContentAdministrativeAction)
             ],
             typeof(Filter),
             [
@@ -126,7 +128,8 @@ public static class Settings
         new([
                 typeof(IBrandRelevanceModifier),
                 typeof(BrandRecommendationRequest),
-                typeof(BrandQuery)
+                typeof(BrandQuery),
+                typeof(BrandAdministrativeAction)
             ],
             typeof(Filter),
             [
@@ -138,10 +141,12 @@ public static class Settings
                 typeof(ProductCategoryRecommendationRequest),
                 typeof(ProductCategorySearchRequest),
                 typeof(ProductCategoryQuery),
+                typeof(ProductCategoryAdministrativeAction),
                 typeof(IContentCategoryRelevanceModifier),
                 typeof(ContentCategoryRecommendationRequest),
                 typeof(ContentCategorySearchRequest),
-                typeof(ContentCategoryQuery)
+                typeof(ContentCategoryQuery),
+                typeof(ContentCategoryAdministrativeAction)
             ],
             typeof(Filter),
             [
@@ -152,7 +157,8 @@ public static class Settings
                 typeof(ProductRecommendationRequest),
                 typeof(ProductSearchRequest),
                 typeof(ProductChangeTriggerConfiguration),
-                typeof(ProductQuery)
+                typeof(ProductQuery),
+                typeof(ProductAdministrativeAction)
             ],
             typeof(RelevanceModifier),
             [
@@ -162,7 +168,8 @@ public static class Settings
         new([
                 typeof(ContentRecommendationRequest),
                 typeof(ContentSearchRequest),
-                typeof(ContentQuery)
+                typeof(ContentQuery),
+                typeof(ContentAdministrativeAction)
             ],
             typeof(RelevanceModifier),
             [
@@ -171,7 +178,8 @@ public static class Settings
         ),
         new([
                 typeof(BrandRecommendationRequest),
-                typeof(BrandQuery)
+                typeof(BrandQuery),
+                typeof(BrandAdministrativeAction)
             ],
             typeof(RelevanceModifier),
             [
@@ -182,6 +190,7 @@ public static class Settings
                 typeof(ProductCategoryRecommendationRequest),
                 typeof(ProductCategorySearchRequest),
                 typeof(ProductCategoryQuery),
+                typeof(ProductCategoryAdministrativeAction),
             ],
             typeof(RelevanceModifier),
             [
@@ -192,6 +201,7 @@ public static class Settings
                 typeof(ContentCategoryRecommendationRequest),
                 typeof(ContentCategorySearchRequest),
                 typeof(ContentCategoryQuery),
+                typeof(ContentCategoryAdministrativeAction),
             ],
             typeof(RelevanceModifier),
             [
@@ -267,6 +277,26 @@ public static class Settings
             ],
             typeof(ProductRecommendationRequestSettings).GetProperty("PrioritizeResultsNotRecommendedWithinSeconds")!,
             "Prioritization of products not recently recommended is not supported for this recommendation type."
+        ),
+        new(
+            [
+                typeof(ProductCategoryRecommendationRequest),
+                typeof(ProductCategorySearchRequest),
+                typeof(ProductCategoryQuery),
+                typeof(ProductCategoryAdministrativeAction),
+            ],
+            typeof(ProductCategoryIdFilter).GetProperty("EvaluationScope")!,
+            "This property is not used when filtering categories. It is only used when this filter is used to filter products."
+        ),
+        new(
+            [
+                typeof(ContentCategoryRecommendationRequest),
+                typeof(ContentCategorySearchRequest),
+                typeof(ContentCategoryQuery),
+                typeof(ContentCategoryAdministrativeAction),
+            ],
+            typeof(ContentCategoryIdFilter).GetProperty("EvaluationScope")!,
+            "This property is not used when filtering categories. It is only used when this filter is used to filter content elements."
         ),
     ];
 
