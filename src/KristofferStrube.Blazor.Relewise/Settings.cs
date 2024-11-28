@@ -142,6 +142,13 @@ public static class Settings
                 typeof(ProductCategorySearchRequest),
                 typeof(ProductCategoryQuery),
                 typeof(ProductCategoryAdministrativeAction),
+            ],
+            typeof(Filter),
+            [
+                typeof(IProductCategoryFilter)
+            ]
+        ),
+        new([
                 typeof(IContentCategoryRelevanceModifier),
                 typeof(ContentCategoryRecommendationRequest),
                 typeof(ContentCategorySearchRequest),
@@ -150,7 +157,7 @@ public static class Settings
             ],
             typeof(Filter),
             [
-                typeof(ICategoryFilter)
+                typeof(IContentCategoryFilter)
             ]
         ),
         new([
