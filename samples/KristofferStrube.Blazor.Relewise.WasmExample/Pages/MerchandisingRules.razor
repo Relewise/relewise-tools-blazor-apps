@@ -1,6 +1,8 @@
 ﻿@using KristofferStrube.Blazor.Relewise.TypeEditors
 @using System.Reflection
 @using System.Threading
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Converters
 @using global::Relewise.Client.DataTypes.Merchandising.Rules
 @using global::Relewise.Client.Requests
 @using global::Relewise.Client.Responses
@@ -48,6 +50,7 @@
 {
     <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
     <br />
+    <br />
 }
 else
 {
@@ -75,12 +78,25 @@ else
             <i>You need to choose a specific rule and set the name before you can create the rule.</i>
         }
     }
+    else if (loadedModelFromUrl)
+    {
+        <p>You loaded a merchandising rule from a parsed MerchandisingRule. @(merchandisingAccessor is null ? "You need to connect before you can do something with this rule." : "Do you want to update some rule that has this id or do you want to create a copy of this rule with a new id?")</p>
+        @if (merchandisingAccessor is not null)
+        {
+            <button class="btn btn-success" disabled=@string.IsNullOrEmpty(name) @onclick=Update>Update</button>
+            <button class="btn btn-success" disabled=@string.IsNullOrEmpty(name) @onclick=Copy>Copy</button>
+            @if (string.IsNullOrEmpty(name))
+            {
+                <i>You need to set the name before you can update or copy the rule.</i>
+            }
+        }
+    }
     else
     {
         <button class="btn btn-success" disabled=@string.IsNullOrEmpty(name) @onclick=Update>Update</button>
         @if (string.IsNullOrEmpty(name))
         {
-            <i>You need to set the name before you have update the rule.</i>
+            <i>You need to set the name before you can update the rule.</i>
         }
     }
 }
@@ -121,6 +137,10 @@ else if (rules is not null)
     private MerchandisingAccessor? merchandisingAccessor;
     private MerchandisingRule[]? rules;
     private MerchandisingRule? selectedRule;
+    private bool loadedModelFromUrl = false;
+
+    [SupplyParameterFromQuery(Name = "o")]
+    public string? CompressedObject { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -153,6 +173,23 @@ else if (rules is not null)
             error = ex.Message;
             message = null;
             return false;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (CompressedObject is not null)
+        {
+            String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
+            var jsonSerializerSettings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto,
+                    NullValueHandling = NullValueHandling.Ignore,
+                    Formatting = Formatting.None,
+                    Converters = [new StringEnumConverter()]
+                };
+            selectedRule = JsonConvert.DeserializeObject<MerchandisingRule>(decompressedString, jsonSerializerSettings)!;
+            loadedModelFromUrl = true;
         }
     }
 
@@ -190,6 +227,28 @@ else if (rules is not null)
 
             await ListAllRules();
             message = "Successfully updated the merchandising rule.";
+            error = null;
+            selectedRule = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            merchandisingAccessor = null;
+        }
+    }
+
+    private async Task Copy()
+    {
+        if (!Connect()) return;
+        try
+        {
+            selectedRule.Id = Guid.NewGuid();
+
+            await merchandisingAccessor!.SaveAsync(selectedRule!, name);
+
+            await ListAllRules();
+            message = "Successfully copied the merchandising rule.";
             error = null;
             selectedRule = null;
         }

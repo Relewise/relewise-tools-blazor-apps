@@ -13,7 +13,7 @@
 <PageTitle>Blazor Relewise - Request Explorer</PageTitle>
 
 <h1>Request Explorer</h1>
-<p>Here you can paste a request and get a view of the associated request type.</p>
+<p>Here you can paste a request (or a merchandising rule) and get a view of the associated object.</p>
 
 @if (error is not null)
 {
@@ -47,14 +47,19 @@ else if (message is not null)
 </select>
 <br />
 <br />
-@if (Recommendations.RecommendationGroupings.SelectMany(g => g.Value).Contains(request?.GetType()))
+@if (Recommendations.RecommendationGroupings.SelectMany(g => g.Value).Contains(inputObject?.GetType()))
 {
     <button class="btn btn-primary btn-sm" @onclick="() => TransferToRecommendationsPage()">Transfer to Recommendations page</button>
     <br />
 }
-@if (Searches.SearchRequestGroupings.SelectMany(g => g.Value).Contains(request?.GetType()))
+@if (Searches.SearchRequestGroupings.SelectMany(g => g.Value).Contains(inputObject?.GetType()))
 {
     <button class="btn btn-primary btn-sm" @onclick="() => TransferToSearchesPage()">Transfer to Searches page</button>
+    <br />
+}
+@if (merchandisingRules.Contains(inputObject?.GetType()))
+{
+    <button class="btn btn-primary btn-sm" @onclick="() => TransferToMerchandisingRulesPage()">Transfer to Merchandising Rules page</button>
     <br />
 }
 
@@ -67,10 +72,10 @@ else if (message is not null)
 <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
 <br />
 
-@if (request is not null)
+@if (inputObject is not null)
 {
-    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=readOnly T=LicensedRequest ShowModelShareLink=@(Models.ConcreteTypes.Contains(request?.GetType())) Value="request" Setter="(Object? obj) => { request = (LicensedRequest?)obj; StateHasChanged(); }" />
+    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=readOnly T=LicensedRequest ShowModelShareLink=@(Models.ConcreteTypes.Contains(inputObject?.GetType())) Value="inputObject" Setter="(Object? obj) => { inputObject = (LicensedRequest?)obj; StateHasChanged(); }" />
     <br />
-    <Troubleshooter Request="request" />
+    <Troubleshooter Request="inputObject" />
     <br />
 }

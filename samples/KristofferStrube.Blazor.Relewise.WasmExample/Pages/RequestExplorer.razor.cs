@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 using Relewise.Client;
+using Relewise.Client.DataTypes.Merchandising.Rules;
 using Relewise.Client.Requests;
 using Relewise.Client.Requests.Search;
 using System.IO.Compression;
@@ -25,8 +27,9 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
             Converters = [new StringEnumConverter()]
         };
         private List<Type> derivedTypes;
-        private LicensedRequest? request;
+        private object? inputObject;
         private bool hideDefaultValueProperties = true;
+        private Type[] merchandisingRules = [typeof(BoostAndBuryRule), typeof(FilterRule), typeof(FixedPositionRule), typeof(InputModifierRule)];
 
         [Inject]
         public required NavigationManager NavigationManager { get; set; }
@@ -39,6 +42,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
                 .Where(type => type != typeof(LicensedRequest) && type.IsAssignableTo(typeof(LicensedRequest)) && !type.IsGenericType && !type.IsAbstract)
                 .OrderBy(type => type.Name)
                 .ToList();
+            derivedTypes.AddRange(merchandisingRules);
             selectedParseType = typeof(ProductSearchRequest);
         }
 
@@ -46,7 +50,12 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
         {
             try
             {
-                request = JsonConvert.DeserializeObject<LicensedRequest?>(input, jsonSerializerSettings);
+                inputObject = JsonConvert.DeserializeObject<object?>(input, jsonSerializerSettings);
+                if (inputObject.GetType() == typeof(JObject))
+                {
+                    inputObject = null;
+                    throw new Exception("Not allowed to deserialize as JObject");
+                }
                 error = null;
                 message = "Found matching type from $type annotation on object.";
             }
@@ -87,7 +96,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
                 }
                 else
                 {
-                    request = (LicensedRequest?)JsonConvert.DeserializeObject(input, bestMatchingSerializationType, jsonSerializerSettings);
+                    inputObject = (LicensedRequest?)JsonConvert.DeserializeObject(input, bestMatchingSerializationType, jsonSerializerSettings);
                     error = null;
                     message = $"Successfully found a best match for the request type: '{bestMatchingSerializationType.Name}'";
                 }
@@ -97,14 +106,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
         {
             try
             {
-                JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.Auto,
-                    NullValueHandling = NullValueHandling.Ignore,
-                    Formatting = Formatting.Indented
-                };
-                jsonSerializerSettings.Converters.Add(new StringEnumConverter());
-                request = (LicensedRequest?)JsonConvert.DeserializeObject(input, selectedParseType, jsonSerializerSettings);
+                inputObject = (LicensedRequest?)JsonConvert.DeserializeObject(input, selectedParseType, jsonSerializerSettings);
                 error = null;
                 message = "Successfully parsed as the selected type.";
             }
@@ -117,47 +119,46 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
 
         public void TransferToRecommendationsPage()
         {
-            var jsonSerializerSettings = new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.Auto,
-                NullValueHandling = NullValueHandling.Ignore,
-                Formatting = Formatting.None,
-                Converters = [new StringEnumConverter()]
-            };
-
-            Type? serializedType = request?.GetType();
+            Type? serializedType = inputObject?.GetType();
             if (serializedType?.BaseType is not null)
             {
                 serializedType = serializedType.BaseType;
             }
 
-            string serialized = JsonConvert.SerializeObject(request, serializedType, jsonSerializerSettings);
+            string serialized = JsonConvert.SerializeObject(inputObject, serializedType, jsonSerializerSettings);
             string compressed = ToGzip(serialized);
 
-            string url = $"{NavigationManager.BaseUri}Recommendations?q={request?.GetType().Name}&o={compressed}";
+            string url = $"{NavigationManager.BaseUri}Recommendations?q={inputObject?.GetType().Name}&o={compressed}";
             NavigationManager.NavigateTo(url);
         }
 
         public void TransferToSearchesPage()
         {
-            var jsonSerializerSettings = new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.Auto,
-                NullValueHandling = NullValueHandling.Ignore,
-                Formatting = Formatting.None,
-                Converters = [new StringEnumConverter()]
-            };
-
-            Type? serializedType = request?.GetType();
+            Type? serializedType = inputObject?.GetType();
             if (serializedType?.BaseType is not null)
             {
                 serializedType = serializedType.BaseType;
             }
 
-            string serialized = JsonConvert.SerializeObject(request, serializedType, jsonSerializerSettings);
+            string serialized = JsonConvert.SerializeObject(inputObject, serializedType, jsonSerializerSettings);
             string compressed = ToGzip(serialized);
 
-            string url = $"{NavigationManager.BaseUri}Searches?q={request?.GetType().Name}&o={compressed}";
+            string url = $"{NavigationManager.BaseUri}Searches?q={inputObject?.GetType().Name}&o={compressed}";
+            NavigationManager.NavigateTo(url);
+        }
+
+        public void TransferToMerchandisingRulesPage()
+        {
+            Type? serializedType = inputObject?.GetType();
+            if (serializedType?.BaseType is not null)
+            {
+                serializedType = serializedType.BaseType;
+            }
+
+            string serialized = JsonConvert.SerializeObject(inputObject, serializedType, jsonSerializerSettings);
+            string compressed = ToGzip(serialized);
+
+            string url = $"{NavigationManager.BaseUri}MerchandisingRules?o={compressed}";
             NavigationManager.NavigateTo(url);
         }
 
