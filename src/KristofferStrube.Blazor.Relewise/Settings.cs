@@ -224,6 +224,8 @@ public static class Settings
                 typeof(SortVariantsRequest),
                 typeof(PopularProductsRequest),
                 typeof(PersonalProductRecommendationRequest),
+                typeof(SearchTermBasedProductRecommendationRequest),
+                typeof(SimilarProductsRequest),
             ],
             typeof(ProductRecommendationRequestSettings).GetProperty("AllowFillIfNecessaryToReachNumberOfRecommendations")!,
             "Fill is not supported for this recommendation type."
