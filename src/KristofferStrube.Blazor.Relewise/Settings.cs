@@ -258,6 +258,18 @@ public static class Settings
             "Fill is not supported for this recommendation type."
         ),
         new([
+                typeof(SortProductsRequest),
+            ],
+            typeof(ProductRecommendationRequestSettings).GetProperty("RecommendVariant")!,
+            "Recommending variants for this recommendation is not supported."
+        ),
+        new([
+                typeof(SortVariantsRequest),
+            ],
+            typeof(ProductRecommendationRequestSettings).GetProperty("RecommendVariant")!,
+            "Recommending variants for this recommendation type is not optional."
+        ),
+        new([
                 typeof(RecentlyViewedProductsRequest),
                 typeof(SearchTermBasedProductRecommendationRequest),
                 typeof(SimilarProductsRequest),
@@ -276,6 +288,13 @@ public static class Settings
             ],
             typeof(ProductRecommendationRequestSettings).GetProperty("PrioritizeDiversityBetweenRequests")!,
             "Prioritization of products not recently recommended is not supported for this recommendation type."
+        ),
+        new([
+                typeof(SearchTermBasedProductRecommendationRequest),
+                typeof(SortVariantsRequest),
+            ],
+            typeof(ProductRecommendationRequestSettings).GetProperty("AllowProductsCurrentlyInCart")!,
+            "Using this property is not supported for this recommendation type."
         ),
         new([
                 typeof(RecentlyViewedProductsRequest),
