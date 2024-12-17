@@ -64,6 +64,11 @@
             try
             {
                 Authentication a = await e.GetDataAsync<Authentication>();
+                if (string.IsNullOrWhiteSpace(a.apiKey))
+                {
+                    Console.WriteLine($"Received api key from parent window which was empty '{a.apiKey}'");
+                    return;
+                }
                 StaticDatasetStorage.ApiKey = a.apiKey;
                 StaticDatasetStorage.ServerUrl = a.serverUrl;
                 StateHasChanged();
