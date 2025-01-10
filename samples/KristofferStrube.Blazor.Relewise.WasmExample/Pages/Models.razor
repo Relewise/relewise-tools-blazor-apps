@@ -190,7 +190,7 @@
         .ToList();
 
     public static List<Type> GetTypes(IEnumerable<Type> input) => input
-        .Where(t => !t.IsAbstract && !t.IsInterface && !t.IsEnum && (t.IsClass || t.IsValueType) && t.IsVisible && Settings.CanCreateNoneNullInitValue(t))
+        .Where(t => !t.IsAbstract && !t.IsInterface && !t.IsEnum && (t.IsClass || t.IsValueType) && t.IsVisible)
         .OrderBy(t => Settings.Name(t).ToLower().Trim())
         .ToList();
 
