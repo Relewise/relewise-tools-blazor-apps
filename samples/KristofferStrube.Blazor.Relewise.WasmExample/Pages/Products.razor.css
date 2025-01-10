@@ -16,3 +16,18 @@ summary {
     font-size: 20px;
     color: white;
 }
+
+
+table {
+    border: 1px solid var(--color-green);
+}
+
+thead {
+    background-color: var(--color-green);
+    color: white;
+    font-weight: 700;
+}
+
+th, td {
+    padding: 5px;
+}

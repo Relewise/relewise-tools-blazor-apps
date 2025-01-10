@@ -1,0 +1,13 @@
+﻿@if (Value?.Values?.OrderBy(v => v.Language).FirstOrDefault() is { } name)
+{
+    @name.Text <code>(@name.Language)</code>
+}
+else
+{
+    <code>&lt;NULL&gt;</code>
+}
+
+@code {
+    [Parameter]
+    public required Multilingual? Value { get; set; }
+}

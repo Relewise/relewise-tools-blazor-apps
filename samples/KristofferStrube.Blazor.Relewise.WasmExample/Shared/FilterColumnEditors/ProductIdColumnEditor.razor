@@ -1,0 +1,44 @@
+﻿@using global::Relewise.Client.Requests.Filters
+<span>Product Id</span>
+    &nbsp;
+<svg viewBox="0 0 16 16" height="16px" style="cursor:pointer;" @onclick=ShowFilter>
+    <polygon stroke="#FFFFFF" stroke-width="2" fill="@(Column.Filter is null ? "none" : "#FFFFFF")" points="1,2 6,7 6,14 10,14 10,7 15,2" stroke-linejoin="round"></polygon>
+</svg>
+@if (filterEditorShown)
+{
+    <div style="display: flex; flex-direction: row;">
+        <input class="form-control form-control-sm" @bind=productId @bind:event="oninput" @bind:after=IdChanged />
+        @if (Column.Filter is not null)
+        {
+            <button class="btn btn-warning btn-sm" @onclick=RemoveFilter>X</button>
+        }
+    </div>
+}
+
+@code {
+    private bool filterEditorShown = false;
+    private string productId = "";
+
+    [Parameter, EditorRequired]
+    public required Column<ProductIdFilter> Column { get; set; }
+
+    public void ShowFilter()
+    {
+        filterEditorShown = !filterEditorShown;
+        Column.Filter ??= new ProductIdFilter(new List<string>() { "" });
+    }
+
+    public void RemoveFilter()
+    {
+        Column.Filter = null;
+        filterEditorShown = false;
+        productId = "";
+    }
+
+    public void IdChanged()
+    {
+        if (Column.Filter is null) return;
+
+        Column.Filter = new ProductIdFilter(new List<string>() { productId });
+    }
+}

@@ -1,6 +1,9 @@
 ﻿@using KristofferStrube.Blazor.DOM
 @using KristofferStrube.Blazor.Relewise.TypeEditors
+@using KristofferStrube.Blazor.Relewise.WasmExample.Shared.ColumnPresenter
+@using KristofferStrube.Blazor.Relewise.WasmExample.Shared.FilterColumnEditors
 @using KristofferStrube.Blazor.Window
+@using global::Relewise.Client.Requests.Filters
 @page "/Products"
 @implements IDisposable
 
@@ -41,62 +44,127 @@
 }
 else
 {
-    <p>Now you need to find the id of some Product you want to inspect.</p>
+    <p>Now you can either list all products or get a specific set of products using filters.</p>
+    <p>For now we only have some simple column based options for filtering on the product id or display name, but more will come in the future.</p>
 
-    <div class="input-group">
-        <div class="input-group-prepend">
-            <label for="productId" class="input-group-text" style="width:120px;">Product Id</label>
-        </div>
-        <input @bind=productId class="form-control" id="productId" />
-    </div>
+    <button class="btn btn-success" @onclick=LoadProductsFromStart>Load Products</button>
     <br />
-    <div style="display:flex;grid-gap:5px;flex-direction:row;">
-        <button class="btn btn-primary" @onclick=Fetch>Fetch</button>
-        @if (productIsDisabled)
-        {
-            <button class="btn btn-success" style="width:80px;" @onclick=EnableProduct>Enable</button>
-        }
-        else
-        {
-            <button class="btn btn-warning" style="width:80px;" @onclick=DisableProduct>Disable</button>
-        }
-        @if (product is not null)
-        {
-            <button class="btn btn-success" @onclick=Update>Update</button>
-        }
-    </div>
     <br />
-}
-@if (product is not null)
-{
-    <label for="openDetails">Expand all: </label>
-    <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-    <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Product Value="product" Setter="(Object? obj) => { product = (Product?)obj;  StateHasChanged(); }" />
-    <br />
-    @if (productVariants is not null)
+    @if (productsInView is not null)
     {
-        <details class="box" open="true">
-            <summary>
-                Variants
-            </summary>
-            <div class="two-column-grid">
-                @for (int i = 0; i < productVariants.Count; i++)
+        <div style="width:100%; display:flex; align-items:center; justify-content:center; padding: 5px; grid-gap: 5px;">
+            <span>showing results from @skip to @(skip + productsInView.Count) out of @totalResults</span>
+            <button class="btn btn-outline-secondary btn-sm" title="Go to previous page" @onclick=GoToPreviousPage>&lt;&lt;</button>
+            <button class="btn btn-outline-secondary btn-sm" title="Go to next page" @onclick=GoToNextPage>&gt;&gt;</button>
+        </div>
+    }
+    <table width="100%">
+        <thead>
+            <tr>
+                @foreach (var column in columns)
                 {
-                    int j = i;
-                    @if (productVariantsAreDisabled[i])
+                    <th style="vertical-align: top;">
+                        @{
+                            var parameters = new Dictionary<string, object>()
                     {
-                        <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => EnableVariant(j)">Enable</button>
-                    }
-                    else
-                    {
-                        <button class="btn btn-warning btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => DisableVariant(j)">Disable</button>
-                    }
-                    <div>
-                        <ObjectEditor OpenDetails=openDetails T=ProductVariant Value="productVariants[j]" Setter="(Object? obj) => { productVariants[j] = (ProductVariant)obj!; variantsHaveChanges = true; StateHasChanged(); }" />
-                    </div>
+                        ["Column"] = column,
+                    };
+                        }
+                        <DynamicComponent Type="column.FilterColumnEditor" Parameters="parameters"></DynamicComponent>
+                    </th>
                 }
-            </div>
-        </details>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (productsInView is not null)
+            {
+                @for (int i = 0; i < productsInView.Count; i++)
+                {
+                    var context = productsInView[i];
+                    <tr style="background-color:@(i % 2 == 0 ? "white" : "#DDFFDD")">
+                        @foreach (var column in columns)
+                        {
+                            <td>
+                                @{
+                                    var parameters = new Dictionary<string, object>
+                                ()
+                            {
+                                ["Value"] = column.ColumnSelector(context.Product)!,
+                            };
+                                }
+                                <DynamicComponent Type="column.ColumnPresenter" Parameters="parameters"></DynamicComponent>
+                            </td>
+                        }
+                        <td>
+                            <div style="display:flex; flex-direction:row; grid-gap:2px; justify-content:flex-end;">
+                                @if (context.ProductIsDisabled)
+                                {
+                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick=@(() => EnableProduct(context))>Enable</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-warning btn-sm" style="width:70px;height:26px;padding:0px;" @onclick=@(() => DisableProduct(context))>Disable</button>
+                                }
+                                @if (context.IsBeingEdited)
+                                {
+                                    <button class="btn btn-danger btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => DiscardChanges(context)">Discard Changes</button>
+                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => Update(context)">Save Changes</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => { context.IsBeingEdited = true; StateHasChanged(); }">Edit</button>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                    @if (context.IsBeingEdited)
+                    {
+                        <tr>
+                            <td colspan="@(columns.Count + 1)">
+                                <label for="openDetails">Expand all: </label>
+                                <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+                                <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Product Value="context.Product" Setter="(Object? obj) => { context.Product = (Product?)obj!; StateHasChanged(); }" />
+                                <br />
+                                @if (context.ProductVariants is not null && context.ProductVariantsDisabled is not null)
+                                {
+                                    <details class="box" open="open">
+                                        <summary>
+                                            Variants
+                                        </summary>
+                                        <div class="two-column-grid">
+                                            @for (int j = 0; j < context.ProductVariants.Count; j++)
+                                            {
+                                                int k = j;
+                                                @if (context.ProductVariantsDisabled[k])
+                                                {
+                                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => EnableVariant(context, k)">Enable</button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-warning btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => DisableVariant(context, k)">Disable</button>
+                                                }
+                                                <div>
+                                                    <ObjectEditor OpenDetails=openDetails T=ProductVariant Value="context.ProductVariants[k]" Setter="(Object? obj) => { context.ProductVariants[k] = (ProductVariant)obj!; context.VariantsHadChanges = true; StateHasChanged(); }" />
+                                                </div>
+                                            }
+                                        </div>
+                                    </details>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            }
+        </tbody>
+    </table>
+    @if (productsInView is not null)
+    {
+        <div style="width:100%; display:flex; align-items:center; justify-content:center; padding: 5px; grid-gap: 5px;">
+            <span>showing results from @skip to @(skip + productsInView.Count) out of @totalResults</span>
+            <button class="btn btn-outline-secondary btn-sm" title="Go to previous page" @onclick=GoToPreviousPage>&lt;&lt;</button>
+            <button class="btn btn-outline-secondary btn-sm" title="Go to next page" @onclick=GoToNextPage>&gt;&gt;</button>
+        </div>
     }
     <br />
     <br />
@@ -105,15 +173,17 @@ else
 @code {
     private string? error;
     private string? message;
-    private string productId = "";
     private bool openDetails;
     private DataAccessor? dataAccessor;
     private Tracker? tracker;
-    private Product? product;
-    private bool productIsDisabled;
-    private List<ProductVariant>? productVariants;
-    private List<bool> productVariantsAreDisabled = new();
-    private bool variantsHaveChanges;
+    private List<Column> columns = [
+        new Column<ProductIdFilter>(typeof(ProductIdColumnEditor), typeof(StringColumnPresenter), p => p.Id),
+    new Column<ProductDisplayNameFilter>(typeof(DisplayNameColumnEditor), typeof(MultilingualColumnPresenter), p => p.DisplayName),
+    ];
+
+    private List<ProductAndVariantEditContext>? productsInView = null;
+    private int skip = 0;
+    private int totalResults = 0;
 
     [Inject]
     public required IJSRuntime JSRuntime { get; set; }
@@ -151,68 +221,73 @@ else
         }
     }
 
-    private async Task Fetch()
+    private async Task LoadProductsFromStart()
     {
         if (!Connect()) return;
+        skip = 0;
+
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
         try
         {
-            var result = await dataAccessor!.QueryAsync(new ProductQuery(productId)
-            {
-                IncludeDisabledProducts = true,
-                IncludeDisabledVariants = true
-            });
-            var productResult = result?.Products.Single();
-            if (productResult is null) return;
+            FilterCollection filterCollection = new(columns.Where(c => c.Filter is not null).Select(c => c.Filter).ToArray()!);
 
-            productIsDisabled = productResult.Disabled;
-            product = new Product(productResult.ProductId)
+            var result = await dataAccessor!.QueryAsync(new ProductQuery(filterCollection, 50, false, skip, true)
                 {
-                    DisplayName = productResult.DisplayName,
-                    Assortments = productResult.Assortments?.ToList(),
-                    CategoryPaths = productResult.CategoryPaths
-                                                    ?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })
-                                                    ?.ToList(),
-                    Data = productResult.Data,
-                    Custom = productResult.Custom,
-                    Brand = productResult.Brand is null
-                                                ? null
-                                                : new Brand(productResult.Brand.BrandId)
-                                                {
-                                                    DisplayName = productResult.Brand.DisplayName,
-                                                    Assortments = productResult.Brand.Assortments?.ToList(),
-                                                    Data = productResult.Brand.Data
-                                                },
-                    ListPrice = productResult.ListPrice,
-                    SalesPrice = productResult.SalesPrice
-                };
+                    IncludeDisabledProducts = true,
+                    IncludeDisabledVariants = true
+                });
 
-            if (productResult.AllVariants?.Length > 0)
+            productsInView = new();
+            totalResults = result.TotalNumberOfResults!.Value;
+            foreach (var productResult in result.Products)
             {
-                productVariants = new(productResult.AllVariants.Length);
-                productVariantsAreDisabled = new(productResult.AllVariants.Length);
-
-                foreach (VariantResultDetails productVariantResult in productResult.AllVariants)
-                {
-                    productVariantsAreDisabled.Add(productVariantResult.Disabled);
-                    productVariants.Add(new ProductVariant(productVariantResult.VariantId)
+                ProductAndVariantEditContext context = new(new Product(productResult.ProductId)
+                    {
+                        DisplayName = productResult.DisplayName,
+                        Assortments = productResult.Assortments?.ToList(),
+                        CategoryPaths = productResult.CategoryPaths?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })?.ToList(),
+                        Data = productResult.Data,
+                        Custom = productResult.Custom,
+                        Brand = productResult.Brand is null ? null : new Brand(productResult.Brand.BrandId)
                         {
-                            DisplayName = productVariantResult.DisplayName,
-                            Assortments = productVariantResult.Assortments?.ToList(),
-                            Specification = productVariantResult.Specification,
-                            Data = productVariantResult.Data,
-                            Custom = productVariantResult.Custom,
-                            ListPrice = productVariantResult.ListPrice,
-                            SalesPrice = productVariantResult.SalesPrice
-                        });
-                }
-            }
-            else
-            {
-                productVariants = null;
-            }
-            variantsHaveChanges = false;
+                            DisplayName = productResult.Brand.DisplayName,
+                            Assortments = productResult.Brand.Assortments?.ToList(),
+                            Data = productResult.Brand.Data
+                        },
+                        ListPrice = productResult.ListPrice,
+                        SalesPrice = productResult.SalesPrice
+                    },
+                    productResult.Disabled);
 
-            message = "Successfully fetched the product";
+                if (productResult.AllVariants?.Length > 0)
+                {
+                    context.ProductVariants = new(productResult.AllVariants.Length);
+                    context.ProductVariantsDisabled = new(productResult.AllVariants.Length);
+
+                    foreach (VariantResultDetails productVariantResult in productResult.AllVariants)
+                    {
+                        context.ProductVariantsDisabled.Add(productVariantResult.Disabled);
+                        context.ProductVariants.Add(new ProductVariant(productVariantResult.VariantId)
+                            {
+                                DisplayName = productVariantResult.DisplayName,
+                                Assortments = productVariantResult.Assortments?.ToList(),
+                                Specification = productVariantResult.Specification,
+                                Data = productVariantResult.Data,
+                                Custom = productVariantResult.Custom,
+                                ListPrice = productVariantResult.ListPrice,
+                                SalesPrice = productVariantResult.SalesPrice
+                            });
+                    }
+                }
+                context.VariantsHadChanges = false;
+                productsInView.Add(context);
+            }
+
+            message = $"Successfully fetched the product{(productsInView.Count is 1 ? "" : "s")}.";
             error = null;
         }
         catch (Exception ex)
@@ -225,16 +300,16 @@ else
         }
     }
 
-    private async Task Update()
+    private async Task Update(ProductAndVariantEditContext context)
     {
         try
         {
-            if (variantsHaveChanges)
+            if (context.VariantsHadChanges)
             {
                 await tracker!.TrackAsync(
                     new ProductUpdate(
-                        product,
-                        productVariants,
+                        context.Product,
+                        context.ProductVariants,
                         ProductUpdate.UpdateKind.ReplaceProvidedProperties,
                         ProductUpdate.UpdateKind.ReplaceProvidedProperties,
                         replaceExistingVariants: true)
@@ -242,11 +317,11 @@ else
             }
             else
             {
-                await tracker!.TrackAsync(new ProductUpdate(product, ProductUpdate.UpdateKind.ReplaceProvidedProperties));
+                await tracker!.TrackAsync(new ProductUpdate(context.Product, ProductUpdate.UpdateKind.ReplaceProvidedProperties));
             }
-            message = "Successfully updated the product" + (variantsHaveChanges ? " and variants." : ".");
-            product = null;
-            productVariants = null;
+            message = "Successfully updated the product" + (context.VariantsHadChanges ? " and variants." : ".");
+            context.IsBeingEdited = false;
+            context.VariantsHadChanges = false;
             error = null;
         }
         catch (Exception ex)
@@ -256,7 +331,12 @@ else
         }
     }
 
-    private async Task EnableProduct()
+    public async Task DiscardChanges(ProductAndVariantEditContext context)
+    {
+        context.IsBeingEdited = false;
+    }
+
+    private async Task EnableProduct(ProductAndVariantEditContext context)
     {
         if (!Connect()) return;
         StateHasChanged();
@@ -264,9 +344,9 @@ else
         try
         {
             await tracker!.TrackAsync(
-                new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.Enable)
+                new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.Enable)
             );
-            productIsDisabled = false;
+            context.ProductIsDisabled = false;
             message = "Successfully enabled the product";
             error = null;
         }
@@ -277,7 +357,7 @@ else
         }
     }
 
-    private async Task DisableProduct()
+    private async Task DisableProduct(ProductAndVariantEditContext context)
     {
         if (!Connect()) return;
         StateHasChanged();
@@ -285,9 +365,9 @@ else
         try
         {
             await tracker!.TrackAsync(
-                new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.Disable)
+                new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.Disable)
             );
-            productIsDisabled = true;
+            context.ProductIsDisabled = true;
             message = "Successfully disabled the product";
             error = null;
         }
@@ -298,17 +378,17 @@ else
         }
     }
 
-    private async Task EnableVariant(int variantIndex)
+    private async Task EnableVariant(ProductAndVariantEditContext context, int variantIndex)
     {
-        if (!Connect() || productVariants is null) return;
+        if (!Connect() || context.ProductVariants is null || context.ProductVariantsDisabled is null) return;
         StateHasChanged();
         await Task.Delay(100);
         try
         {
             await tracker!.TrackAsync(
-                new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.None, productVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Enable)
+                new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.None, context.ProductVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Enable)
             );
-            productVariantsAreDisabled[variantIndex] = false;
+            context.ProductVariantsDisabled[variantIndex] = false;
             message = "Successfully enabled the variant";
             error = null;
         }
@@ -319,17 +399,17 @@ else
         }
     }
 
-    private async Task DisableVariant(int variantIndex)
+    private async Task DisableVariant(ProductAndVariantEditContext context, int variantIndex)
     {
-        if (!Connect() || productVariants is null) return;
+        if (!Connect() || context.ProductVariants is null || context.ProductVariantsDisabled is null) return;
         StateHasChanged();
         await Task.Delay(100);
         try
         {
             await tracker!.TrackAsync(
-                new ProductAdministrativeAction(null, null, productId, ProductAdministrativeAction.UpdateKind.None, productVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Disable)
+                new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.None, context.ProductVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Disable)
             );
-            productVariantsAreDisabled[variantIndex] = true;
+            context.ProductVariantsDisabled[variantIndex] = true;
             message = "Successfully disabled the variant";
             error = null;
         }
@@ -340,8 +420,30 @@ else
         }
     }
 
+    public async Task GoToNextPage()
+    {
+        skip += 50;
+        await LoadProducts();
+    }
+
+    public async Task GoToPreviousPage()
+    {
+        skip = Math.Max(0, skip - 50);
+        await LoadProducts();
+    }
+
     public void Dispose()
     {
         StaticDatasetStorage.AuthenticationReceived -= Authenticated;
+    }
+
+    public class ProductAndVariantEditContext(Product product, bool productIsDisabled)
+    {
+        public Product Product { get; set; } = product;
+        public bool ProductIsDisabled { get; set; } = productIsDisabled;
+        public List<ProductVariant>? ProductVariants { get; set; } = null;
+        public List<bool>? ProductVariantsDisabled { get; set; } = null;
+        public bool IsBeingEdited { get; set; } = false;
+        public bool VariantsHadChanges { get; set; } = false;
     }
 }

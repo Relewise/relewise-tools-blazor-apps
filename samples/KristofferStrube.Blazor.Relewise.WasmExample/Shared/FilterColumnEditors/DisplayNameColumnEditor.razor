@@ -1,0 +1,54 @@
+﻿@using global::Relewise.Client.Requests.Conditions
+@using global::Relewise.Client.Requests.Filters
+<span>Display Name</span>
+    &nbsp;
+<svg viewBox="0 0 16 16" height="16px" style="cursor:pointer;" @onclick=ShowFilter>
+    <polygon stroke="#FFFFFF" stroke-width="2" fill="@(Column.Filter is null ? "none" : "#FFFFFF")" points="1,2 6,7 6,14 10,14 10,7 15,2" stroke-linejoin="round"></polygon>
+</svg>
+@if (filterEditorShown)
+{
+    <div style="display: flex; flex-direction: row;grid-gap: 2px;">
+        <label for="displayName">name:</label>
+        <input class="form-control form-control-sm" id="displayName" @bind=displayName @bind:event="oninput" @bind:after=Changed />
+        <label for="language">language:</label>
+        <input class="form-control form-control-sm" id="language" @bind=language @bind:event="oninput" @bind:after=Changed />
+        @if (Column.Filter is not null)
+        {
+            <button class="btn btn-warning btn-sm" @onclick=RemoveFilter>X</button>
+        }
+    </div>
+}
+
+@code {
+    private bool filterEditorShown = false;
+    private string displayName = "";
+    private string language = "";
+
+    [Parameter, EditorRequired]
+    public required Column<ProductDisplayNameFilter> Column { get; set; }
+
+    public void ShowFilter()
+    {
+        filterEditorShown = !filterEditorShown;
+        Column.Filter ??= new ProductDisplayNameFilter(new EqualsCondition(new DataValue("")));
+    }
+
+    public void RemoveFilter()
+    {
+        Column.Filter = null;
+        filterEditorShown = false;
+        displayName = "";
+    }
+
+    public void Changed()
+    {
+        try
+        {
+            Column.Filter = new ProductDisplayNameFilter(new EqualsCondition(new DataValue(displayName)), new Language(language));
+        }
+        catch
+        {
+            // Do nothing
+        }
+    }
+}
