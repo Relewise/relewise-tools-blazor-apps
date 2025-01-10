@@ -286,8 +286,8 @@ else
         var oldestAssembly = Assembly.Load(oldestDLL);
         var newestAssembly = Assembly.Load(newestDLL);
 
-        var oldConcreteTypes = Models.GetConcreteTypes(oldestAssembly.GetTypes());
-        var newConcreteTypes = Models.GetConcreteTypes(newestAssembly.GetTypes());
+        var oldConcreteTypes = Models.GetTypes(oldestAssembly.GetTypes());
+        var newConcreteTypes = Models.GetTypes(newestAssembly.GetTypes());
 
         var oldEnumTypes = Models.GetEnumTypes(oldestAssembly.GetTypes());
         var newEnumTypes = Models.GetEnumTypes(newestAssembly.GetTypes());
