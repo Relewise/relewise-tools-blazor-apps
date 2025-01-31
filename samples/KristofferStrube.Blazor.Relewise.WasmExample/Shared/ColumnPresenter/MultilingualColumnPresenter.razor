@@ -1,6 +1,6 @@
-﻿@if (Value?.Values?.OrderBy(v => v.Language).FirstOrDefault() is { } name)
+﻿@if (BestLangugaeSpecificMultilingual() is { } name)
 {
-    @name.Text <code>(@name.Language)</code>
+    @name.Text <code>(@name.Language?.Value)</code>
 }
 else
 {
@@ -10,4 +10,19 @@ else
 @code {
     [Parameter]
     public required Multilingual? Value { get; set; }
+
+    private Multilingual.Value? BestLangugaeSpecificMultilingual()
+    {
+        if (Value?.Values?.FirstOrDefault(v => v.Language?.Value?.Contains("en") is true) is {} englishVersion)
+        {
+            return englishVersion;
+        }
+
+        if (Value?.Values?.FirstOrDefault(v => v.Language?.Value?.Contains("da") is true) is { } danishVersion)
+        {
+            return danishVersion;
+        }
+
+        return Value?.Values?.OrderBy(v => v?.Language?.Value).FirstOrDefault();
+    }
 }
