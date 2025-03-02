@@ -52,19 +52,18 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
             hasLastRequestBeenSavedPreviously = HasLastRequestBeenSavedPreviously();
         }
 
-        public static void SaveInLocalStorage(IJSInProcessRuntime InProcessJSRuntime, object? objectToSave)
+        public static async void SaveInLocalStorage(IJSInProcessRuntime InProcessJSRuntime, object? objectToSave)
         {
             string serialized = JsonConvert.SerializeObject(objectToSave, typeof(object), jsonSerializerSettings);
             string compressed = ToGzip(serialized);
-
             InProcessJSRuntime.InvokeVoid("localStorage.setItem", "lastRequest", compressed);
         }
 
         public async Task RetrieveFromLocalStorage()
         {
             string compressed = JSRuntime.Invoke<string?>("localStorage.getItem", "lastRequest")!;
-            string uncompressed = await Models.FromGzipAsync(compressed);
-            inputObject = JsonConvert.DeserializeObject<object>(uncompressed, jsonSerializerSettings);
+            input = await Models.FromGzipAsync(compressed);
+            inputObject = JsonConvert.DeserializeObject<object>(input, jsonSerializerSettings);
         }
 
         public bool HasLastRequestBeenSavedPreviously()

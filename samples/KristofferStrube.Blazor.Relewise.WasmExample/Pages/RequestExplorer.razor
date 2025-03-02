@@ -48,30 +48,33 @@ else if (message is not null)
 
 <br />
 <br />
-<br />
 
-@if (HasLastRequestBeenSavedPreviously())
-{
-    <button @onclick="RetrieveFromLocalStorage" class="btn btn-primary">Previous Request</button>
-}
-<br />
-<br />
-
-@if (Recommendations.RecommendationGroupings.SelectMany(g => g.Value).Contains(inputObject?.GetType()))
-{
-    <button class="btn btn-primary btn-sm" @onclick="() => TransferToRecommendationsPage()">Transfer to Recommendations page</button>
-    <br />
-}
-@if (Searches.SearchRequestGroupings.SelectMany(g => g.Value).Contains(inputObject?.GetType()))
-{
-    <button class="btn btn-primary btn-sm" @onclick="() => TransferToSearchesPage()">Transfer to Searches page</button>
-    <br />
-}
-@if (merchandisingRules.Contains(inputObject?.GetType()))
-{
-    <button class="btn btn-primary btn-sm" @onclick="() => TransferToMerchandisingRulesPage()">Transfer to Merchandising Rules page</button>
-    <br />
-}
+<div style="display:flex;flex-direction:column;grid-gap:5px;">
+    @if (hasLastRequestBeenSavedPreviously)
+    {
+        <div>
+            <button @onclick="RetrieveFromLocalStorage" class="btn btn-primary btn-sm">Recall last edited request</button>
+        </div>
+    }
+    @if (Recommendations.RecommendationGroupings.SelectMany(g => g.Value).Contains(inputObject?.GetType()))
+    {
+        <div>
+            <button class="btn btn-primary btn-sm" @onclick="() => TransferToRecommendationsPage()">Transfer to Recommendations page</button>
+        </div>
+    }
+    @if (Searches.SearchRequestGroupings.SelectMany(g => g.Value).Contains(inputObject?.GetType()))
+    {
+        <div>
+            <button class="btn btn-primary btn-sm" @onclick="() => TransferToSearchesPage()">Transfer to Searches page</button>
+        </div>
+    }
+    @if (merchandisingRules.Contains(inputObject?.GetType()))
+    {
+        <div>
+            <button class="btn btn-primary btn-sm" @onclick="() => TransferToMerchandisingRulesPage()">Transfer to Merchandising Rules page</button>
+        </div>
+    }
+</div>
 
 <label for="readonly">Disable edit: </label>
 <input id="readonly" type="checkbox" @bind=readOnly @bind:event="oninput" />
@@ -85,14 +88,13 @@ else if (message is not null)
 
 @if (inputObject is not null)
 {
-    <ObjectEditor
-        OverridenHideDefaultValueProperties=hideDefaultValueProperties
-        OpenDetails=openDetails
-        SingleLevelOpenDetails=true
-        ReadOnly=readOnly
-        T=LicensedRequest
-        ShowModelShareLink=@(Models.ConcreteTypes.Contains(inputObject?.GetType()))
-        Value="inputObject"
+    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties
+                  OpenDetails=openDetails
+                  SingleLevelOpenDetails=true
+                  ReadOnly=readOnly
+                  T=LicensedRequest
+                  ShowModelShareLink=@(Models.ConcreteTypes.Contains(inputObject?.GetType()))
+                  Value="inputObject"
                   Setter="(Object? obj) => { inputObject = (LicensedRequest?)obj; SaveInLocalStorage(JSRuntime, obj); StateHasChanged(); }" />
     <br />
     <Troubleshooter Request="inputObject" />
