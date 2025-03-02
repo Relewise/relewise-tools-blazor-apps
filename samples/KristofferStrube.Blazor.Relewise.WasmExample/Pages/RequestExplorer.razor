@@ -85,7 +85,15 @@ else if (message is not null)
 
 @if (inputObject is not null)
 {
-    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=readOnly T=LicensedRequest ShowModelShareLink=@(Models.ConcreteTypes.Contains(inputObject?.GetType())) Value="inputObject" Setter="(Object? obj) => { inputObject = (LicensedRequest?)obj; SaveInLocalStorage(obj); StateHasChanged(); }" />
+    <ObjectEditor
+        OverridenHideDefaultValueProperties=hideDefaultValueProperties
+        OpenDetails=openDetails
+        SingleLevelOpenDetails=true
+        ReadOnly=readOnly
+        T=LicensedRequest
+        ShowModelShareLink=@(Models.ConcreteTypes.Contains(inputObject?.GetType()))
+        Value="inputObject"
+                  Setter="(Object? obj) => { inputObject = (LicensedRequest?)obj; SaveInLocalStorage(JSRuntime, obj); StateHasChanged(); }" />
     <br />
     <Troubleshooter Request="inputObject" />
     <br />

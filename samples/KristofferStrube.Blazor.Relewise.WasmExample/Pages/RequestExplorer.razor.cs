@@ -19,7 +19,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
         private string? error;
         private string? message;
         private Type selectedParseType;
-        private readonly JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings
+        private readonly static JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings
         {
             TypeNameHandling = TypeNameHandling.Auto,
             NullValueHandling = NullValueHandling.Ignore,
@@ -29,33 +29,15 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
         private List<Type> derivedTypes;
         private object? inputObject;
         private bool hideDefaultValueProperties = true;
+        private bool hasLastRequestBeenSavedPreviously = false;
         private Type[] merchandisingRules = [typeof(BoostAndBuryRule), typeof(FilterRule), typeof(FixedPositionRule), typeof(InputModifierRule)];
 
         [Inject]
         public required NavigationManager NavigationManager { get; set; }
 
         [Inject]
-        public required IJSInProcessRuntime InProcessRuntime { get; set; }
+        public required IJSInProcessRuntime JSRuntime { get; set; }
 
-        public void SaveInLocalStorage(object? objectToSave)
-        {
-            string serialized = JsonConvert.SerializeObject(objectToSave, typeof(object), jsonSerializerSettings);
-            string compressed = ToGzip(serialized);
-
-            InProcessRuntime.InvokeVoid("localStorage.setItem", "lastRequest", compressed);
-        }
-
-        public async Task RetrieveFromLocalStorage()
-        {
-            string compressed = InProcessRuntime.Invoke<string?>("localStorage.getItem", "lastRequest")!;
-            string uncompressed = await Models.FromGzipAsync(compressed);
-            inputObject = JsonConvert.DeserializeObject<object>(uncompressed, jsonSerializerSettings);
-        }
-
-        public bool HasLastRequestBeenSavedPreviously()
-        {
-            return InProcessRuntime.Invoke<string?>("localStorage.getItem", "lastRequest") != null;
-        }
 
         protected override void OnInitialized()
         {
@@ -67,6 +49,27 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
                 .ToList();
             derivedTypes.AddRange(merchandisingRules);
             selectedParseType = typeof(ProductSearchRequest);
+            hasLastRequestBeenSavedPreviously = HasLastRequestBeenSavedPreviously();
+        }
+
+        public static void SaveInLocalStorage(IJSInProcessRuntime InProcessJSRuntime, object? objectToSave)
+        {
+            string serialized = JsonConvert.SerializeObject(objectToSave, typeof(object), jsonSerializerSettings);
+            string compressed = ToGzip(serialized);
+
+            InProcessJSRuntime.InvokeVoid("localStorage.setItem", "lastRequest", compressed);
+        }
+
+        public async Task RetrieveFromLocalStorage()
+        {
+            string compressed = JSRuntime.Invoke<string?>("localStorage.getItem", "lastRequest")!;
+            string uncompressed = await Models.FromGzipAsync(compressed);
+            inputObject = JsonConvert.DeserializeObject<object>(uncompressed, jsonSerializerSettings);
+        }
+
+        public bool HasLastRequestBeenSavedPreviously()
+        {
+            return JSRuntime.Invoke<string?>("localStorage.getItem", "lastRequest") != null;
         }
 
         public void TryParse()

@@ -1,11 +1,13 @@
 ﻿@using KristofferStrube.Blazor.Relewise.TypeEditors
 @using System.Reflection
 @using KristofferStrube.Blazor.Relewise.WasmExample.Extensions
+@using KristofferStrube.Blazor.Relewise.WasmExample.Pages
 @using global::Relewise.Client.Requests.Recommendations
 @using global::Relewise.Client.Requests.Search
 @using global::Relewise.Client.Responses
 @using global::Relewise.Client.Responses.Search
 @using global::Relewise.Client.Search
+@inject IJSInProcessRuntime JSRuntime
 
 <details class="box" open=@OpenDetails>
     <summary>
@@ -13,7 +15,12 @@
     </summary>
     <div style="margin:5px;">
         <h3>Request</h3>
-        <ObjectEditor OpenDetails=true T=SearchRequest Value="Request" ShowModelShareLink="true" Setter="(object? obj) => { Request = (SearchRequest?)obj; response = null; StateHasChanged(); }" />
+        <ObjectEditor
+            OpenDetails=true
+            T=SearchRequest
+            Value="Request"
+            ShowModelShareLink="true"
+                      Setter="(object? obj) => { Request = (SearchRequest?)obj; RequestExplorer.SaveInLocalStorage(JSRuntime, obj); response = null; StateHasChanged(); }" />
         <br />
         @if (Searcher is null)
         {

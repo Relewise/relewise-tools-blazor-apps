@@ -1,10 +1,12 @@
 ﻿@using KristofferStrube.Blazor.Relewise.TypeEditors
 @using System.Reflection
 @using KristofferStrube.Blazor.Relewise.WasmExample.Extensions
+@using KristofferStrube.Blazor.Relewise.WasmExample.Pages
 @using global::Relewise.Client.Requests
 @using global::Relewise.Client.Requests.Recommendations
 @using global::Relewise.Client.Responses
 @using global::Relewise.Client.DataTypes
+@inject IJSInProcessRuntime JSRuntime
 
 <details class="box" open=@OpenDetails>
     <summary>
@@ -20,7 +22,12 @@
     </summary>
     <div style="margin:5px;">
         <h3>Request</h3>
-        <ObjectEditor OpenDetails=true T=LicensedRequest Value="Request" ShowModelShareLink="true" Setter="(object? obj) => { Request = (LicensedRequest?)obj; response = null; StateHasChanged(); }" />
+        <ObjectEditor
+            OpenDetails=true
+            T=LicensedRequest
+            Value="Request"
+            ShowModelShareLink="true"
+            Setter="(object? obj) => { Request = (LicensedRequest?)obj; RequestExplorer.SaveInLocalStorage(JSRuntime, obj); response = null; StateHasChanged(); }" />
         <br />
         @if (Recommender is null)
         {
