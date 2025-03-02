@@ -76,18 +76,17 @@ else if (message is not null)
     }
 </div>
 
-<label for="readonly">Disable edit: </label>
-<input id="readonly" type="checkbox" @bind=readOnly @bind:event="oninput" />
-<br />
-<label for="hideDefaultValueProperties">Hide default values: </label>
-<input id="hideDefaultValueProperties" type="checkbox" @bind=hideDefaultValueProperties @bind:event="oninput" />
-<br />
-<label for="openDetails">Expand all: </label>
-<input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-<br />
-
 @if (inputObject is not null)
 {
+    <label for="readonly">Disable edit: </label>
+    <input id="readonly" type="checkbox" @bind=readOnly @bind:event="oninput" />
+    <br />
+    <label for="hideDefaultValueProperties">Hide default values: </label>
+    <input id="hideDefaultValueProperties" type="checkbox" @bind=hideDefaultValueProperties @bind:event="oninput" />
+    <br />
+    <label for="openDetails">Expand all: </label>
+    <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+    <br />
     <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties
                   OpenDetails=openDetails
                   SingleLevelOpenDetails=true
