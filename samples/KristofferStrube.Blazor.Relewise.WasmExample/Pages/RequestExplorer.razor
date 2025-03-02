@@ -45,8 +45,18 @@ else if (message is not null)
         }
     }
 </select>
+
 <br />
 <br />
+<br />
+
+@if (HasLastRequestBeenSavedPreviously())
+{
+    <button @onclick="RetrieveFromLocalStorage" class="btn btn-primary">Previous Request</button>
+}
+<br />
+<br />
+
 @if (Recommendations.RecommendationGroupings.SelectMany(g => g.Value).Contains(inputObject?.GetType()))
 {
     <button class="btn btn-primary btn-sm" @onclick="() => TransferToRecommendationsPage()">Transfer to Recommendations page</button>
@@ -64,7 +74,8 @@ else if (message is not null)
 }
 
 <label for="readonly">Disable edit: </label>
-<input id="readonly" type="checkbox" @bind=readOnly @bind:event="oninput" /><br />
+<input id="readonly" type="checkbox" @bind=readOnly @bind:event="oninput" />
+<br />
 <label for="hideDefaultValueProperties">Hide default values: </label>
 <input id="hideDefaultValueProperties" type="checkbox" @bind=hideDefaultValueProperties @bind:event="oninput" />
 <br />
@@ -74,7 +85,7 @@ else if (message is not null)
 
 @if (inputObject is not null)
 {
-    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=readOnly T=LicensedRequest ShowModelShareLink=@(Models.ConcreteTypes.Contains(inputObject?.GetType())) Value="inputObject" Setter="(Object? obj) => { inputObject = (LicensedRequest?)obj; StateHasChanged(); }" />
+    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=readOnly T=LicensedRequest ShowModelShareLink=@(Models.ConcreteTypes.Contains(inputObject?.GetType())) Value="inputObject" Setter="(Object? obj) => { inputObject = (LicensedRequest?)obj; SaveInLocalStorage(obj); StateHasChanged(); }" />
     <br />
     <Troubleshooter Request="inputObject" />
     <br />
