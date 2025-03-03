@@ -169,7 +169,8 @@ public static class Settings
             ],
             typeof(RelevanceModifier),
             [
-                typeof(IProductRelevanceModifier)
+                typeof(IProductRelevanceModifier),
+                typeof(IVariantRelevanceModifier)
             ]
         ),
         new([
