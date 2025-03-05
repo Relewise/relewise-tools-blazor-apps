@@ -30,7 +30,7 @@
     public void ShowFilter()
     {
         filterEditorShown = !filterEditorShown;
-        Column.Filter ??= new ProductDisplayNameFilter(new EqualsCondition(new DataValue("")));
+        Column.Filter ??= new ProductDisplayNameFilter(new ContainsCondition(new DataValue("")), new Language(language));
     }
 
     public void RemoveFilter()
