@@ -1,0 +1,67 @@
+﻿@typeparam TKey where TKey : notnull
+@typeparam TValue
+
+@if (Value is null)
+{
+    <code>null</code>
+}
+else
+{
+    <div class="input-container">
+        <div>
+            @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TKey))) is { } keyEditor)
+            {
+                <ErrorBoundary>
+                    <ChildContent>
+                        <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = true, ["OpenDetails"] = OpenDetails, ["Value"] = Value.Value.Key, ["Setter"] = (object? obj) => { } })" />
+                    </ChildContent>
+                    <ErrorContent>
+                        <code>Failed to initialize editor part for @Settings.Name(typeof(TKey))</code>
+                    </ErrorContent>
+                </ErrorBoundary>
+            }
+            else
+            {
+                <span>Can't edit or show @Settings.Name(typeof(TKey))</span>
+            }
+        </div>
+
+        @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue))) is { } valueEditor)
+        {
+            <ErrorBoundary>
+                <ChildContent>
+                    <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = true, ["OpenDetails"] = OpenDetails, ["Value"] = Value.Value.Value, ["Setter"] = (object? obj) => { } })" />
+                </ChildContent>
+                <ErrorContent>
+                    <code>Failed to initialize editor part for @Settings.Name(typeof(TValue))</code>
+                </ErrorContent>
+            </ErrorBoundary>
+        }
+        else
+        {
+            <span>Can't edit or show @Settings.Name(typeof(TValue))</span>
+        }
+    </div>
+}
+@code {
+    [Parameter]
+    public bool ReadOnly { get; set; } = true;
+
+    [Parameter]
+    public bool OpenDetails { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required KeyValuePair<TKey, TValue>? Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+
+    [Parameter]
+    public Type[] AncestorTypes { get; set; } = [];
+
+    public void Create()
+    {
+        Value = new();
+        Setter(Value);
+    }
+}
