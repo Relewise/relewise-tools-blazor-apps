@@ -16,7 +16,7 @@
     <PackageReference Include="KristofferStrube.Blazor.Popper" Version="0.5.1" />
     <PackageReference Include="Markdig" Version="0.37.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
-    <PackageReference Include="Relewise.Client" Version="1.203.0" />
+    <PackageReference Include="Relewise.Client" Version="1.211.0" />
     <PackageReference Include="AngleSharp.Xml" Version="1.0.0" />
   </ItemGroup>
 
