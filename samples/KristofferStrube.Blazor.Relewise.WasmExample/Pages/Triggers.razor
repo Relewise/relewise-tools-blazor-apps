@@ -83,7 +83,7 @@ else if (configurations is not null)
     foreach (TriggerConfiguration configuration in configurations.OrderBy(c => int.TryParse(c.Group, out int rank) ? rank : int.MaxValue))
     {
         <div>
-            <h3>@configuration.Name (<code>@configuration.GetType().Name)</code></h3>
+            <h3>@configuration.Name (<code>@configuration.GetType().Name</code> - group "@configuration.Group")</h3>
             <p>@configuration.Description</p>
             <button class="btn btn-primary" @onclick="() => Edit(configuration)">Edit</button>
             <hr />
