@@ -117,9 +117,10 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                 Dictionary<string, List<string>> relevantSynonyms = new();
 
-                string[] termParts = (from s in duplicateRequest.Term?.ToLower().Split(new string[] { " ", "_", "-", "|", ".", "," }, StringSplitOptions.RemoveEmptyEntries)
-                                      where !(s.Trim() == "")
-                                      select s).Distinct().ToArray() ?? [];
+                string[] termParts = duplicateRequest.Term?.ToLower().Split(new string[] { " ", "_", "-", "|", ".", "," }, StringSplitOptions.RemoveEmptyEntries)
+                                        .Where(s => s.Trim() != "")
+                                        .Distinct()
+                                        .ToArray() ?? [];
 
                 SearchIndex? searchIndex = null;
                 if (duplicateRequest.Term is not null)
