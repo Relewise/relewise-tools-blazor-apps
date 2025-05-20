@@ -138,7 +138,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                         foreach (var from in (synonym.Type is SynonymType.OneWay ? synonym.From : synonym.Words))
                         {
-                            foreach(var result in termsIndex.ApproximateSearch(from.ToLower(), 1, 0))
+                            foreach(var result in termsIndex.ApproximateSearch(from.ToLower(), 1))
                             {
                                 foreach (var to in synonym.Words.Where(w => w.ToLower() != from.ToLower()))
                                 {
@@ -396,7 +396,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                                     }
                                 }
                             }
-                            indexedValues.Add(new(indexedKey.name, indexedKey.weight, indexedValue, matches));
+                            indexedValues.Add(new(indexedKey.name, indexedKey.weight, indexedValue, matches.OrderBy(m => m.match.Edits).ThenBy(m => m.match.Position).ToList()));
                         }
                     }
                     localResults.Add(new()
