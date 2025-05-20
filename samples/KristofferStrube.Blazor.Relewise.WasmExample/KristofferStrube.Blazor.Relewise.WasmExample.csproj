@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RunAOTCompilation>true</RunAOTCompilation>
     <NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   
   <ItemGroup>

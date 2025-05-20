@@ -9,16 +9,17 @@ using Relewise.Client.DataTypes;
 using Relewise.Client.DataTypes.Merchandising;
 using Relewise.Client.DataTypes.Merchandising.Rules;
 using Relewise.Client.DataTypes.Search;
+using Relewise.Client.DataTypes.Search.Synonyms;
 using Relewise.Client.Requests.Filters;
 using Relewise.Client.Requests.Queries;
 using Relewise.Client.Requests.RelevanceModifiers;
 using Relewise.Client.Requests.Search;
 using Relewise.Client.Requests.Shared;
 using Relewise.Client.Requests.ValueSelectors;
-using Relewise.Client.Responses.Search;
 using Relewise.Client.Search;
-using System.Linq;
-using static Relewise.Client.DataTypes.RetailMedia.RetailMediaResult.Placement.ResultEntity;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using static KristofferStrube.Blazor.Relewise.WasmExample.Shared.Troubleshooter;
 
 namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 {
@@ -114,9 +115,44 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                 string? language = duplicateRequest.Language?.Value;
 
+                Dictionary<string, List<string>> relevantSynonyms = new();
+
+                string[] termParts = (from s in duplicateRequest.Term?.ToLower().Split(new string[] { " ", "_", "-", "|", ".", "," }, StringSplitOptions.RemoveEmptyEntries)
+                                      where !(s.Trim() == "")
+                                      select s).Distinct().ToArray() ?? [];
+
                 SearchIndex? searchIndex = null;
                 if (duplicateRequest.Term is not null)
                 {
+                    var synonyms = await searchAdministrator!.LoadAsync(new SynonymsRequest() { IsApproved = true, Take = 1000 });
+
+                    var termsIndex = DocumentIndex<string, SuffixTrieSearchIndex>.Create(termParts, s => s.ToLower());
+
+                    foreach (var synonym in synonyms.Values)
+                    {
+                        if (synonym.Languages?.Length > 0 && !string.IsNullOrEmpty(language) && !synonym.Languages.Any(l => l.Value.ToLower() == language.ToLower()))
+                        {
+                            continue;
+                        }
+
+                        foreach (var from in (synonym.Type is SynonymType.OneWay ? synonym.From : synonym.Words))
+                        {
+                            foreach(var result in termsIndex.ApproximateSearch(from.ToLower(), 1, 0))
+                            {
+                                foreach (var to in synonym.Words.Where(w => w.ToLower() != from.ToLower()))
+                                {
+                                    if (!relevantSynonyms.TryGetValue(to, out List<string>? originals))
+                                    {
+                                        originals = new();
+                                        relevantSynonyms[to] = originals;
+                                    }
+
+                                    originals.Add(from);
+                                }
+                            }
+                        }
+                    }
+
                     if (string.IsNullOrEmpty(language))
                     {
                         improvements.Add(new(Severity.Error, "A search request that uses a Term should also supply a language."));
@@ -266,7 +302,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                     .Select(r => (DataDoubleSelector)r.MultiplierSelector)
                     .ToList();
 
-                foreach(var selector in allDataDoubleSelectors)
+                foreach (var selector in allDataDoubleSelectors)
                 {
                     selectedProductProperties.DataKeys = [selector.Key, .. selectedProductProperties.DataKeys];
                     selectedVariantProperties.DataKeys = [selector.Key, .. selectedVariantProperties.DataKeys];
@@ -307,7 +343,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                 resultsWithoutMerchandisingRule = new();
 
-                foreach(var rule in allMatchingMerchandisingRules)
+                foreach (var rule in allMatchingMerchandisingRules)
                 {
                     resultsWithoutMerchandisingRule[rule] = await RequestWithoutMerchandisingRule(rule, merchandisingRulesForProducts.Where(kvp => kvp.Value.Any(s => s.Rule == rule)).Select(kvp => kvp.Key).ToList(), resultDetailsResponse.Products, duplicateRequest);
                 }
@@ -328,18 +364,34 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                         var indexedValue = indexedKey.selector?.Invoke(productQueryResult, variantQueryResult);
                         if (indexedValue is not null)
                         {
-                            List<Match>? matches = null;
+                            List<(Match match, MatchOrigin matchType, string term)> matches = new();
                             if (term is not null)
                             {
                                 var documentIndex = DocumentIndex<string, SuffixTrieSearchIndex>.Create([indexedValue], s => s.ToLower());
-                                var searchResults = documentIndex.ApproximateSearch(term.ToLower(), term.Length > 6 ? 2 : 1);
-                                if (searchResults.FirstOrDefault() is { } matchCollection)
+                                foreach(var termPart in termParts)
                                 {
-                                    var lowestNumberOfEdits = matchCollection.Matches.Min(m => m.Edits);
-                                    var goodEnoughMatches = matchCollection.Matches.Where(m => m.Edits <= lowestNumberOfEdits + 1 && m.ExpandedCigar.First() is not EditType.Insert && m.ExpandedCigar.Last() is not EditType.Insert).OrderBy(m => m.Edits);
-                                    if (goodEnoughMatches.Count() > 0)
+                                    var searchResults = documentIndex.ApproximateSearch(termPart.ToLower(), termPart.Length > 6 ? 2 : 1);
+                                    if (searchResults.FirstOrDefault() is { } matchCollection)
                                     {
-                                        matches = goodEnoughMatches.ToList();
+                                        var lowestNumberOfEdits = matchCollection.Matches.Min(m => m.Edits);
+                                        var goodEnoughMatches = matchCollection.Matches.Where(m => m.Edits <= lowestNumberOfEdits + 1 && m.ExpandedCigar.First() is not EditType.Insert && m.ExpandedCigar.Last() is not EditType.Insert).OrderBy(m => m.Edits);
+                                        if (goodEnoughMatches.Count() > 0)
+                                        {
+                                            matches.AddRange(goodEnoughMatches.Select(m => (m, MatchOrigin.Term, termPart)));
+                                        }
+                                    }
+                                }
+                                foreach((string to, List<string> from) in relevantSynonyms)
+                                {
+                                    var synonymSearchResult = documentIndex.ApproximateSearch(to.ToLower(), term.Length > 6 ? 2 : 1);
+                                    if (synonymSearchResult.FirstOrDefault() is { } synonymMatchCollection)
+                                    {
+                                        var lowestNumberOfEdits = synonymMatchCollection.Matches.Min(m => m.Edits);
+                                        var goodEnoughMatches = synonymMatchCollection.Matches.Where(m => m.Edits <= lowestNumberOfEdits + 1 && m.ExpandedCigar.First() is not EditType.Insert && m.ExpandedCigar.Last() is not EditType.Insert).OrderBy(m => m.Edits);
+                                        if (goodEnoughMatches.Count() > 0)
+                                        {
+                                            matches.AddRange(goodEnoughMatches.Select(m => (m, MatchOrigin.Synonym, $"{string.Join(" or ", from.Select(w => $"\"{w}\""))} to \"{to}\"")));
+                                        }
                                     }
                                 }
                             }
@@ -390,7 +442,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                 bool anyContextMatches = false;
 
-                foreach(var filter in contextFilters)
+                foreach (var filter in contextFilters)
                 {
                     if (RequestIsValidSearchRequest(filter, request))
                     {
@@ -435,11 +487,11 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
 
                 var productsFittingMerchandisingFilters = await dataAccessor!.QueryAsync(queryForProductsFittingFilters);
 
-                foreach(var result in productsFittingMerchandisingFilters.Products)
+                foreach (var result in productsFittingMerchandisingFilters.Products)
                 {
                     if (result.FilteredVariants?.Length > 0)
                     {
-                        foreach(var variant in result.FilteredVariants)
+                        foreach (var variant in result.FilteredVariants)
                         {
                             if (!results.TryGetValue((result.ProductId, variant.VariantId), out var merchandisingRules))
                             {
@@ -585,8 +637,8 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
             public required List<IndexedValue> IndexedValues { get; set; }
             public required List<MerchandisingRuleSummary> MerchandisingRules { get; set; }
         }
-        
-        public record IndexedValue(string Name, int Weight, string Content, List<Match>? TermMatches);
+
+        public record IndexedValue(string Name, int Weight, string Content, List<(Match match, MatchOrigin matchType, string term)>? TermMatches);
 
         public record Improvement(Severity Severity, string Message);
 
@@ -597,6 +649,12 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
             Message,
             Warning,
             Error
+        }
+
+        public enum MatchOrigin
+        {
+            Term,
+            Synonym
         }
 
         public string SeverityColor(Severity severity) => severity switch

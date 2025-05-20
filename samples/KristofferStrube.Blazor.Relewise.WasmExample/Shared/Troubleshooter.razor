@@ -9,7 +9,7 @@
     return;
 }
 
-<h2>Troubleshooter (<code>Experimental</code>)</h2>
+<h2>Troubleshooter</h2>
 <p>We can do a bit of analysis which might make troublshooting easier. Try it out!</p>
 
 @if (error is not null)
@@ -138,33 +138,35 @@ else if (results?.Length > 0)
                             {
                                 @for (int i = 0; i < indexedValue.Content.Length; i++)
                                 {
-                                    if (matches.FirstOrDefault(m => i == m.Position) is { } match && match.Length is not 0)
+                                    if (matches.FirstOrDefault(m => i == m.match.Position) is { match: { } match, matchType: { } matchType, term: { } searchTerm } && match.Length is not 0)
                                     {
                                         int offset = 0;
-                                        for (int j = 0; j < match.ExpandedCigar.Length && i + j + offset < indexedValue.Content.Length; j++)
-                                        {
-                                            if (match.ExpandedCigar[j] is EditType.Match)
+                                        <span title="@(matchType is MatchOrigin.Synonym ? $"synonym from {searchTerm}" : $"from original search term part \"{searchTerm}\"")">
+                                            @for (int j = 0; j < match.ExpandedCigar.Length && i + j + offset < indexedValue.Content.Length; j++)
                                             {
-                                                <span style="background-color:#9F9;">@indexedValue.Content[i + j + offset]</span>
+                                                if (match.ExpandedCigar[j] is EditType.Match)
+                                                {
+                                                    <span style="background-color:#9F9;">@indexedValue.Content[i + j + offset]</span>
+                                                }
+                                                else if (match.ExpandedCigar[j] is EditType.MisMatch)
+                                                {
+                                                    <span style="background-color:#EE9;">@indexedValue.Content[i + j + offset]</span>
+                                                }
+                                                else if (match.ExpandedCigar[j] is EditType.Insert)
+                                                {
+                                                    <span style="background-color:#EE9;">@indexedValue.Content[i + j + offset]</span>
+                                                }
+                                                else if (match.ExpandedCigar[j] is EditType.Delete)
+                                                {
+                                                    offset--;
+                                                }
                                             }
-                                            else if (match.ExpandedCigar[j] is EditType.MisMatch)
-                                            {
-                                                <span style="background-color:#EE9;">@indexedValue.Content[i + j + offset]</span>
-                                            }
-                                            else if (match.ExpandedCigar[j] is EditType.Insert)
-                                            {
-                                                <span style="background-color:#EE9;">@indexedValue.Content[i + j + offset]</span>
-                                            }
-                                            else if (match.ExpandedCigar[j] is EditType.Delete)
-                                            {
-                                                offset--;
-                                            }
-                                        }
+                                        </span>
                                         i += match.Length - 1;
                                     }
                                     else
                                     {
-                                        int nextMatch = matches.FirstOrDefault(m => m.Position >= i).Position;
+                                        int nextMatch = matches.FirstOrDefault(m => m.match.Position >= i).match.Position;
                                         if (nextMatch != 0)
                                         {
                                             <span>@indexedValue.Content[i..(nextMatch)]</span>
