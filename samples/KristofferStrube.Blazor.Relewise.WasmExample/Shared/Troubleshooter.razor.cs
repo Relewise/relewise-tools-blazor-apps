@@ -140,6 +140,9 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                         {
                             foreach(var result in termsIndex.ApproximateSearch(from.ToLower(), 1))
                             {
+                                if (!result.Matches.Any(m => m.ExpandedCigar.First() == EditType.Match))
+                                    continue;
+
                                 foreach (var to in synonym.Words.Where(w => w.ToLower() != from.ToLower()))
                                 {
                                     if (!relevantSynonyms.TryGetValue(to, out List<string>? originals))
@@ -374,6 +377,9 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                                     var searchResults = documentIndex.ApproximateSearch(termPart.ToLower(), termPart.Length > 6 ? 2 : 1);
                                     if (searchResults.FirstOrDefault() is { } matchCollection)
                                     {
+                                        if (!matchCollection.Matches.Any(m => m.ExpandedCigar.First() == EditType.Match))
+                                            continue;
+
                                         var lowestNumberOfEdits = matchCollection.Matches.Min(m => m.Edits);
                                         var goodEnoughMatches = matchCollection.Matches.Where(m => m.Edits <= lowestNumberOfEdits + 1 && m.ExpandedCigar.First() is not EditType.Insert && m.ExpandedCigar.Last() is not EditType.Insert).OrderBy(m => m.Edits);
                                         if (goodEnoughMatches.Count() > 0)
@@ -387,6 +393,9 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                                     var synonymSearchResult = documentIndex.ApproximateSearch(to.ToLower(), term.Length > 6 ? 2 : 1);
                                     if (synonymSearchResult.FirstOrDefault() is { } synonymMatchCollection)
                                     {
+                                        if (!synonymMatchCollection.Matches.Any(m => m.ExpandedCigar.First() == EditType.Match))
+                                            continue;
+
                                         var lowestNumberOfEdits = synonymMatchCollection.Matches.Min(m => m.Edits);
                                         var goodEnoughMatches = synonymMatchCollection.Matches.Where(m => m.Edits <= lowestNumberOfEdits + 1 && m.ExpandedCigar.First() is not EditType.Insert && m.ExpandedCigar.Last() is not EditType.Insert).OrderBy(m => m.Edits);
                                         if (goodEnoughMatches.Count() > 0)
