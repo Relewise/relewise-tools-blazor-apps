@@ -631,6 +631,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
             DataValue.DataValueTypes.String => (string?)value?.Value,
             DataValue.DataValueTypes.StringList => value.ValueAsListOf<string>() is { } list ? string.Join(", ", list) : null,
             DataValue.DataValueTypes.Multilingual => ((Multilingual?)value.Value)?.Values?.FirstOrDefault(v => v.Language.Value.Equals(language, StringComparison.OrdinalIgnoreCase))?.Text,
+            DataValue.DataValueTypes.MultilingualCollection => ((MultilingualCollection?)value.Value)?.Values?.FirstOrDefault(v => v.Language.Value.Equals(language, StringComparison.OrdinalIgnoreCase))?.Values is { Count: > 0 } list ? string.Join(", ", list) : null,
             _ => null
         };
 
