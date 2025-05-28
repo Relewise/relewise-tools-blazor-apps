@@ -390,7 +390,7 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                                 }
                                 foreach((string to, List<string> from) in relevantSynonyms)
                                 {
-                                    var synonymSearchResult = documentIndex.ApproximateSearch(to.ToLower(), term.Length > 6 ? 2 : 1);
+                                    var synonymSearchResult = documentIndex.ApproximateSearch(to.ToLower(), to.Length > 6 ? 2 : 1);
                                     if (synonymSearchResult.FirstOrDefault() is { } synonymMatchCollection)
                                     {
                                         if (!synonymMatchCollection.Matches.Any(m => m.ExpandedCigar.First() == EditType.Match))
