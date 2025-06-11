@@ -299,7 +299,8 @@ namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
                 var merchandisingRulesForProducts = await MatchingMerchandisingRules(searchRequest, response.Results);
 
                 var allMatchingMerchandisingRules = merchandisingRulesForProducts
-                    .SelectMany(m => m.Value.Select(s => s.Rule));
+                    .SelectMany(m => m.Value.Select(s => s.Rule))
+                    .DistinctBy(r => r.Id);
 
                 var allDataDoubleSelectors = allMatchingMerchandisingRules
                     .Where(r => r.MultiplierSelector is DataDoubleSelector)
