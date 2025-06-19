@@ -44,15 +44,22 @@
     }
     else
     {
-        bool invalidValue = Value is not null
-        && Settings.TypeInheritanceLimiters.FirstOrDefault(l =>
+        bool unsupportedValue = Value is not null
+        && Settings.TypeInheritanceSupported.FirstOrDefault(l =>
         Value.GetType().IsAssignableTo(l.BaseType)
         && AncestorTypes.Any(a => l.AncestorInterfaces.Any(ai => a.IsAssignableTo(ai)))
-        ) is { } limiter
-        && !limiter.TypeInhertianceLimit.Any(l => Value.GetType().IsAssignableTo(l));
+        ) is { } supportedTypeLimit
+        && !supportedTypeLimit.TypeInhertianceLimit.Any(l => Value.GetType().IsAssignableTo(l));
 
-        <details class="box @(invalidValue ? "box-invalid" : "")" open=@(OpenDetails || SingleLevelOpenDetails)>
-            <summary class="@(invalidValue ? "summary-invalid" : "")" @onclick="() => hasBeenOpen = true">
+        bool ignoredValue = Value is not null
+        && Settings.TypeInheritanceNotIgnored.FirstOrDefault(l =>
+        Value.GetType().IsAssignableTo(l.BaseType)
+        && AncestorTypes.Any(a => l.AncestorInterfaces.Any(ai => a.IsAssignableTo(ai)))
+        ) is { } ignoredTypeLimit
+        && !ignoredTypeLimit.TypeInhertianceLimit.Any(l => Value.GetType().IsAssignableTo(l));
+
+        <details class="box @((unsupportedValue || ignoredValue) ? "box-invalid" : "")" open=@(OpenDetails || SingleLevelOpenDetails)>
+            <summary class="@((unsupportedValue || ignoredValue) ? "summary-invalid" : "")" @onclick="() => hasBeenOpen = true">
                 @if (Value is not null && derivedTypes.Count > 0 && !ReadOnly && hasBeenOpen)
                 {
                     <select @onchange=TypeDropdownChanged>
@@ -70,7 +77,11 @@
                         }
                     </select>
                     <button class="btn btn-light btn-sm" style="margin:2px;margin-top:0px;padding:1px;line-height:1.1" @onclick=Create>Switch type</button>
-                    if (invalidValue)
+                    if (unsupportedValue)
+                    {
+                        <small><i>&nbsp;(the type <code>@Settings.Name(Value.GetType())</code> is not valid in this context and it will make the request fail)</i></small>
+                    }
+                    else if (ignoredValue)
                     {
                         <small><i>&nbsp;(the type <code>@Settings.Name(Value.GetType())</code> is not valid in this context so it will be ignored)</i></small>
                     }
@@ -88,7 +99,11 @@
                             &nbsp;<u>@idValue</u>
                         </text>
                     }
-                    if (invalidValue)
+                    if (unsupportedValue)
+                    {
+                        <small><i>&nbsp;(the type is not valid in this context and it will make the request fail)</i></small>
+                    }
+                    else if (ignoredValue)
                     {
                         <small><i>&nbsp;(the type is not valid in this context so it will be ignored)</i></small>
                     }

@@ -101,7 +101,7 @@ public static class Settings
             })
     ];
 
-    public static readonly List<TypeInheritanceLimiter> TypeInheritanceLimiters = [
+        public static readonly List<TypeInheritanceLimiter> TypeInheritanceNotIgnored = [
         new([
                 typeof(IProductRelevanceModifier),
                 typeof(ProductRecommendationRequest),
@@ -219,6 +219,9 @@ public static class Settings
                 typeof(IContentCategoryRelevanceModifier)
             ]
         ),
+    ];
+
+    public static readonly List<TypeInheritanceLimiter> TypeInheritanceSupported = [
         new([
                 typeof(ProductSearchRequest)
             ],
