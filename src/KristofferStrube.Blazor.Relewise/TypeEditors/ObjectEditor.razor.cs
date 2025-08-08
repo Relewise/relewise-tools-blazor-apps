@@ -49,6 +49,9 @@ namespace KristofferStrube.Blazor.Relewise.TypeEditors
         public required IJSRuntime JSRuntime { get; set; }
 
         [Inject]
+        public required HttpClient HttpClient { get; set; }
+
+        [Inject]
         public required NavigationManager NavigationManager { get; set; }
 
         [Inject]
@@ -63,7 +66,7 @@ namespace KristofferStrube.Blazor.Relewise.TypeEditors
                 HideDefaultValueProperties = OverridenHideDefaultValueProperties;
             }
 
-            (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
+            (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync(HttpClient);
 
             var assembly = Assembly.GetAssembly(typeof(ClientBase));
             derivedTypes = assembly!

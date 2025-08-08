@@ -47,11 +47,14 @@ There are @propertyCount properties and @documentedPropertyCount of them are off
     [Inject]
     public DocumentationCache XMLDocumentationCache { get; set; }
 
+    [Inject]
+    public HttpClient HttpClient { get; set; }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        var (documentation, _) = await XMLDocumentationCache.GetAsync();
+        var (documentation, _) = await XMLDocumentationCache.GetAsync(HttpClient);
         foreach (var summary in documentation.Summaries)
         {
             summaries++;

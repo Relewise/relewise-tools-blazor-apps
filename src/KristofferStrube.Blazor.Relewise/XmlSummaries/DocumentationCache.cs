@@ -14,7 +14,7 @@ public class DocumentationCache
 
     static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
-    public async Task<(XmlDocumentation? xml, CommunityDocumentation? community)> GetAsync()
+    public async Task<(XmlDocumentation? xml, CommunityDocumentation? community)> GetAsync(HttpClient httpClient)
     {
         try
         {
@@ -27,7 +27,7 @@ public class DocumentationCache
                 }
                 if (communityDocumentation is null)
                 {
-                    communityDocumentation = await GetCommunityDocumentation();
+                    communityDocumentation = await GetCommunityDocumentation(httpClient);
                 }
             }
         } catch (Exception e)
@@ -90,10 +90,9 @@ public class DocumentationCache
         return result;
     }
 
-    public async Task<CommunityDocumentation> GetCommunityDocumentation()
+    public async Task<CommunityDocumentation> GetCommunityDocumentation(HttpClient httpClient)
     {
-        var httpClient = new HttpClient();
-
+        // We use the injected httpClient here as it has the correct base address set.
         return new CommunityDocumentation(await httpClient.GetFromJsonAsync<List<CommunityDocumentationEntry>>("communitydocs.json"));
     }
 
