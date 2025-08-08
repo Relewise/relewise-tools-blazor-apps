@@ -45,7 +45,7 @@ public class DocumentationCache
 
         var assembly = Assembly.GetAssembly(typeof(ClientBase));
 
-        var content = await httpClient.GetStringAsync($"https://kristoffer-strube.dk/API/NugetXMLDocs/Relewise.Client/{assembly!.GetName().Version!.ToString()[..^2]}");
+        var content = await httpClient.GetStringAsync($"https://cdn.relewise.com/services/blazor-apps/stable/nuget/xmldocs/Relewise.Client/{assembly!.GetName().Version!.ToString()[..^2]}");
 
         XmlDocumentation result = new();
 
