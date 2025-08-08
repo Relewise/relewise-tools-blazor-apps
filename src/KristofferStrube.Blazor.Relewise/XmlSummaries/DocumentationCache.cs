@@ -94,7 +94,7 @@ public class DocumentationCache
     {
         var httpClient = new HttpClient();
 
-        return new CommunityDocumentation(await httpClient.GetFromJsonAsync<List<CommunityDocumentationEntry>>("https://kristoffer-strube.dk/API/communitydocs/list"));
+        return new CommunityDocumentation(await httpClient.GetFromJsonAsync<List<CommunityDocumentationEntry>>("/communitydocs.json"));
     }
 
     private static string JoinInOneLine(string text) => string.Join(" ", text.Split("\n").Select(line => line.Trim())).Trim();
