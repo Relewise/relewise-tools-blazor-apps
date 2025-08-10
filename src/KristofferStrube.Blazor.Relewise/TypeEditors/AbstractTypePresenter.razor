@@ -64,12 +64,9 @@
     [Inject]
     public required DocumentationCache XMLDocumentationCache { get; set; }
 
-    [Inject]
-    public required HttpClient HttpClient { get; set; }
-
     protected override async Task OnParametersSetAsync()
     {
-        (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync(HttpClient);
+        (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
 
         hasBeenOpen = hasBeenOpen || OpenDetails;
 

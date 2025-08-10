@@ -66,7 +66,7 @@ namespace KristofferStrube.Blazor.Relewise.TypeEditors
                 HideDefaultValueProperties = OverridenHideDefaultValueProperties;
             }
 
-            (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync(HttpClient);
+            (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
 
             var assembly = Assembly.GetAssembly(typeof(ClientBase));
             derivedTypes = assembly!

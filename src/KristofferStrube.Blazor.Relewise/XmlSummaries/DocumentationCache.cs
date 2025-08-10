@@ -7,14 +7,14 @@ using System.Web;
 
 namespace KristofferStrube.Blazor.Relewise.XmlSummaries;
 
-public class DocumentationCache
+public class DocumentationCache(HttpClient httpClient)
 {
     private XmlDocumentation? xmlDocumentation;
     private CommunityDocumentation? communityDocumentation;
 
     static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
-    public async Task<(XmlDocumentation? xml, CommunityDocumentation? community)> GetAsync(HttpClient httpClient)
+    public async Task<(XmlDocumentation? xml, CommunityDocumentation? community)> GetAsync()
     {
         try
         {
@@ -27,7 +27,7 @@ public class DocumentationCache
                 }
                 if (communityDocumentation is null)
                 {
-                    communityDocumentation = await GetCommunityDocumentation(httpClient);
+                    communityDocumentation = await GetCommunityDocumentation();
                 }
             }
         } catch (Exception e)
@@ -90,7 +90,7 @@ public class DocumentationCache
         return result;
     }
 
-    public async Task<CommunityDocumentation> GetCommunityDocumentation(HttpClient httpClient)
+    private async Task<CommunityDocumentation> GetCommunityDocumentation()
     {
         // We use the injected httpClient here as it has the correct base address set.
         return new CommunityDocumentation(await httpClient.GetFromJsonAsync<List<CommunityDocumentationEntry>>("communitydocs.json"));

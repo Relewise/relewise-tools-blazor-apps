@@ -10,7 +10,6 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="KristofferStrube.Blazor.WebAudio" Version="0.1.0-alpha.11" />
     <PackageReference Include="KristofferStrube.Blazor.Window" Version="0.1.0-alpha.6" />
     <PackageReference Include="KristofferStrube.DocumentSearching.SuffixTrie" Version="0.1.0-alpha.7" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.0" />
