@@ -29,7 +29,7 @@ jobs:
 
         # Generate the website
         - name: Publish
-          run: dotnet publish samples/KristofferStrube.Blazor.Relewise.WasmExample/KristofferStrube.Blazor.Relewise.WasmExample.csproj --configuration Release --output build
+          run: dotnet publish src/KristofferStrube.Blazor.Relewise/KristofferStrube.Blazor.Relewise.csproj --configuration Release --output build
 
         # Publish the website
         - name: GitHub Pages action
