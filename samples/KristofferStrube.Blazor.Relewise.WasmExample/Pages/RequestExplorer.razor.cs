@@ -10,7 +10,7 @@ using Relewise.Client.Requests.Search;
 using System.IO.Compression;
 using System.Reflection;
 
-namespace KristofferStrube.Blazor.Relewise.WasmExample.Pages
+namespace KristofferStrube.Blazor.Relewise.Pages
 {
     public partial class RequestExplorer
     {

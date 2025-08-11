@@ -1,7 +1,7 @@
 ﻿using KristofferStrube.Blazor.DOM;
 using KristofferStrube.Blazor.Window;
 
-namespace KristofferStrube.Blazor.Relewise.WasmExample;
+namespace KristofferStrube.Blazor.Relewise;
 
 public static class StaticDatasetStorage
 {

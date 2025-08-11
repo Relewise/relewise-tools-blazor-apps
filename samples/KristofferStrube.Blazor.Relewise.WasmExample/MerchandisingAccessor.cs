@@ -4,7 +4,7 @@ using Relewise.Client.Responses.Merchandising;
 using Relewise.Client;
 using System.Data;
 
-namespace KristofferStrube.Blazor.Relewise.WasmExample;
+namespace KristofferStrube.Blazor.Relewise;
 
 public class MerchandisingAccessor(Guid datasetId, string apiKeySecret, string serverUrl) : ClientBase(datasetId, apiKeySecret, serverUrl, TimeSpan.FromSeconds(30))
 {

@@ -1,7 +1,7 @@
 ﻿using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 
-namespace KristofferStrube.Blazor.Relewise.WasmExample;
+namespace KristofferStrube.Blazor.Relewise;
 
 public class NugetClient(HttpClient httpClient)
 {

@@ -1,4 +1,4 @@
-﻿namespace KristofferStrube.Blazor.Relewise.WasmExample.Extensions;
+﻿namespace KristofferStrube.Blazor.Relewise.Extensions;
 
 public static class TypeExtensions
 {

@@ -1,7 +1,7 @@
 ﻿using Relewise.Client.DataTypes;
 using Relewise.Client.Requests.Filters;
 
-namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared;
+namespace KristofferStrube.Blazor.Relewise.Shared;
 
 public class Column(Type filterColumnEditor, Type columnPresenter, Func<Product, object?> columnSelector)
 {

@@ -19,9 +19,9 @@ using Relewise.Client.Requests.ValueSelectors;
 using Relewise.Client.Search;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using static KristofferStrube.Blazor.Relewise.WasmExample.Shared.Troubleshooter;
+using static KristofferStrube.Blazor.Relewise.Shared.Troubleshooter;
 
-namespace KristofferStrube.Blazor.Relewise.WasmExample.Shared
+namespace KristofferStrube.Blazor.Relewise.Shared
 {
     public partial class Troubleshooter
     {

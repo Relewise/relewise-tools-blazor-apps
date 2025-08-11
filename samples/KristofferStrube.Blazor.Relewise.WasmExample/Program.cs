@@ -1,5 +1,5 @@
 using KristofferStrube.Blazor.Popper;
-using KristofferStrube.Blazor.Relewise.WasmExample;
+using KristofferStrube.Blazor.Relewise;
 using KristofferStrube.Blazor.Relewise.XmlSummaries;
 using KristofferStrube.Blazor.Window;
 using Microsoft.AspNetCore.Components.Web;

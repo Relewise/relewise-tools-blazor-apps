@@ -1,3 +1,5 @@
+@using KristofferStrube.Blazor.Popper
+
 &nbsp;<span class="round light" @ref=reference aria-describedby="tooltip" @onpointerover=Activate @onpointerout=Deactivate>@(Warning ? "!" : "?")</span>
 
 @if (active)
