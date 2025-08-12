@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Relewise.BlazorApps", "src\Relewise.BlazorApps\Relewise.BlazorApps.csproj", "{FB844540-9633-40F5-802F-581F92485139}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Other Items", "Other Items", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		CONTRIBUTING.md = CONTRIBUTING.md
+		README.md = README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FB844540-9633-40F5-802F-581F92485139}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6732C53D-0D7D-4886-8F9F-78524CEAD7A3}
+	EndGlobalSection
+EndGlobal

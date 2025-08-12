@@ -1,0 +1,98 @@
+﻿@using KristofferStrube.Blazor.DOM
+@using KristofferStrube.Blazor.Window
+@using KristofferStrube.Blazor.Window.Options
+@inherits LayoutComponentBase
+
+<div class="page">
+    @if (StaticDatasetStorage.ParentOrigin is null)
+    {
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+    }
+
+    <main>
+        <div class="top-row px-4">
+            <small>Experimental Relewise tools • Maintained by Relewise</small>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    [Inject]
+    public required NavigationManager NavigationManager { get; set; }
+
+    [Inject]
+    public required IJSRuntime JSRuntime { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? datasetId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? parentOrigin { get; set; }
+
+    [Inject]
+    public required IWindowService WindowService { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (datasetId is not null && parentOrigin is not null)
+        {
+            // Don't show menu.
+            StaticDatasetStorage.ParentOrigin = parentOrigin;
+
+            // Get dataset from querystring and remove it.
+            StaticDatasetStorage.DatasetId = datasetId;
+            NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter("datasetId", (string?)null), false);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // If the ParentMessageEventListener is already set dont set up.
+        if (!firstRender || StaticDatasetStorage.ParentMessageEventListener is not null)
+            return;
+
+        // Listen for post messages.
+        Window window = await WindowService.GetWindowAsync();
+        StaticDatasetStorage.ParentMessageEventListener = await EventListener<MessageEvent>.CreateAsync(JSRuntime, async (e) =>
+        {
+            try
+            {
+                Authentication a = await e.GetDataAsync<Authentication>();
+                if (string.IsNullOrWhiteSpace(a.apiKey))
+                {
+                    Console.WriteLine($"Received api key from parent window which was empty '{a.apiKey}'");
+                    return;
+                }
+                StaticDatasetStorage.ApiKey = a.apiKey;
+                StaticDatasetStorage.ServerUrl = a.serverUrl;
+                StateHasChanged();
+                StaticDatasetStorage.NotifyAuthenticationReceived();
+            }
+            catch (Exception) { }
+        });
+
+        await window.AddOnMessageEventListenerAsync(StaticDatasetStorage.ParentMessageEventListener);
+
+        // Post message to parent.
+        await using Window? parent = await window.GetParentAsync();
+        if (parent is not null && StaticDatasetStorage.ParentOrigin is not null)
+        {
+            object payload = new { MyRelewiseAppReady = true };
+
+            var options = new WindowPostMessageOptions()
+                {
+                    TargetOrigin = StaticDatasetStorage.ParentOrigin
+                };
+
+            await parent.PostMessageAsync(payload, options);
+        }
+    }
+
+    public record Authentication(string apiKey, string serverUrl);
+}

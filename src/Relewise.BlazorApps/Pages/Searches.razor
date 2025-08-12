@@ -1,0 +1,247 @@
+﻿@page "/Searches"
+@using Relewise.BlazorApps.TypeEditors
+@using System.Reflection
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Converters
+@using System.Diagnostics
+@using global::Relewise.Client.Requests
+@using global::Relewise.Client.Requests.Recommendations
+@using global::Relewise.Client.Requests.Search
+@using global::Relewise.Client.Responses
+@using global::Relewise.Client.Search
+@implements IDisposable
+
+<PageTitle>Blazor Relewise - Searches</PageTitle>
+
+<h1>Searches</h1>
+<p>Here you can get try to make some searchers.</p>
+
+
+@if (error is not null)
+{
+    <code>@error</code>
+    <br />
+    <br />
+}
+@if (message is not null)
+{
+    <span style="color:green;">@message</span>
+    <br />
+    <br />
+}
+@if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+{
+    <p>
+        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
+        <br />
+        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>.</small>
+    </p>
+
+    <ConnectionCredentials />
+}
+
+@if (searcher is null)
+{
+    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <br />
+}
+<br />
+
+<div class="input-group">
+    <input @bind=SearchTerm @bind:after=Search id="search" @bind:event="oninput" class="form-control" placeholder="Search" />
+    <div class="input-group-append">
+        <label for="search" class="input-group-text" style="width:240px;">
+            <svg class="bi" width="24" height="24" viewBox="-2 -2 14 13"><polygon fill="transparent" stroke="grey" stroke-width="1" points="12,11 6,6 5,7 2,7 0,5 0,2 2,0 5,0 7,2 7,5 6,6"></polygon></svg>
+            @if (searchTime is not null)
+            {
+                <small style="color: green;margin-left:10px;">
+                    Found @groupings.Sum(g => g.Value.Count) results in @searchTime.Value ms
+                </small>
+            }
+        </label>
+    </div>
+</div>
+<br />
+
+@foreach (var group in groupings.Where(group => group.Value.Count > 0))
+{
+    <h2>@group.Key Searches</h2>
+    @foreach (Type search in group.Value)
+    {
+        <SearchConstructor RequestType=search Request=initValues[search] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="searcher" />
+        <br />
+    }
+}
+
+@if (uncategorizedTypes.Count > 0)
+{
+    <h2>Uncategorized Searches</h2>
+    @foreach (var type in uncategorizedTypes)
+    {
+        <SearchConstructor RequestType=type Request=initValues[type] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="searcher" />
+        <br />
+    }
+}
+
+<br />
+
+@code {
+    private string? error;
+    private string? message;
+    private double? searchTime;
+    private Searcher? searcher;
+    private Dictionary<string, List<Type>> groupings = new();
+    private Dictionary<Type, SearchRequest> initValues = default!;
+    private bool loadedModelFromUrl;
+
+    [SupplyParameterFromQuery(Name = "q")]
+    public string SearchTerm { get; set; } = "";
+
+    [SupplyParameterFromQuery(Name = "o")]
+    public string? CompressedObject { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+        {
+            Connect();
+        }
+        StaticDatasetStorage.AuthenticationReceived += Authenticated;
+    }
+
+    private void Authenticated(object? sender, EventArgs args)
+    {
+        Connect();
+        StateHasChanged();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (SearchTerm is null)
+        {
+            SearchTerm = "";
+        }
+
+        if (initValues is null)
+        {
+            initValues = allSearchRequestTypes
+                .ToDictionary(
+                    keySelector: t => t,
+                    elementSelector: t => (SearchRequest)t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)!
+                );
+        }
+
+        await Search();
+
+        if (CompressedObject is not null)
+        {
+            String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
+            var jsonSerializerSettings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto,
+                    NullValueHandling = NullValueHandling.Ignore,
+                    Formatting = Formatting.None,
+                    Converters = [new StringEnumConverter()]
+                };
+            SearchRequest decompressedObject = JsonConvert.DeserializeObject<SearchRequest>(decompressedString, jsonSerializerSettings)!;
+            if (allSearchRequestTypes.FirstOrDefault(t => t.Name == decompressedObject?.GetType().Name) is { } matchingType)
+            {
+                initValues[matchingType] = decompressedObject;
+                loadedModelFromUrl = true;
+            }
+        }
+    }
+
+    private bool Connect()
+    {
+        try
+        {
+            searcher = new Searcher(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+            message = "Successfully initialized the Searcher.";
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            return false;
+        }
+    }
+
+    private void ResetSearcher()
+    {
+        searcher = null;
+        StateHasChanged();
+    }
+
+    private Task Search()
+    {
+        var sw = Stopwatch.StartNew();
+
+        groupings = SearchRequestGroupings.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value
+                .Where(ContainsSearch)
+                .ToList()
+        );
+        loadedModelFromUrl = false;
+
+        if (SearchTerm is "")
+        {
+            searchTime = null;
+        }
+        else
+        {
+            searchTime = sw.Elapsed.TotalMilliseconds;
+        }
+        return Task.CompletedTask;
+    }
+
+    public static Dictionary<string, List<Type>> SearchRequestGroupings = new()
+        {
+            ["Entity"] =
+                [typeof(ProductSearchRequest),
+                typeof(ContentSearchRequest),
+                typeof(SearchTermPredictionRequest),
+                typeof(ProductCategorySearchRequest),
+                typeof(ContentCategorySearchRequest)],
+
+            ["Search Term"] = [typeof(SearchTermPredictionRequest)],
+
+            ["Batched"] = [typeof(SearchRequestCollection)]
+        };
+
+    private static List<Type> allSearchRequestTypes =
+        Assembly
+            .GetAssembly(typeof(ClientBase))!
+            .GetTypes()
+            .Where(type =>
+                type != typeof(SearchRequest)
+                && type.IsAssignableTo(typeof(SearchRequest))
+                && !type.IsGenericType
+                && !type.IsAbstract)
+            .ToList();
+
+    private static List<Type> uncategorizedTypes =
+        allSearchRequestTypes
+            .Where(t => !SearchRequestGroupings.SelectMany(m => m.Value).Contains(t))
+            .ToList();
+
+    private Dictionary<Type, string> typeNames = new();
+
+    private bool ContainsSearch(Type type)
+    {
+        if (!typeNames.TryGetValue(type, out string? typeName))
+        {
+            typeName = type.Name;
+            typeNames[type] = typeName;
+        }
+        return typeName.Contains(SearchTerm.Replace(" ", ""), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        StaticDatasetStorage.AuthenticationReceived -= Authenticated;
+    }
+}

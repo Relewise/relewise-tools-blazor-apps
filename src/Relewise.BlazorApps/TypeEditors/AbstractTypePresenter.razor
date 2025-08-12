@@ -1,0 +1,85 @@
+﻿@using System.Reflection
+@using Relewise.BlazorApps.XmlSummaries
+@using global::Relewise.Client
+<details class="box" open=@OpenDetails>
+    <summary @onclick="() => hasBeenOpen = true">
+        <i>@Settings.Name(Type) <small>(abstract type with @derivedTypes.Count concrete @(derivedTypes.Count is 1 ? "type" : "types"))</small></i>
+        @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(Type) is { } summary)
+        {
+            <TrustedInfo>@summary</TrustedInfo>
+        }
+        else if (communityDocumentation is not null && communityDocumentation.GetSummary(Type) is { } communitySummary)
+        {
+            <CommunityInfo Summary="@communitySummary"></CommunityInfo>
+        }
+    </summary>
+    <div style="padding: 5px;">
+        This is not a concrete type. It represents a common abstract type that can be one of the following concrete types.
+        <br />
+        @if (hasBeenOpen)
+        {
+            @foreach (Type type in derivedTypes)
+            {
+                if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
+                {
+                    if (editor.InitValue(type) is { } initValue && initValues[type] is null)
+                    {
+                        initValues[type] = initValue;
+                    }
+                    var parameters = new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => { initValues[type] = obj; StateHasChanged(); } };
+                    var editorType = editor.EditorType(type);
+                    if (editorType.IsConstructedGenericType && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>))
+                    {
+                        parameters.Add("ShowModelShareLink", true);
+                    }
+
+                    <br />
+                    <ErrorBoundary>
+                        <ChildContent>
+                            <DynamicComponent Type=editor.EditorType(type) Parameters=parameters />
+                        </ChildContent>
+                        <ErrorContent>
+                            <code>Failed for @Settings.Name(type)</code>
+                        </ErrorContent>
+                    </ErrorBoundary>
+                }
+            }
+        }
+    </div>
+</details>
+
+@code {
+    private bool hasBeenOpen;
+    private XmlDocumentation? xmlDocumentation;
+    private CommunityDocumentation? communityDocumentation;
+    private List<Type> derivedTypes = new();
+    private Dictionary<Type, object?> initValues = default!;
+
+    [Parameter]
+    public bool OpenDetails { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required Type Type { get; set; }
+
+    [Inject]
+    public required DocumentationCache XMLDocumentationCache { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
+
+        hasBeenOpen = hasBeenOpen || OpenDetails;
+
+        var assembly = Assembly.GetAssembly(typeof(ClientBase));
+        derivedTypes = assembly!
+            .GetTypes()
+            .Where(type => type != Type && type.IsAssignableTo(Type) && !type.IsGenericType && !type.IsAbstract && !type.IsInterface)
+            .ToList();
+
+        initValues = new();
+        foreach (Type type in derivedTypes)
+        {
+            initValues[type] = null;
+        }
+    }
+}

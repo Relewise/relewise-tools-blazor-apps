@@ -1,0 +1,127 @@
+﻿@using Relewise.BlazorApps.TypeEditors
+@using System.Reflection
+@using Relewise.BlazorApps.Extensions
+@using Relewise.BlazorApps.Pages
+@using global::Relewise.Client.Requests.Recommendations
+@using global::Relewise.Client.Requests.Search
+@using global::Relewise.Client.Responses
+@using global::Relewise.Client.Responses.Search
+@using global::Relewise.Client.Search
+@inject IJSInProcessRuntime JSRuntime
+
+<details class="box" open=@OpenDetails>
+    <summary>
+        @(NormalName(RequestType))
+    </summary>
+    <div style="margin:5px;">
+        <h3>Request</h3>
+        <ObjectEditor
+            OpenDetails=true
+            T=SearchRequest
+            Value="Request"
+            ShowModelShareLink="true"
+                      Setter="(object? obj) => { Request = (SearchRequest?)obj; RequestExplorer.SaveInLocalStorage(JSRuntime, obj); response = null; StateHasChanged(); }" />
+        <br />
+        @if (Searcher is null)
+        {
+            <button class="btn btn-success" disabled="true" @onclick="() => Post()">Post</button>
+            <i>You have to connect before you can post a request.</i>
+        }
+        else
+        {
+            <button class="btn btn-success" @onclick="() => Post()">Post</button>
+        }
+        <br />
+        @if (error is not null)
+        {
+            <code>@error</code>
+        }
+        else if (message is not null)
+        {
+            <span style="color:green;">@message</span>
+        }
+        @if (response is not null)
+        {
+            <br />
+            <br />
+            <h3>Response</h3>
+            <label for="openDetails">Expand all: </label>
+            <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+            <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=SearchResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (SearchResponse?)obj; StateHasChanged(); }" />
+        }
+    </div>
+</details>
+
+
+@code {
+    private string? message;
+    private string? error;
+    private bool openDetails;
+
+    private SearchResponse? response;
+
+    [Parameter, EditorRequired]
+    public required Searcher Searcher { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Func<bool> Connect { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action ResetSearcher { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Type RequestType { get; set; }
+
+    [Parameter, EditorRequired]
+    public required SearchRequest Request { get; set; }
+
+    [Parameter, EditorRequired]
+    public required bool OpenDetails { get; set; }
+
+    private string NormalName(Type type)
+    {
+        var separated = type.SpaceSeparatedName();
+        if (separated.EndsWith("Request"))
+        {
+            separated = separated[..^8];
+        }
+        return separated;
+    }
+
+    private async Task Post()
+    {
+        if (!Connect()) return;
+
+        if (Request is null)
+        {
+            message = null;
+            error = "Request was null.";
+            return;
+        }
+
+        try
+        {
+            var method = typeof(Searcher)
+                .GetMethods()
+                .Single(m => m.Name is "SearchAsync" or "PredictAsync" or "BatchAsync" && m.GetParameters() is [var requestParam, var tokenParam] && requestParam.ParameterType == Request.GetType());
+
+            var responseTask = (Task<SearchResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Searcher, Request])!;
+
+            response = await responseTask;
+            message = "Successfully searched.";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            ResetSearcher();
+            message = null;
+        }
+    }
+
+    public static async Task<SearchResponse> Post<T>(MethodInfo method, Searcher recommender, SearchRequest request) where T : SearchResponse
+    {
+        var taskResponse = (Task<T>)method.Invoke(recommender, [request, CancellationToken.None])!;
+        return await taskResponse;
+    }
+}

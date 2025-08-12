@@ -1,0 +1,449 @@
+﻿@using KristofferStrube.Blazor.DOM
+@using Relewise.BlazorApps.TypeEditors
+@using Relewise.BlazorApps.Shared.ColumnPresenter
+@using Relewise.BlazorApps.Shared.FilterColumnEditors
+@using KristofferStrube.Blazor.Window
+@using global::Relewise.Client.Requests.Filters
+@page "/Products"
+@implements IDisposable
+
+<PageTitle>Blazor Relewise - Products</PageTitle>
+
+<h1>Products</h1>
+
+<p>Here you can get a product using the <code>DataAccessor</code>, then make changes to it, and in the end track the changes with the <code>Tracker</code>. You can likewise enable or disable the selected product.</p>
+
+@if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+{
+    <p>
+        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
+        <br />
+        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>DataAccessor</code> and the <code>Tracker</code> to use this.</small>
+    </p>
+
+    <ConnectionCredentials />
+}
+
+@if (error is not null)
+{
+    <code>@error</code>
+    <br />
+    <br />
+}
+@if (message is not null)
+{
+    <span style="color:green;">@message</span>
+    <br />
+    <br />
+}
+
+@if (dataAccessor is null || tracker is null)
+{
+    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <br />
+}
+else
+{
+    <p>Now you can either list all products or get a specific set of products using filters.</p>
+    <p>For now we only have some simple column based options for filtering on the product id or display name, but more will come in the future.</p>
+
+    <button class="btn btn-success" @onclick=LoadProductsFromStart>Load Products</button>
+    <br />
+    <br />
+    @if (productsInView is not null)
+    {
+        <div style="width:100%; display:flex; align-items:center; justify-content:center; padding: 5px; grid-gap: 5px;">
+            <span>showing results from @skip to @(skip + productsInView.Count) out of @totalResults</span>
+            <button class="btn btn-outline-secondary btn-sm" title="Go to previous page" @onclick=GoToPreviousPage>&lt;&lt;</button>
+            <button class="btn btn-outline-secondary btn-sm" title="Go to next page" @onclick=GoToNextPage>&gt;&gt;</button>
+        </div>
+    }
+    <table width="100%">
+        <thead>
+            <tr>
+                @foreach (var column in columns)
+                {
+                    <th style="vertical-align: top;">
+                        @{
+                            var parameters = new Dictionary<string, object>()
+                    {
+                        ["Column"] = column,
+                    };
+                        }
+                        <DynamicComponent Type="column.FilterColumnEditor" Parameters="parameters"></DynamicComponent>
+                    </th>
+                }
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (productsInView is not null)
+            {
+                @for (int i = 0; i < productsInView.Count; i++)
+                {
+                    var context = productsInView[i];
+                    <tr style="background-color:@(i % 2 == 0 ? "white" : "#DDFFDD")">
+                        @foreach (var column in columns)
+                        {
+                            <td>
+                                @{
+                                    var parameters = new Dictionary<string, object>
+                                ()
+                            {
+                                ["Value"] = column.ColumnSelector(context.Product)!,
+                            };
+                                }
+                                <DynamicComponent Type="column.ColumnPresenter" Parameters="parameters"></DynamicComponent>
+                            </td>
+                        }
+                        <td>
+                            <div style="display:flex; flex-direction:row; grid-gap:2px; justify-content:flex-end;">
+                                @if (context.ProductIsDisabled)
+                                {
+                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick=@(() => EnableProduct(context))>Enable</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-warning btn-sm" style="width:70px;height:26px;padding:0px;" @onclick=@(() => DisableProduct(context))>Disable</button>
+                                }
+                                @if (context.IsBeingEdited)
+                                {
+                                    <button class="btn btn-danger btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => DiscardChanges(context)">Discard Changes</button>
+                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => Update(context)">Save Changes</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => { context.IsBeingEdited = true; StateHasChanged(); }">Edit</button>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                    @if (context.IsBeingEdited)
+                    {
+                        <tr>
+                            <td colspan="@(columns.Count + 1)">
+                                <label for="openDetails">Expand all: </label>
+                                <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+                                <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Product Value="context.Product" Setter="(Object? obj) => { context.Product = (Product?)obj!; StateHasChanged(); }" />
+                                <br />
+                                @if (context.ProductVariants is not null && context.ProductVariantsDisabled is not null)
+                                {
+                                    <details class="box" open="open">
+                                        <summary>
+                                            Variants
+                                        </summary>
+                                        <div class="two-column-grid">
+                                            @for (int j = 0; j < context.ProductVariants.Count; j++)
+                                            {
+                                                int k = j;
+                                                @if (context.ProductVariantsDisabled[k])
+                                                {
+                                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => EnableVariant(context, k)">Enable</button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-warning btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => DisableVariant(context, k)">Disable</button>
+                                                }
+                                                <div>
+                                                    <ObjectEditor OpenDetails=openDetails T=ProductVariant Value="context.ProductVariants[k]" Setter="(Object? obj) => { context.ProductVariants[k] = (ProductVariant)obj!; context.VariantsHadChanges = true; StateHasChanged(); }" />
+                                                </div>
+                                            }
+                                        </div>
+                                    </details>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            }
+        </tbody>
+    </table>
+    @if (productsInView is not null)
+    {
+        <div style="width:100%; display:flex; align-items:center; justify-content:center; padding: 5px; grid-gap: 5px;">
+            <span>showing results from @skip to @(skip + productsInView.Count) out of @totalResults</span>
+            <button class="btn btn-outline-secondary btn-sm" title="Go to previous page" @onclick=GoToPreviousPage>&lt;&lt;</button>
+            <button class="btn btn-outline-secondary btn-sm" title="Go to next page" @onclick=GoToNextPage>&gt;&gt;</button>
+        </div>
+    }
+    <br />
+    <br />
+}
+
+@code {
+    private string? error;
+    private string? message;
+    private bool openDetails;
+    private DataAccessor? dataAccessor;
+    private Tracker? tracker;
+    private List<Column> columns = [
+        new Column<ProductIdFilter>(typeof(ProductIdColumnEditor), typeof(StringColumnPresenter), p => p.Id),
+    new Column<ProductDisplayNameFilter>(typeof(DisplayNameColumnEditor), typeof(MultilingualColumnPresenter), p => p.DisplayName),
+    ];
+
+    private List<ProductAndVariantEditContext>? productsInView = null;
+    private int skip = 0;
+    private int totalResults = 0;
+
+    [Inject]
+    public required IJSRuntime JSRuntime { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+        {
+            Connect();
+        }
+        StaticDatasetStorage.AuthenticationReceived += Authenticated;
+    }
+
+    private void Authenticated(object? sender, EventArgs args)
+    {
+        Connect();
+        StateHasChanged();
+    }
+
+    private bool Connect()
+    {
+        try
+        {
+            dataAccessor = new DataAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+            tracker = new Tracker(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+            message = "Successfully initialized the DataAccessor and Tracker.";
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            return false;
+        }
+    }
+
+    private async Task LoadProductsFromStart()
+    {
+        if (!Connect()) return;
+        skip = 0;
+
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        try
+        {
+            FilterCollection filterCollection = new(columns.Where(c => c.Filter is not null).Select(c => c.Filter).ToArray()!);
+
+            var result = await dataAccessor!.QueryAsync(new ProductQuery(filterCollection, 50, false, skip, true)
+                {
+                    IncludeDisabledProducts = true,
+                    IncludeDisabledVariants = true
+                });
+
+            productsInView = new();
+            totalResults = result.TotalNumberOfResults!.Value;
+            foreach (var productResult in result.Products)
+            {
+                ProductAndVariantEditContext context = new(new Product(productResult.ProductId)
+                    {
+                        DisplayName = productResult.DisplayName,
+                        Assortments = productResult.Assortments?.ToList(),
+                        CategoryPaths = productResult.CategoryPaths?.Select(cp => new CategoryPath() { BreadcrumbPathStartingFromRoot = cp.BreadcrumbPathStartingFromRoot })?.ToList(),
+                        Data = productResult.Data,
+                        Custom = productResult.Custom,
+                        Brand = productResult.Brand is null ? null : new Brand(productResult.Brand.BrandId)
+                        {
+                            DisplayName = productResult.Brand.DisplayName,
+                            Assortments = productResult.Brand.Assortments?.ToList(),
+                            Data = productResult.Brand.Data
+                        },
+                        ListPrice = productResult.ListPrice,
+                        SalesPrice = productResult.SalesPrice
+                    },
+                    productResult.Disabled);
+
+                if (productResult.AllVariants?.Length > 0)
+                {
+                    context.ProductVariants = new(productResult.AllVariants.Length);
+                    context.ProductVariantsDisabled = new(productResult.AllVariants.Length);
+
+                    foreach (VariantResultDetails productVariantResult in productResult.AllVariants)
+                    {
+                        context.ProductVariantsDisabled.Add(productVariantResult.Disabled);
+                        context.ProductVariants.Add(new ProductVariant(productVariantResult.VariantId)
+                            {
+                                DisplayName = productVariantResult.DisplayName,
+                                Assortments = productVariantResult.Assortments?.ToList(),
+                                Specification = productVariantResult.Specification,
+                                Data = productVariantResult.Data,
+                                Custom = productVariantResult.Custom,
+                                ListPrice = productVariantResult.ListPrice,
+                                SalesPrice = productVariantResult.SalesPrice
+                            });
+                    }
+                }
+                context.VariantsHadChanges = false;
+                productsInView.Add(context);
+            }
+
+            message = $"Successfully fetched the product{(productsInView.Count is 1 ? "" : "s")}.";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+            dataAccessor = null;
+            tracker = null;
+            throw;
+        }
+    }
+
+    private async Task Update(ProductAndVariantEditContext context)
+    {
+        try
+        {
+            if (context.VariantsHadChanges)
+            {
+                await tracker!.TrackAsync(
+                    new ProductUpdate(
+                        context.Product,
+                        context.ProductVariants,
+                        ProductUpdate.UpdateKind.ReplaceProvidedProperties,
+                        ProductUpdate.UpdateKind.ReplaceProvidedProperties,
+                        replaceExistingVariants: true)
+                );
+            }
+            else
+            {
+                await tracker!.TrackAsync(new ProductUpdate(context.Product, ProductUpdate.UpdateKind.ReplaceProvidedProperties));
+            }
+            message = "Successfully updated the product" + (context.VariantsHadChanges ? " and variants." : ".");
+            context.IsBeingEdited = false;
+            context.VariantsHadChanges = false;
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    public async Task DiscardChanges(ProductAndVariantEditContext context)
+    {
+        context.IsBeingEdited = false;
+    }
+
+    private async Task EnableProduct(ProductAndVariantEditContext context)
+    {
+        if (!Connect()) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.Enable)
+            );
+            context.ProductIsDisabled = false;
+            message = "Successfully enabled the product";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    private async Task DisableProduct(ProductAndVariantEditContext context)
+    {
+        if (!Connect()) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.Disable)
+            );
+            context.ProductIsDisabled = true;
+            message = "Successfully disabled the product";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    private async Task EnableVariant(ProductAndVariantEditContext context, int variantIndex)
+    {
+        if (!Connect() || context.ProductVariants is null || context.ProductVariantsDisabled is null) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.None, context.ProductVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Enable)
+            );
+            context.ProductVariantsDisabled[variantIndex] = false;
+            message = "Successfully enabled the variant";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    private async Task DisableVariant(ProductAndVariantEditContext context, int variantIndex)
+    {
+        if (!Connect() || context.ProductVariants is null || context.ProductVariantsDisabled is null) return;
+        StateHasChanged();
+        await Task.Delay(100);
+        try
+        {
+            await tracker!.TrackAsync(
+                new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.None, context.ProductVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Disable)
+            );
+            context.ProductVariantsDisabled[variantIndex] = true;
+            message = "Successfully disabled the variant";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            message = null;
+        }
+    }
+
+    public async Task GoToNextPage()
+    {
+        skip += 50;
+        await LoadProducts();
+    }
+
+    public async Task GoToPreviousPage()
+    {
+        skip = Math.Max(0, skip - 50);
+        await LoadProducts();
+    }
+
+    public void Dispose()
+    {
+        StaticDatasetStorage.AuthenticationReceived -= Authenticated;
+    }
+
+    public class ProductAndVariantEditContext(Product product, bool productIsDisabled)
+    {
+        public Product Product { get; set; } = product;
+        public bool ProductIsDisabled { get; set; } = productIsDisabled;
+        public List<ProductVariant>? ProductVariants { get; set; } = null;
+        public List<bool>? ProductVariantsDisabled { get; set; } = null;
+        public bool IsBeingEdited { get; set; } = false;
+        public bool VariantsHadChanges { get; set; } = false;
+    }
+}
