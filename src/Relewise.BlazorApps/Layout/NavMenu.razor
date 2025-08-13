@@ -1,0 +1,89 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Relewise: Blazor Apps</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Products/">
+                <svg class="bi" width="30" height="30" viewBox="0 0 14 10"><polygon fill="white" points="4,10 4,4 2,6 0,4 4,0 5,0 6,1 8,1 9,0 10,0 14,4 12,6 10,4 10,10"></polygon></svg> Products
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Content/">
+                <svg class="bi" viewBox="0 0 16 16">
+                    <rect stroke="#FFFFFF" stroke-width="1" fill="none" x="2" y="2" width="12" height="12"></rect> 
+                    <line stroke="#FFFFFF" stroke-width="1" x1="4" y1="5" x2="12" y2="5"></line> 
+                    <line stroke="#FFFFFF" stroke-width="1" x1="4" y1="8" x2="12" y2="8"></line> 
+                    <line stroke="#FFFFFF" stroke-width="1" x1="4" y1="11" x2="12" y2="11"></line>
+                </svg> Content
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Triggers/">
+                <svg class="bi" width="30" height="30" viewBox="0 0 7 13"><polygon fill="white" points="0,7 3,0 3,6 5,6 2,13 2,7"></polygon></svg> Triggers
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="MerchandisingRules/">
+                <svg class="bi" viewBox="0 0 16 16">
+                    <polygon stroke="#FFFFFF" stroke-width="2" fill="none" points="1,3 15,3 13,11 3,11" stroke-linejoin="round"></polygon>
+                    <circle stroke="#FFFFFF" stroke-width="2" fill="none" cx="5" cy="14" r="1"></circle>
+                    <circle stroke="#FFFFFF" stroke-width="2" fill="none" cx="11" cy="14" r="1"></circle>
+                    <line stroke="#FFFFFF" stroke-width="1.5" x1="8" y1="5" x2="8" y2="9" stroke-linejoin="round" stroke-linecap="round"></line>
+                    <line stroke="#FFFFFF" stroke-width="1.5" x1="10" y1="7" x2="6" y2="7" stroke-linejoin="round" stroke-linecap="round"></line>
+                </svg> Merchandising Rules
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Recommendations/">
+                <svg class="bi" width="30" height="30" viewBox="0 0 16 16"><polygon fill="white" points="0,6 6,6 8,0 10,6 16,6 11,10 13,16 8,12 3,16 5,10"></polygon></svg> Recommendations
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Searches/">
+                <svg class="bi" width="30" height="30" viewBox="-2 -2 14 13"><polygon fill="transparent" stroke="white" stroke-width="2" points="12,11 6,6 5,7 2,7 0,5 0,2 2,0 5,0 7,2 7,5 6,6"></polygon></svg> Searches
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Models/">
+                <svg class="bi" width="30" height="30" viewBox="-1 -1 9 9"><polygon fill="transparent" stroke="white" stroke-width="1" points="0,2 2,0 5,0 7,2 7,5 5,7 2,7 0,5"></polygon></svg> Models
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="RequestExplorer/">
+                <svg class="bi" width="30" height="30" viewBox="-1 -1 12 13"><polygon fill="transparent" stroke="white" stroke-width="1" points="3,4 0,2 1,1 4,3 4,0 6,0 6,3 9,1 10,2 7,4 10,4 10,11 0,11 0,4"></polygon></svg> Request Explorer
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Versions/">
+                <svg class="bi" viewBox="0 0 16 16">
+                    <line stroke="#FFFFFF" stroke-width="3" x1="8" y1="3" x2="8" y2="15"></line>
+                    <line stroke="#FFFFFF" stroke-width="3" x1="8" y1="3" x2="13" y2="8" stroke-linecap="square"></line>
+                    <line stroke="#FFFFFF" stroke-width="3" x1="8" y1="3" x2="3" y2="8" stroke-linecap="square"></line>
+                </svg> Versions
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}

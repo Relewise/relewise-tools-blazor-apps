@@ -1,0 +1,134 @@
+﻿@using Relewise.BlazorApps.TypeEditors
+@using System.Reflection
+@using Relewise.BlazorApps.Extensions
+@using Relewise.BlazorApps.Pages
+@using global::Relewise.Client.Requests
+@using global::Relewise.Client.Requests.Recommendations
+@using global::Relewise.Client.Responses
+@using global::Relewise.Client.DataTypes
+@inject IJSInProcessRuntime JSRuntime
+
+<details class="box" open=@OpenDetails>
+    <summary>
+        @if (advancedRecommendations.Contains(RequestType.Name))
+        {
+            <svg class="bi" width="20" height="20" style="margin-top:-5px;margin-right:5px;" viewBox="0 0 16 16">
+                <polygon fill="yellow" points="0,6 6,6 8,0 10,6 16,6 11,10 13,16 8,12 3,16 5,10">
+                    <title>This is an advanced recommendation that costs more than the other types of recommendations.</title>
+                </polygon>
+            </svg>
+        }
+        @(NormalName(RequestType))
+    </summary>
+    <div style="margin:5px;">
+        <h3>Request</h3>
+        <ObjectEditor
+            OpenDetails=true
+            T=LicensedRequest
+            Value="Request"
+            ShowModelShareLink="true"
+            Setter="(object? obj) => { Request = (LicensedRequest?)obj; RequestExplorer.SaveInLocalStorage(JSRuntime, obj); response = null; StateHasChanged(); }" />
+        <br />
+        @if (Recommender is null)
+        {
+            <button class="btn btn-success" disabled="true" @onclick="() => Post()">Post</button>
+            <i>You have to connect before you can post a request.</i>
+        }
+        else
+        {
+            <button class="btn btn-success" @onclick="() => Post()">Post</button>
+        }
+        <br />
+        @if (error is not null)
+        {
+            <code>@error</code>
+        }
+        else if (message is not null)
+        {
+            <span style="color:green;">@message</span>
+        }
+        @if (response is not null)
+        {
+            <br />
+            <br />
+            <h3>Response</h3>
+            <label for="openDetails">Expand all: </label>
+            <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+            <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=RecommendationResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (RecommendationResponse?)obj; StateHasChanged(); }" />
+        }
+    </div>
+</details>
+
+
+@code {
+    private List<string> advancedRecommendations = ["SimilarProductsRequest"];
+    private string? message;
+    private string? error;
+    private bool openDetails;
+    private TimedResponse? response;
+
+    [Parameter, EditorRequired]
+    public required Recommender Recommender { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Func<bool> Connect { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action ResetRecommender { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Type RequestType { get; set; }
+
+    [Parameter, EditorRequired]
+    public LicensedRequest Request { get; set; }
+
+    [Parameter, EditorRequired]
+    public bool OpenDetails { get; set; }
+
+    private string NormalName(Type type)
+    {
+        var separated = type.SpaceSeparatedName();
+        if (separated.EndsWith("Request"))
+        {
+            separated = separated[..^8];
+        }
+        return separated;
+    }
+
+    private async Task Post()
+    {
+        if (!Connect()) return;
+
+        if (Request is null)
+        {
+            message = null;
+            error = "Request was null.";
+            return;
+        }
+
+        try
+        {
+            var method = typeof(Recommender)
+                .GetMethods()
+                .Single(m => m.Name is "RecommendAsync" && m.GetParameters() is [var requestParam, var tokenParam] && requestParam.ParameterType == Request.GetType());
+
+            var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Recommender, Request])!;
+
+            response = await responseTask;
+            message = "Successfully recommended.";
+            error = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            ResetRecommender();
+            message = null;
+        }
+    }
+
+    public static async Task<TimedResponse> Post<T>(MethodInfo method, Recommender recommender, LicensedRequest request) where T : TimedResponse
+    {
+        var taskResponse = (Task<T>)method.Invoke(recommender, [request, CancellationToken.None])!;
+        return await taskResponse;
+    }
+}
