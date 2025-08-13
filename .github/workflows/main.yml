@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
         # Checkout the code
-        - uses: actions/checkout@v2
+        - uses: actions/checkout@v4
 
         # Install .NET 8.0 SDK
         - name: Setup .NET 8 preview
@@ -29,7 +29,7 @@ jobs:
 
         # Generate the website
         - name: Publish
-          run: dotnet publish src/KristofferStrube.Blazor.Relewise/KristofferStrube.Blazor.Relewise.csproj --configuration Release --output build
+          run: dotnet publish src/Relewise.BlazorApps/Relewise.BlazorApps.csproj --configuration Release --output build
 
         # Publish the website
         - name: GitHub Pages action
