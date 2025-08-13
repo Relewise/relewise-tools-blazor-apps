@@ -1,0 +1,482 @@
+[
+{
+    "Name": "Relewise.Client.Requests.Search.SearchRequest.Language",
+    "Summary": "The language that you want to search in. This also determines in what language entity details will be returned, if any multilingual properties were requested. This needs to be set if you search using a `Term`. The languages you specify here need to be consistent with the ones you have specified in your search index."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.SearchRequest.Currency",
+    "Summary": "The currency that you want to search in. This also determines in what currency entity detail will be returned, if any multicurrency properties were requested. It is recommended that this is set if you search using a `Term`."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.SearchRequest.User",
+    "Summary": "This needs to be populated with what information you have about the user for Relewise to be able to personalize results and recognize users across multiple requests."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.SearchRequest.DisplayedAtLocation",
+    "Summary": "This should be the location on the site where the search is being performed. This should be very high-level. Commonly used locations are \"Search Overlay\", \"Search Result Page\", and \"Product List Page\". This will be used to present revenue for different locations in the Analytics part of My Relewise. Additionally, you can also use this location for scoping merchandising rules to specific areas of your site."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.SearchRequest.RelevanceModifiers",
+    "Summary": "This can be used to make entities with specific criteria more or less prominent in results. A classic example could be that you have a page that shows new products. Here you could make products that are marked as **News** more prominent using a `ProductDataRelevanceModifier`."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.SearchRequest.Filters",
+    "Summary": "This can be used to filter what kinds of entities you want to have returned by inserting one or many filters in the collection. A classic example could be that you want to limit the results to products that are available within the specific market that the user is shopping in, in a multimarket setup. For this you would use a `ProductAssortmentFilter` or for more complex scenarios a `ProductDataFilter`.<br /> <br /> It is possible to parse filters to this collection that are not applicable in the context. An example could be to parse a `ContentCategoryIdFilter` to a product search request. In these cases, the filters that do not apply to the context will be ignored. To check whether a filter applies to a specific context you can find the base type for filters in that context and check if your filter of interest is of that type. Examples of base filter types for different contexts are `IProductFilter`, `IContentFilter`, `IProductCategoryFilter`, etc.. It is possible for a filter to be a subtype of multiple of these like it is the case for `BrandIdFilter` which is both an `IProductFilter` and an `IBrandFilter`."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.SearchRequest.IndexSelector",
+    "Summary": "With this, you can specify which index should be used for performing the search if you have multiple search indexes set up. Very few have multiple search indexes so there is a good chance that you will not need this. If nothing is specified it defaults to whatever search index is marked as the default in My Relewise."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.SearchRequest.PostFilters",
+    "Summary": "These are filters that are applied after all other filters. There are very few cases where one would use this. Generally one should not use this as it does not perform as well as normal filters."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.PaginatedSearchRequest.Skip",
+    "Summary": "This specifies how many entities you want to skip from the results. This can be used together with `Take` to implement pagination."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.PaginatedSearchRequest.Take",
+    "Summary": "This specifies how many entities you want to have returned. If there are fewer entities available than the number specified here due to filters, facets, or the search term then only that many will be returned. So this should be read as *\"I want at most this many entities to be returned\"*."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.ProductSearchRequest",
+    "Summary": "With this request, you can search for products that are imported to Relewise. It can be utilized in two primary ways.<ol><li>You can search using some term by setting the `Term` property. For this, you will need to set up a search index in My Relewise that indexes the properties of products that you want to be able to search in.</li><li>You can search without setting the `Term` property. In this case, it will give results from the whole catalog of products by default. You can then use filters to limit what products to return or change the default sorting to something else to have other results show first.</li></ol>"
+},
+{
+    "Name": "Relewise.Client.Requests.Search.ProductSearchRequest.Term",
+    "Summary": "This is what the user is searching for in the case where you want to search by term. If you don't want to search by term then leave this property unfilled or set it to `null`."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.ProductSearchRequest.Facets",
+    "Summary": "With this, you specify different facets for your search request. Facets differ from filters as they should generally be tied directly to what the users select when narrowing down which products they want. An example could be that the users can select different shoe sizes using facets. Whereas implementation or design scopes like only showing products from a specific category on a Product List Page should use filters instead. This is both to get better performance and because you can make more complex filters compared to facets."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.ProductSearchRequest.Settings",
+    "Summary": "Here you can set different settings for the search request like which properties you want back for the returned products and whether you want variants to be returned."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.ProductSearchRequest.Sorting",
+    "Summary": "This specifies the sorting that is applied to the results. This defaults to use the `ProductRelevanceSorting` if nothing is specified."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.ProductSearchRequest.RetailMedia",
+    "Summary": "This contains information for this request specific to Relewise Retail Media. If you don't use Retail Media, you don't need to set this."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.Settings.ProductSearchSettings",
+    "Summary": "With this, you can set different settings for the search results like which properties you want back for the returned products and whether you want variants to be returned."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.Settings.ProductSearchSettings.SelectedProductProperties",
+    "Summary": "Defines which properties are populated for the `ProductResult`s that are returned in the result list."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.Settings.ProductSearchSettings.SelectedVariantProperties",
+    "Summary": "Defines which properties are populated for the `VariantResult`s that are returned in the result list."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.Settings.ProductSearchSettings.ExplodedVariants",
+    "Summary": "Defines how many variants you want in the results for each product. If the search is termless, it defaults to `0`, meaning that no variants are returned; else, if the search is based on a term, it defaults to the maximum number, meaning that all variants are returned if there are any."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.Settings.ProductSearchSettings.SelectedBrandProperties",
+    "Summary": "Defines which properties are populated for the `BrandResults`s that are returned in case you have specified that you want the brands returned for the products."
+},
+{
+    "Name": "Relewise.Client.Requests.Search.Settings.ProductSearchSettings.VariantSettings",
+    "Summary": "This should generally not be used currently."
+},
+{
+    "Name": "Relewise.Client.DataTypes.Category.CategoryPaths",
+    "Summary": "This property will be ignored if used as a part of a `ProductCategoryUpdate` as category paths should be maintained through product updates."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.PurchasedWithProductRequest.ProductAndVariantId",
+    "Summary": "The product that is parsed here should be enabled. We do not update which products are purchased a lot together for disabled products."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsRequest.ExistingProductId",
+    "Summary": "This is the product for which the recommendation should find similar products. The product can be a disabled product, but be aware that disabled products are eventually deleted from Relewise, so you should not depend on parsing disabled products here for long periods. If the product you wish to find similar products for does not exist in Relewise or if you only have the characteristics of the product, then you can use the `ProductData` property instead."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsRequest.ProductData",
+    "Summary": "This can be used if you don't have a product in Relewise that you can use as input. Setting this will by default skip any existing product data in Relewise, but by setting `ConsiderAlreadyKnownInformationAboutProduct` you can make sure that both sources of information are used."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsRequest.ConsiderAlreadyKnownInformationAboutProduct",
+    "Summary": "If you want to consider the existing information in Relewise as well as the data parsed via the `ProductData` property, then you should set this to `true`. If the same piece of information is present both in Relewise and in the data parsed through the `ProductData` property, then it uses the information parsed in the request."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsRequest.EvaluationSettings",
+    "Summary": "You can set this to override the default similarity settings. This can be useful if you want to configure the request to only compare specific data fields or if you want to adjust what fields mean the most when comparing similarity."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsEvaluationSettings",
+    "Summary": "In these settings, you can configure the importance of similarity or equality of different fields on a product. These weights combine additively to create a score that decides the order of the results. The settings also add the possibility to handle how similarity is defined for specific product data fields, and you can parse settings for how it should compare variant similarity when picking a variant for the result."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsEvaluationSettings.SignificanceOfSimilaritiesInDisplayName",
+    "Summary": "This defines the importance of a match of display name when comparing products. A match is evaluated fuzzy, so that it can handle different spelling or additional words, but the match strength will lessen, the more differences there are."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsEvaluationSettings.ProductDisplayNameTransformer",
+    "Summary": "Can be used if you want to remove specific words when comparing the similarity of the display name."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsEvaluationSettings.SignificanceOfCommonImmediateParentCategories",
+    "Summary": "This defines the importance of an overlap in immediate parent categories. The more categories they have in common, the greater the match."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsEvaluationSettings.SignificanceOfCommonParentsParentCategories",
+    "Summary": "This defines the importance of an overlap in the parents' parent categories. The more categories they have in common, the greater the match."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsEvaluationSettings.SignificanceOfCommonAncestorCategories",
+    "Summary": "This defines the importance of an overlap in the ancestor categories. The more categories they have in common, the greater the match."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsEvaluationSettings.SignificanceOfCommonProductDataKeys",
+    "Summary": "This defines the importance of an overlap in data keys between the products. The more data keys they have in common, the greater the match."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsEvaluationSettings.SignificanceOfIdenticalProductDataValues",
+    "Summary": "This defines the importance of equivalent data values for the same data keys across the products. The more data values that are equivalent, the greater the match. This only works for exact equality between the data values, so if you want to customize how the equality is compared and for which data keys, then use the `SignificantProductDataFields` property instead."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.SimilarProductsEvaluationSettings.SignificantProductDataFields",
+    "Summary": "With this, you can define which data keys should be compared, how important their similarity should weigh in relation to other fields, and how their similarity should be compared, i.e., numeric difference, string equality, collection overlap, etc."
+},
+{
+    "Name": "Relewise.Client.DataTypes.SignificantDataValue",
+    "Summary": "This is used in `SimilarProductsEvaluationSettings` and `SimilarVariantEvaluationSettings` for configuring how important the similarity of specific keys should weigh in relation to other fields, and how their similarity should be compared, i.e., numeric difference, string equality, collection overlap, etc."
+},
+{
+    "Name": "Relewise.Client.DataTypes.SignificantDataValue.Key",
+    "Summary": "The data key that will be compared for the two entities."
+},
+{
+    "Name": "Relewise.Client.DataTypes.SignificantDataValue.Comparer",
+    "Summary": "Determines how the value from the two entities will be compared.\n- **Equals:** The values need to be identical. This is supported for all data value types except for ObjectLists.\n- **NumericPercentDifference**: Checks how big the difference is numerically. It will only make precise destinguishments for very close numbers, so if you have two different entities, one with a value that is 100 times larger and another that is 1000 times larger then they will get the same penalty from not being close. This is supported for doubles and multicurrency data value types.\n- **StringSimilarity**: Checks how similar the strings are. This is only supported for string data values.\n- **KeyExists**: Only checks if the key exists for both entities. This is supported for all data value types.\n- **CollectionOverlap**: Checks whether two collections have many equivalent elements. This is only supported for string lists and multilingual collections."
+},
+{
+    "Name": "Relewise.Client.DataTypes.SignificantDataValue.Significance",
+    "Summary": "The significance of similarity for this data key in comparison with all other fields that have significance."
+},
+{
+    "Name": "Relewise.Client.DataTypes.SignificantDataValue.Transformer",
+    "Summary": "This makes it possible to ignore specific substrings when using the string-based comparators like `StringSimilarity`."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendationRequest",
+    "Summary": "Some kind of recommendation for either products, content, product categories, content categories, or brands."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendationRequest.Language",
+    "Summary": "This will be used to localize the results if any multilingual values are returned."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendationRequest.User",
+    "Summary": "Should contain the user identifiers available so that the user can be identified. If `Classifications` are set on the user then the recommendation will primarily use behavior from other users with the same classification combination."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendationRequest.RelevanceModifiers",
+    "Summary": "This can be used to make entities with specific criteria more or less prominent in results. A classic example could be that you make a recommendation for popular products. Here you could make products that are marked as **News** even more prominent using a `ProductDataRelevanceModifier`."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendationRequest.Filters",
+    "Summary": "This can be used to filter what kinds of entities you want to have returned by inserting one or many filters in the collection. A classic example could be that you want to limit the results to products that are available within the specific market that the user is shopping in, in a multimarket setup. For this you would use a `ProductAssortmentFilter` or for more complex scenarios a `ProductDataFilter`.<br /> <br /> It is possible to parse filters to this collection that are not applicable in the context. An example could be to parse a `ContentCategoryIdFilter` to a product recommendation request. In these cases, the filters that do not apply to the context will be ignored. To check whether a filter applies to a specific context you can find the base type for filters in that context and check if your filter of interest is of that type. Examples of base filter types for different contexts are `IProductFilter`, `IContentFilter`, `IProductCategoryFilter`, etc.. It is possible for a filter to be a subtype of multiple of these like it is the case for `BrandIdFilter` which is both an `IProductFilter` and an `IBrandFilter`."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendationRequest.DisplayedAtLocationType",
+    "Summary": "This should be the location on the site where the recommendation is displayed. This should be very high-level. Commonly used locations are \"Product Details Page\", \"Cart Page\", and \"Front Page\". This will be used to present revenue for different locations in the Analytics part of My Relewise. Additionally, you can also use this location for scoping merchandising rules to specific areas of your site."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendationRequest.Currency",
+    "Summary": "This will be used to localize the results if any multicurrency values are returned."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequest",
+    "Summary": "Some kind of recommendation for products."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequest.Settings",
+    "Summary": "This can be used to define how many products the recommendation should return, how much the results should depend on other recommendations, and which properties you want returned for the product, variant, and brand results."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.PopularProductsRequest",
+    "Summary": "A product recommendation that recommends popular products within a specific period. By setting `BasedOn` you can define whether this should be based on the number of users that has viewed or purchased each product."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.PopularProductsRequest.BasedOn",
+    "Summary": "Whether the recommendation should be based on the number of users that have viewed or purchased each product within the period."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.PopularProductsRequest.SinceMinutesAgo",
+    "Summary": "How many minutes back in time, the recommendation should take data for."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings",
+    "Summary": "Used for configuring how many products the recommendation should return, how much the results should depend on other recommendations, and which properties you want returned for the product, variant, and brand results."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.NumberOfRecommendations",
+    "Summary": "The maximum number of results the recommendation should return. For some recommendation types like `PurchasedWithProductRequest` and `ProductsViewedAfterViewingProduct` it will generally return few results of high quality which can be why a recommendation might not return as many results as requested. If you want to ensure that you get the number of results, you can set the `AllowFillIfNecessaryToReachNumberOfRecommendations` property to fill the missing spots with generally popular products."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.AllowFillIfNecessaryToReachNumberOfRecommendations",
+    "Summary": "Whether the recommendation should fill up the results with generally popular products after the default results that are requested via the recommendation. Filters will by default apply both to the default and fill results, but by setting the `ScopedSettings` property on a filter you can specify whether the filter should apply only to the default and/or fill results. For some recommendations like `PopularProductsRequest` it doesn't matter if you set this as the default results themselves are based on the same as the fill results."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.AllowReplacingOfRecentlyShownRecommendations",
+    "Summary": "For recommendation types where it is okay to get some varied results; setting this to true will mix the results a tiny bit so that you don't get the exact same results every time you see the same recommendation band on a site. Examples of such recommendations are `PopularProductsRequest` and `PersonalProductRecommendation`."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.RecommendVariant",
+    "Summary": "Whether this recommendation should also recommend the most fitting variant for each of the products returned in the results."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.SelectedProductProperties",
+    "Summary": "Defines which properties are populated for the `ProductResult`s that are returned in the result list."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.SelectedVariantProperties",
+    "Summary": "Defines which properties are populated for the `VariantResult`s that are returned in the result list."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.PrioritizeDiversityBetweenRequests",
+    "Summary": "Defines whether it should prioritize not recommending products that have been recommended for this recommendation type and this user in this location previously."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.AllowProductsCurrentlyInCart",
+    "Summary": "Whether products that are present in the user's cart should be allowed in the results. If not specified it defaults to `false` for most cases except for `RecentlyViewedProductsRequest` and `SortProductsRequest` where it defaults to `true`."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.SelectedBrandProperties",
+    "Summary": "Defines which properties are populated for the `BrandResults`s that are returned in the result list."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.ProductRecommendationRequestSettings.PrioritizeResultsNotRecommendedWithinSeconds",
+    "Summary": "For recommendation types where it is okay to get some varied results; setting this to some value apart from `null` will ensure that you don't get the same results within that number of seconds. Examples of such recommendations are `PopularProductsRequest` and `PersonalProductRecommendation`. This can be useful in scenarios where you don't have the option for batching recommendations shown on the same page to ensure that you still don't get duplicate results. When the value is `null` it uses the default value which is `1` for most datasets. This default can be configured by the Relewise Developers. Since the default is often `1` it is also a valid use case to set this to `0` to indicate that you never want other recommendation requests to influence this request."
+},
+{
+    "Name": "Relewise.Client.DataTypes.SearchTermPredictionResult.Rank",
+    "Summary": "This rank conveys how close a prediction this is to the original input term. It does not take into account how many results the specific search would give and it does not take popularity into account. So for a search for 'sko' it would always give 'skole' before 'skoletaske'. "
+},
+{
+    "Name": "Relewise.Client.DataTypes.Search.Facets.Result.ValueFacetResult`2.Available",
+    "Summary": "This is not ordered in any way with regards to number of matches or popularity."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.PopularSearchTermsRecommendationRequest",
+    "Summary": "Recommends the most popular search terms within the last 14 days. The search terms are only included if they have given results and if people have clicked the result. Additionally, Search Analytics needs to be enabled for this to work as it uses the statistical data collected about search terms."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.PopularSearchTermsRecommendationRequest.Term",
+    "Summary": "Is currently not used."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.PopularSearchTermsRecommendationRequest.Settings",
+    "Summary": "Settings for controlling how many results you want."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendPopularSearchTermSettings",
+    "Summary": "Settings for controlling how many results you want for a `PopularSearchTermsRecommendationRequest`."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendPopularSearchTermSettings.TargetEntityTypes",
+    "Summary": "Is currently not used."
+},
+{
+    "Name": "Relewise.Client.Requests.Recommendations.RecommendPopularSearchTermSettings.NumberOfRecommendations",
+    "Summary": "The number of terms to recommend at most. There might not be enough data for this recommendation, so you might get fewer results than requested."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.DataFilter.Key",
+    "Summary": "Specifies which data key should be targeted on the entity."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.DataFilter.FilterOutIfKeyIsNotFound",
+    "Summary": "By default, data filters are ignored if the entity doesn't have the `key` specified by the filter. Setting this to `true` ensures that it will not include entities that don't have the specified `Key`."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.DataFilter.MustMatchAllConditions",
+    "Summary": "When this is set to `false` then only a single one of the conditions defined in `Conditions` need to be `true`. But if this is set to `true` then all conditions defined need to be true."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.DataFilter.Conditions",
+    "Summary": "The conditions that need to hold for the value present in the data bag for the specified `Key` for the filter to include an entity."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.DataFilter.Language",
+    "Summary": "Can be used to override which language is used when evaluating this filter. This can be useful if the request doesn't define a language or if this filter needs to compare a multilingual value in another language than the one present in the request."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.DataFilter.Currency",
+    "Summary": "Can be used to override which currency is used when evaluating this filter. This can be useful if the request doesn't define a currency or if this filter needs to compare a multicurrency value in another currency than the one present in the request. A classic example of this is when using a `ProductListPriceFilter` to sort out cheap products. In that case, it makes sense to specify the lower threshold for prices in 1 specific currency instead of letting it be request specific where currencies have different monetary value."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.DataFilter.ObjectPath",
+    "Summary": "If the `key` points to a `DataObject` then this property can be used to define which key should be selected on that object. There are generally very few scenarios where this is used as it is preferred to use a flat structure in the data bag as it is often more performant."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.Filter.Settings",
+    "Summary": "Can be used to change when the filter will apply. Currently, the only setting available for this is `FilterScopes` which are only relevant for recommendations."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.Settings.FilterSettings.Scopes",
+    "Summary": "Can be used to change whether a filter should apply only in the default/primary results, or only in the entities that are filled in, or both. This is only relevant in recommendations. An example could be a `ProductsViewedAfterViewingProductRequest` which has the option to fill in popular products if it is unclear statistically which products are viewed after the input-product. In that case, you might want to filter so that products are within a specific category but only for the fill products as the default/primary results that are of high quality should still be able to be from any category."
+},
+{
+    "Name": "Relewise.Client.DataTypes.Merchandising.Configurations.RequestConfiguration",
+    "Summary": "Settings for changing the filters, relevance modifiers, and recommendation settings that were originally sent with the request."
+},
+{
+    "Name": "Relewise.Client.DataTypes.Merchandising.Configurations.RequestConfiguration.OverriddenProductRecommendationRequestSettings",
+    "Summary": "If the matched request is a product recommendation then the properties set on this setting will override the settings sent in the original request."
+},
+{
+    "Name": "Relewise.Client.DataTypes.Merchandising.Configurations.RequestConfiguration.OverriddenContentRecommendationRequestSettings",
+    "Summary": "If the matched request is a content recommendation then the properties set on this setting will override the settings sent in the original request."
+},
+{
+    "Name": "Relewise.Client.DataTypes.Merchandising.Configurations.RequestConfiguration.Filters",
+    "Summary": "Defines whether the filters originally added to the request should be merged with the filters implicitly added via merchandising Filter Rules or if the original filters should be completely suppressed."
+},
+{
+    "Name": "Relewise.Client.DataTypes.Merchandising.Configurations.RequestConfiguration.RelevanceModifiers",
+    "Summary": "Defines whether the relevance modifiers originally added to the request should be merged with the relevance modifiers implicitly added via merchandising Boost And Burry Rules or if the original relevance modifiers should be completely suppressed."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.AndFilter",
+    "Summary": "A `Filter` that can filter brands based on whether all the sub-filters defined inside it parses their conditions."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.BrandAssortmentFilter",
+    "Summary": "A `Filter` that can filter brands based on whether they belong to one of the specified assortments."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.BrandDataFilter",
+    "Summary": "A `Filter` that can filter brands based on whether their data meets specific conditions."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.BrandDataHasKeyFilter",
+    "Summary": "A `Filter` that can filter brands based on whether their data has a specific key."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.BrandDisabledFilter",
+    "Summary": "A `Filter` that can filter brands based on whether they are disabled."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.BrandIdFilter",
+    "Summary": "A `Filter` that can filter brands or products based on whether the brand has one of the given brand IDs. When this is used to filter products it will use the brand associated with the product and not include the product if it does not have a brand."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.CartDataFilter",
+    "Summary": "This filter has no effect."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.CompanyDataFilter",
+    "Summary": "A `Filter` that can filter companies based on whether their data meets specific conditions."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.CompanyDataHasKeyFilter",
+    "Summary": "A `Filter` that can filter companies based on whether their data has a specific key."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.CompanyDisabledFilter",
+    "Summary": "A `Filter` that can filter companies based on whether they are disabled."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.CompanyIdFilter",
+    "Summary": "A `Filter` that can filter companies based on whether they have one of the given company IDs."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentAssortmentFilter",
+    "Summary": "A `Filter` that can filter content elements based on whether they belong to one of the specified assortments."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryAssortmentFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether they belong to one of the specified assortments."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryDataFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether their data meets specific conditions."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryDataHasKeyFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether their data has a specific key."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryDisabledFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether they are disabled."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryHasAncestorFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether one of their ancestors is one of the specified categories. An ancestor is a category at a higher level in the category hierarchy. A sample use case for this filter could be to get all content categories below the main category \"News\"."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryHasChildFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether one of their children is one of the specified categories. A child is a category immediately below the specific category in the category hierarchy. A sample  use case for this filter could be to get all content categories with the sub-category \"Ecology\" immediately within them."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryHasContentsFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether they contain any content elements."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryHasParentFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether one of their parents is one of the specified categories. A parent is a category immediately above the specific category in the category hierarchy. A sample  use case for this filter could be to get all content categories immediately below the main category \"News\"."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryIdFilter",
+    "Summary": "A `Filter` that can filter content elements or categories based on whether the category has one of the given category IDs. When this is used to filter content element it will use the categories associated with the content and not include the content element if it does not have any categories."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryLevelFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether the category is at one of the specified levels in the category hierarchy."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryRecentlyViewedByUserFilter",
+    "Summary": "A `Filter` that can filter content categories based on whether the category has been viewed by the `User` used in this query within some defined time frame."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentDataFilter",
+    "Summary": "A `Filter` that can filter content elements based on whether they have a value that parses a set of conditions at a specific key in their data bag. It can additionally be configured whether the content elements that don't have the specified key should be filtered out and whether all or only one of the conditions have to parse for the filter to include the content element. `Language` and `Currency` can also be defined on this filter. This can be helpful if the filter is used in a context where the context doesn't specify one of these or if you want to override either the `Language` or `Currency` used in the context when evaluating this filter."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentDataHasKeyFilter",
+    "Summary": "A `Filter` that can filter content elements based on whether the content element has a specific key in its data-bag."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentDisabledFilter",
+    "Summary": "A `Filter` that can filter content elements based on whether they are disabled."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentHasCategoriesFilter",
+    "Summary": "A `Filter` that can filter content elements based on whether they have any categories."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentIdFilter",
+    "Summary": "A `Filter` that can filter content elements based on whether they have one of the given content IDs."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ContentCategoryRecentlyViewedByUserFilter",
+    "Summary": "A `Filter` that can filter content elements based on whether they have been viewed by the `User` used in this query within some defined time frame."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.OrFilter",
+    "Summary": "A `Filter` that can group any other collection of filters so that just one of them has to parse for an entity to be included."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.ProductAndVariantIdFilter",
+    "Summary": "A `Filter` that can filter product variants based on whether they have one of the given product and variant ID pairs."
+},
+{
+    "Name": "Relewise.Client.Requests.Filters.CategoryIdFilter.CategoryIds",
+    "Summary": "One of these categories has to be present for the filter to parse."
+},
+{
+    "Name": "Relewise.Client.DataTypes.ExpectedSearchTermResult.EstimatedHits",
+    "Summary": "This is only an estimate of how many results you could get. It should not be used directly to show the end-user how many results they can expect from a suggestion."
+}
+]
