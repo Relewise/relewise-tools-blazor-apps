@@ -11,10 +11,12 @@
 }
 else
 {
-    <input type="number" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
+    <input type="number" style="width:100%;" disabled=@ReadOnly @bind=_value @bind:event="oninput" @bind:after=@(() => Setter(_value)) />
 }
 
 @code {
+    private double? _value;
+
     [Parameter]
     public bool ReadOnly { get; set; } = false;
 
@@ -22,7 +24,11 @@ else
     public bool OpenDetails { get; set; } = false;
 
     [Parameter, EditorRequired]
-    public required double? Value { get; set; }
+    public required object? Value
+    {
+        get => _value;
+        set => _value = value is not null ? Convert.ToDouble(value) : null;
+    }
 
     [Parameter, EditorRequired]
     public required Action<object?> Setter { get; set; }
@@ -32,7 +38,7 @@ else
 
     public void Set()
     {
-        Value = 0;
-        Setter(Value);
+        _value = 0;
+        Setter(_value);
     }
 }
