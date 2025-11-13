@@ -23,7 +23,7 @@ jobs:
         # Added Ahead-Of-Time workload
         - name: Add AOT Workload
           run: |
-            dotnet workload install wasm-tools-net9
+            dotnet workload install wasm-tools
             dotnet workload restore
 
         # Generate the website
