@@ -1,23 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RunAOTCompilation>true</RunAOTCompilation>
     <NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>
-    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   
   <ItemGroup>
     <PackageReference Include="KristofferStrube.Blazor.Window" Version="0.1.0-alpha.6" />
     <PackageReference Include="KristofferStrube.DocumentSearching.SuffixTrie" Version="0.1.0-alpha.7" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.0" PrivateAssets="all" />
-    <PackageReference Include="Relewise.Client" Version="1.228.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.11" PrivateAssets="all" />
+    <PackageReference Include="Relewise.Client" Version="1.254.0" />
     <PackageReference Include="Humanizer" Version="2.14.1" />
-    <PackageReference Include="KristofferStrube.Blazor.Popper" Version="0.5.1" />
-    <PackageReference Include="Markdig" Version="0.37.0" />
+    <PackageReference Include="KristofferStrube.Blazor.Popper" Version="0.6.0" />
+    <PackageReference Include="Markdig" Version="0.43.0" />
     <PackageReference Include="AngleSharp.Xml" Version="1.0.0" />
   </ItemGroup>
 </Project>
