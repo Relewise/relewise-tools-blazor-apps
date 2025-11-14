@@ -7,6 +7,7 @@
 @using global::Relewise.Client.Requests
 @using global::Relewise.Client.Requests.Recommendations
 @using global::Relewise.Client.Responses
+@using Relewise.Client.Requests.Recommendations.Feed
 @implements IDisposable
 
 <PageTitle>Blazor Relewise - Recommendations</PageTitle>
@@ -30,7 +31,7 @@
 @if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
 {
     <p>
-        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
+        First you need to insert your Server URL, Dataset ID, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
         <br />
         <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Recommender</code>.</small>
     </p>
@@ -206,18 +207,20 @@
             ["Search Term"] = [typeof(PopularSearchTermsRecommendationRequest)],
 
             ["Batched"] = [typeof(ProductRecommendationRequestCollection),
-            typeof(ContentRecommendationRequestCollection)]
+            typeof(ContentRecommendationRequestCollection)],
+
+            ["Feed"] = [typeof(FeedRecommendationInitializationRequest),
+				typeof(FeedRecommendationNextItemsRequest)]
         };
 
     private static List<Type> allRecommendationTypes =
         Assembly
             .GetAssembly(typeof(ClientBase))!
-            .GetTypes()
+            .GetExportedTypes()
             .Where(type =>
                 type != typeof(RecommendationRequest)
-                && type.IsAssignableTo(typeof(RecommendationRequest))
-                && !type.IsGenericType
-                && !type.IsAbstract)
+                && (type.IsAssignableTo(typeof(RecommendationRequest)) || type == typeof(FeedRecommendationNextItemsRequest))
+                && type is { IsGenericType: false, IsAbstract: false })
             .Append(typeof(ProductRecommendationRequestCollection))
             .Append(typeof(ContentRecommendationRequestCollection))
             .ToList();
