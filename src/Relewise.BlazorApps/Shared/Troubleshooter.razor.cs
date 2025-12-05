@@ -17,9 +17,9 @@ using Relewise.Client.Requests.Search;
 using Relewise.Client.Requests.Shared;
 using Relewise.Client.Requests.ValueSelectors;
 using Relewise.Client.Search;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using static Relewise.BlazorApps.Shared.Troubleshooter;
+using System.Collections;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Relewise.BlazorApps.Shared
 {
@@ -103,6 +103,7 @@ namespace Relewise.BlazorApps.Shared
                 improvements.Clear();
 
                 var duplicateRequest = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(searchRequest, jsonSerializerSettings), jsonSerializerSettings)!;
+                EnsureDoubleDataValues(duplicateRequest);
 
                 duplicateRequest.Skip = 0;
                 duplicateRequest.Take = 1000; // We increase the number of response to make analysis on the tail.
@@ -599,6 +600,76 @@ namespace Relewise.BlazorApps.Shared
             return response.Results
                 .Select(r => (r.ProductId, r.Variant?.VariantId))
                 .ToList();
+        }
+
+        private static void EnsureDoubleDataValues(object? value, HashSet<object>? visited = null)
+        {
+            if (value is null)
+                return;
+
+            if (value is string)
+                return;
+
+            if (value is DataValue dataValue)
+            {
+                if (dataValue.Type is DataValue.DataValueTypes.Double && dataValue.Value is not null && dataValue.Value.GetType() != typeof(double))
+                {
+                    dataValue.Value = Convert.ToDouble(dataValue.Value);
+                }
+                else if (dataValue.Type is DataValue.DataValueTypes.DoubleList && dataValue.Value is IEnumerable enumerable)
+                {
+                    var doubles = new List<double>();
+
+                    foreach (var item in enumerable)
+                    {
+                        if (item is null)
+                            continue;
+
+                        doubles.Add(Convert.ToDouble(item));
+                    }
+
+                    dataValue.Value = doubles;
+                }
+
+                return;
+            }
+
+            visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
+
+            if (!visited.Add(value))
+                return;
+
+            if (value is IEnumerable enumerableValue)
+            {
+                foreach (var item in enumerableValue)
+                    EnsureDoubleDataValues(item, visited);
+
+                return;
+            }
+
+            Type type = value.GetType();
+
+            if (type.IsPrimitive || type.IsEnum)
+                return;
+
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (!property.CanRead || property.GetIndexParameters().Length > 0)
+                    continue;
+
+                object? propertyValue = property.GetValue(value);
+
+                EnsureDoubleDataValues(propertyValue, visited);
+            }
+        }
+
+        private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
+        {
+            public static ReferenceEqualityComparer Instance { get; } = new();
+
+            public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+
+            public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
         }
 
         private bool RequestIsValidSearchRequest(RequestContextFilter filter, ProductSearchRequest request)
