@@ -17,9 +17,6 @@ using Relewise.Client.Requests.Search;
 using Relewise.Client.Requests.Shared;
 using Relewise.Client.Requests.ValueSelectors;
 using Relewise.Client.Search;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using static Relewise.BlazorApps.Shared.Troubleshooter;
 
 namespace Relewise.BlazorApps.Shared
 {
@@ -103,6 +100,7 @@ namespace Relewise.BlazorApps.Shared
                 improvements.Clear();
 
                 var duplicateRequest = JsonConvert.DeserializeObject<ProductSearchRequest>(JsonConvert.SerializeObject(searchRequest, jsonSerializerSettings), jsonSerializerSettings)!;
+                duplicateRequest.EnsureDoubleDataValues();
 
                 duplicateRequest.Skip = 0;
                 duplicateRequest.Take = 1000; // We increase the number of response to make analysis on the tail.
