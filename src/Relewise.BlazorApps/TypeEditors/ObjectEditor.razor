@@ -194,6 +194,10 @@
                                         ["AncestorTypes"] = (Type[])[.. AncestorTypes, Value?.GetType() ?? typeof(T)]
                                     };
                                     var editorType = editor.EditorType(property.PropertyType);
+                                    if (editorType == typeof(ByteEditor) && Nullable.GetUnderlyingType(property.PropertyType) == typeof(byte))
+                                    {
+                                        parameters["AllowNull"] = true;
+                                    }
                                     <ErrorBoundary>
                                         <ChildContent>
                                             <DynamicComponent Type=editorType Parameters=parameters />
