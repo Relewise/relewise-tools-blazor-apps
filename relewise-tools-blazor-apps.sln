@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11312.210 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Relewise.BlazorApps", "src\Relewise.BlazorApps\Relewise.BlazorApps.csproj", "{FB844540-9633-40F5-802F-581F92485139}"
 EndProject
@@ -10,6 +10,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Other Items", "Other Items"
 		.gitignore = .gitignore
 		CONTRIBUTING.md = CONTRIBUTING.md
 		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitHub", "GitHub", "{A6B0D957-7EA8-4277-9346-A11CD5332528}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\main.yml = .github\workflows\main.yml
+		.github\workflows\trello.yml = .github\workflows\trello.yml
 	EndProjectSection
 EndProject
 Global
