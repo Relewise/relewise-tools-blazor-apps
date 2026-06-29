@@ -470,5 +470,5 @@ public static class Settings
         return name;
     }
 
-    public static IEnumerable<PropertyInfo> GetProperties(Type type) => type.GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "Custom" and not "DatasetId" and not "APIKeySecret");
+    public static IEnumerable<PropertyInfo> GetProperties(Type type) => type.GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "DatasetId" and not "APIKeySecret");
 }
