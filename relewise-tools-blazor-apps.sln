@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.3.11312.210 d18.3
+VisualStudioVersion = 18.3.11312.210
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Relewise.BlazorApps", "src\Relewise.BlazorApps\Relewise.BlazorApps.csproj", "{FB844540-9633-40F5-802F-581F92485139}"
 EndProject
@@ -18,19 +18,52 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitHub", "GitHub", "{A6B0D9
 		.github\workflows\trello.yml = .github\workflows\trello.yml
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Relewise.BlazorApps.Tests", "tests\Relewise.BlazorApps.Tests\Relewise.BlazorApps.Tests.csproj", "{94DE62FC-E236-470C-942B-344BB1872C06}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{FB844540-9633-40F5-802F-581F92485139}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{FB844540-9633-40F5-802F-581F92485139}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Debug|x64.Build.0 = Debug|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Debug|x86.Build.0 = Debug|Any CPU
 		{FB844540-9633-40F5-802F-581F92485139}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FB844540-9633-40F5-802F-581F92485139}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Release|x64.ActiveCfg = Release|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Release|x64.Build.0 = Release|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Release|x86.ActiveCfg = Release|Any CPU
+		{FB844540-9633-40F5-802F-581F92485139}.Release|x86.Build.0 = Release|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Debug|x64.Build.0 = Debug|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Debug|x86.Build.0 = Debug|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Release|x64.ActiveCfg = Release|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Release|x64.Build.0 = Release|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Release|x86.ActiveCfg = Release|Any CPU
+		{94DE62FC-E236-470C-942B-344BB1872C06}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{94DE62FC-E236-470C-942B-344BB1872C06} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6732C53D-0D7D-4886-8F9F-78524CEAD7A3}

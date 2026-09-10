@@ -1,43 +1,80 @@
-name: 'Publish application'
+name: Validate application
 
 on:
+  pull_request:
+    branches: [main]
   push:
-    branches:
-      - main
-    paths-ignore:
-      - '**/README.md'
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: application-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  build:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Restore workload and packages
+        run: |
+          dotnet workload restore
+          dotnet restore relewise-tools-blazor-apps.sln
+      - name: Build
+        run: dotnet build relewise-tools-blazor-apps.sln --configuration Release --no-restore
+      - name: Regression tests
+        run: dotnet test tests/Relewise.BlazorApps.Tests --configuration Release --no-build --filter 'TestCategory!=Browser'
+      - name: PR feedback script tests
+        shell: pwsh
+        run: ./tests/scripts/read-pr-comments.Tests.ps1
+      - name: Publish AOT application
+        run: dotnet publish src/Relewise.BlazorApps --configuration Release --no-restore --output artifacts/publish
+      - name: Install browser
+        shell: pwsh
+        run: ./tests/Relewise.BlazorApps.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+      - name: Published browser smoke tests
+        env:
+          BLAZOR_PUBLISH_DIR: ${{ github.workspace }}/artifacts/publish/wwwroot
+        run: dotnet test tests/Relewise.BlazorApps.Tests --configuration Release --no-build --filter 'TestCategory=Browser'
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: browser-diagnostics
+          path: tests/Relewise.BlazorApps.Tests/bin/Release/net10.0/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload validated site
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: published-site
+          path: artifacts/publish/wwwroot
+          include-hidden-files: true
+          retention-days: 1
+
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-        # Checkout the code
-        - uses: actions/checkout@v6
-
-        # Install .NET SDK
-        - name: Setup .NET 10
-          uses: actions/setup-dotnet@v5
-          with:
-            dotnet-version: '10.0.x'
-            
-        # Added Ahead-Of-Time workload
-        - name: Add AOT Workload
-          run: |
-            dotnet workload install wasm-tools
-            dotnet workload restore
-
-        # Generate the website
-        - name: Publish
-          run: dotnet publish src/Relewise.BlazorApps/Relewise.BlazorApps.csproj --configuration Release --output build
-
-        # Publish the website
-        - name: GitHub Pages action
-          if: ${{ github.ref == 'refs/heads/main' }} # Publish only when the push is on main
-          uses: peaceiris/actions-gh-pages@v4
-          with:
-            github_token: ${{ secrets.PUBLISH_TOKEN }}
-            publish_branch: gh-pages
-            publish_dir: build/wwwroot
-            allow_empty_commit: false
-            keep_files: false
-            force_orphan: true
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: published-site
+          path: site
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4.1.0
+        with:
+          github_token: ${{ secrets.PUBLISH_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: site
+          allow_empty_commit: false
+          keep_files: false
+          force_orphan: true

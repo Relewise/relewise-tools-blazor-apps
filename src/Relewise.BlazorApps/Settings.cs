@@ -1,4 +1,4 @@
-﻿using Relewise.BlazorApps.TypeEditors;
+using Relewise.BlazorApps.TypeEditors;
 using Relewise.Client.DataTypes;
 using Relewise.Client.DataTypes.Search.Facets.Queries;
 using Relewise.Client.DataTypes.Triggers.Configurations;
@@ -29,13 +29,13 @@ public static class Settings
             _ => 0M),
         new(t => t == typeof(ushort),
             _ => typeof(UshortEditor),
-            _ => 0),
+            _ => (ushort)0),
         new(t => t == typeof(int),
             _ => typeof(IntEditor),
             _ => 0),
         new(t => t == typeof(long),
             _ => typeof(LongEditor),
-            _ => 0),
+            _ => 0L),
         new(t => t == typeof(string),
             _ => typeof(StringEditor),
             _ => ""),
@@ -56,7 +56,7 @@ public static class Settings
             _ => false),
         new(t => t == typeof(byte),
             _ => typeof(ByteEditor),
-            _ => false),
+            _ => (byte)0),
         new(t => t.IsArray,
             t => typeof(ArrayEditor<>).MakeGenericType(new Type[] { t.GetElementType()! }),
             t => Array.CreateInstance(t.GetElementType()!, 0)),

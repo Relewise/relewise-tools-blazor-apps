@@ -1,6 +1,5 @@
-﻿@using KristofferStrube.Blazor.DOM
+@using KristofferStrube.Blazor.DOM
 @using KristofferStrube.Blazor.Window
-@using KristofferStrube.Blazor.Window.Options
 @inherits LayoutComponentBase
 
 <div class="page">
@@ -80,17 +79,12 @@
         await window.AddOnMessageEventListenerAsync(StaticDatasetStorage.ParentMessageEventListener);
 
         // Post message to parent.
-        await using Window? parent = await window.GetParentAsync();
-        if (parent is not null && StaticDatasetStorage.ParentOrigin is not null)
+        if (StaticDatasetStorage.ParentOrigin is not null)
         {
-            object payload = new { MyRelewiseAppReady = true };
-
-            var options = new WindowPostMessageOptions()
-                {
-                    TargetOrigin = StaticDatasetStorage.ParentOrigin
-                };
-
-            await parent.PostMessageAsync(payload, options);
+            // .NET's function lookup uses instanceof Function, which rejects
+            // a parent window's function from another JavaScript realm.
+            await using var embedding = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/embedding.js");
+            await embedding.InvokeVoidAsync("notifyParentReady", StaticDatasetStorage.ParentOrigin);
         }
     }
 
