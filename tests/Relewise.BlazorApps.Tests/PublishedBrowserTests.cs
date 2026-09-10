@@ -127,9 +127,6 @@ public class PublishedBrowserTests
             await Assertions.Expect(page.GetByText("There were no changed enums between these versions.", new() { Exact = true })).ToBeVisibleAsync();
         }
         await AssertHealthy();
-        var screenshot = Path.Combine(TestContext.TestResultsDirectory!, $"published-{heading}.png");
-        await page.ScreenshotAsync(new() { Path = screenshot, FullPage = true });
-        TestContext.AddResultFile(screenshot);
     }
 
     [TestMethod]
@@ -215,9 +212,6 @@ public class PublishedBrowserTests
             Console.WriteLine(string.Join(Environment.NewLine, errors));
             foreach (var frame in page.Frames)
                 Console.WriteLine($"Frame: {frame.Url}\n{await frame.Locator("body").InnerTextAsync()}");
-            var screenshot = Path.Combine(TestContext.TestResultsDirectory!, "browser-failure.png");
-            await page.ScreenshotAsync(new() { Path = screenshot, FullPage = true });
-            TestContext.AddResultFile(screenshot);
         }
         if (browser is not null) await browser.DisposeAsync();
         playwright?.Dispose();

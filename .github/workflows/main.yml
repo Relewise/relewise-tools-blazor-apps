@@ -43,14 +43,6 @@ jobs:
         env:
           BLAZOR_PUBLISH_DIR: ${{ github.workspace }}/artifacts/publish/wwwroot
         run: dotnet test tests/Relewise.BlazorApps.Tests --configuration Release --no-build --filter 'TestCategory=Browser'
-      - name: Upload browser diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: browser-diagnostics
-          path: tests/Relewise.BlazorApps.Tests/bin/Release/net10.0/*.png
-          if-no-files-found: ignore
-          retention-days: 7
       - name: Upload validated site
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7.0.1
