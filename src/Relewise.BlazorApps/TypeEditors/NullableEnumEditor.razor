@@ -1,0 +1,39 @@
+@typeparam T where T : struct, Enum
+@if (ReadOnly)
+{
+    <code>@(Value?.ToString() ?? "<NULL>")</code>
+}
+else
+{
+    <select style="width:100%;" @bind=value @bind:after="() => Setter(value)">
+        <option value="">&lt;NULL&gt;</option>
+        @foreach (T option in Enum.GetValues<T>())
+        {
+            <option value="@option">@option</option>
+        }
+    </select>
+}
+
+@code {
+    private T? value;
+
+    [Parameter]
+    public bool ReadOnly { get; set; } = false;
+
+    [Parameter]
+    public bool OpenDetails { get; set; } = false;
+
+    [Parameter, EditorRequired]
+    public required T? Value { get; set; }
+
+    [Parameter, EditorRequired]
+    public required Action<object?> Setter { get; set; }
+
+    [Parameter]
+    public Type[] AncestorTypes { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        value = Value;
+    }
+}

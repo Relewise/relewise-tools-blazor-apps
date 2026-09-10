@@ -6,6 +6,7 @@ using Relewise.Client;
 using Relewise.Client.Search;
 using Relewise.Client.Requests.Search;
 using Relewise.Client.Responses.Search;
+using Relewise.Client.Requests.Shared;
 using System.Net;
 
 namespace Relewise.BlazorApps.Tests;
@@ -14,17 +15,27 @@ namespace Relewise.BlazorApps.Tests;
 public class SerializationTests
 {
     [TestMethod]
-    public async Task ExistingSdkCanDeserializeASearchResponse()
+    public async Task SdkCanSendVariantSettingsAndDeserializeASearchResponse()
     {
         var response = JsonConvert.DeserializeObject<ProductSearchResponse>("{\"Results\":[],\"Hits\":0,\"Statistics\":{\"ServerTimeInMs\":0}}")!;
-        using var http = DocumentationCacheTests.CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        ProductSearchRequest? sent = null;
+        using var http = DocumentationCacheTests.CreateClient(async message =>
         {
-            Content = new ByteArrayContent(MessagePackSerializer.Serialize(response))
-        }));
+            sent = MessagePackSerializer.Deserialize<ProductSearchRequest>(await message.Content!.ReadAsByteArrayAsync());
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(MessagePackSerializer.Serialize(response))
+            };
+        });
         var searcher = new Searcher(Guid.Parse("00000000-0000-0000-0000-000000000001"), "fixture", "https://fixture.invalid") { OverriddenHttpClient = http };
-        var request = JsonConvert.DeserializeObject<ProductSearchRequest>("{\"Term\":\"fixture\",\"Skip\":0,\"Take\":5}")!;
+        var request = JsonConvert.DeserializeObject<ProductSearchRequest>("""
+            {"Term":"fixture","Skip":0,"Take":5,"Settings":{"VariantRequestSettings":{"MaxVariantsPerProduct":3,"Sorting":"ByRelevance"}}}
+            """)!;
         var result = await searcher.SearchAsync(request);
         Assert.AreEqual(0, result.Hits);
+        Assert.IsNotNull(sent?.Settings?.VariantRequestSettings);
+        Assert.AreEqual(3, sent.Settings.VariantRequestSettings.MaxVariantsPerProduct);
+        Assert.AreEqual(VariantSorting.ByRelevance, sent.Settings.VariantRequestSettings.Sorting);
     }
 
     [TestMethod]

@@ -82,7 +82,8 @@ public class PublishedBrowserTests
             }
             else if (uri.Host == "cdn.relewise.com" && uri.AbsolutePath.Contains("/nuget/versions/"))
             {
-                await route.FulfillAsync(new() { ContentType = "application/json", Body = "[{\"version\":\"1.266.0\",\"published\":\"2025-12-05T00:00:00Z\"}]" });
+                var version = typeof(Relewise.Client.ClientBase).Assembly.GetName().Version!.ToString(3);
+                await route.FulfillAsync(new() { ContentType = "application/json", Body = JsonConvert.SerializeObject(new[] { new { version, published = "2026-09-03T00:00:00Z" } }) });
             }
             else if (uri.Host == "cdn.relewise.com" && uri.AbsolutePath.Contains("/nuget/dll/"))
             {
@@ -151,7 +152,7 @@ public class PublishedBrowserTests
     }
 
     [TestMethod]
-    public async Task SearchCanUseTheUnchangedSdkAgainstAFixtureEndpoint()
+    public async Task SearchCanUseTheSdkAgainstAFixtureEndpoint()
     {
         const string json = "{\"$type\":\"Relewise.Client.Requests.Search.ProductSearchRequest, Relewise.Client\",\"Term\":\"fixture\",\"Skip\":0,\"Take\":5,\"Language\":{\"Value\":\"en\"},\"Currency\":{\"Value\":\"EUR\"},\"User\":{\"TemporaryId\":\"fixture\"}}";
         await page.GotoAsync(origin + Prefix + "/Searches?q=ProductSearchRequest&o=" + Uri.EscapeDataString(ObjectEditor<object>.ToGzip(json)));
@@ -163,6 +164,33 @@ public class PublishedBrowserTests
         await Assertions.Expect(page.GetByText("Successfully searched.", new() { Exact = true })).ToBeVisibleAsync();
         Assert.AreEqual(1, searchRequests);
         await AssertHealthy();
+    }
+
+    [TestMethod]
+    public async Task VariantSettingsCanBeEditedAndSharedInPublishedApp()
+    {
+        const string json = """
+            {"$type":"Relewise.Client.Requests.Search.ProductSearchRequest, Relewise.Client","Term":"fixture","Skip":0,"Take":5,"Settings":{"VariantRequestSettings":{"MaxVariantsPerProduct":3,"Sorting":"ByRelevance"}}}
+            """;
+        await page.GotoAsync(origin + Prefix + "/Models?q=ProductSearchRequest&o=" + Uri.EscapeDataString(ObjectEditor<object>.ToGzip(json)));
+        var summary = page.Locator("summary").Filter(new() { HasText = "VariantSearchRequestSettings" });
+        var variants = summary.Locator("..");
+        await Assertions.Expect(variants.Locator("input")).ToHaveValueAsync("3");
+        await Assertions.Expect(variants.Locator("select")).ToHaveValueAsync("ByRelevance");
+        await variants.Locator("input").FillAsync("5");
+        await variants.Locator("select").SelectOptionAsync("");
+        await Assertions.Expect(variants.Locator("select")).ToHaveValueAsync("");
+        await page.Locator("span:has(svg title:text-is('Copy link to Model page with this object data'))").First.ClickAsync();
+        string copied = await page.EvaluateAsync<string>("navigator.clipboard.readText()");
+        await page.GotoAsync(copied);
+        await Assertions.Expect(variants.Locator("input")).ToHaveValueAsync("5");
+        await Assertions.Expect(variants.Locator("select")).ToHaveValueAsync("");
+        await variants.Locator("select").SelectOptionAsync("GroupedByProduct");
+        await Assertions.Expect(variants.Locator("select")).ToHaveValueAsync("GroupedByProduct");
+        await AssertHealthy();
+        string screenshot = Path.Combine(TestContext.TestResultsDirectory!, "variant-request-settings.png");
+        await variants.ScreenshotAsync(new() { Path = screenshot });
+        TestContext.AddResultFile(screenshot);
     }
 
     [TestMethod]

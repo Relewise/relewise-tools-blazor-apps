@@ -13,14 +13,14 @@
     <PackageReference Include="KristofferStrube.DocumentSearching.SuffixTrie" Version="0.1.0-alpha.7" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.12" PrivateAssets="all" />
-    <PackageReference Include="Relewise.Client" Version="1.266.0" />
+    <PackageReference Include="Relewise.Client" Version="1.308.0" />
     <PackageReference Include="Humanizer" Version="3.0.10" />
     <PackageReference Include="KristofferStrube.Blazor.Popper" Version="0.6.0" />
     <PackageReference Include="Markdig" Version="1.3.2" />
     <PackageReference Include="AngleSharp.Xml" Version="1.2.0" />
-    <PackageReference Include="AngleSharp" Version="1.8.0" />
+    <PackageReference Include="AngleSharp" Version="1.8.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <!-- Keep the SDK unchanged; override its vulnerable transitive serializer. -->
+    <!-- Override the SDK serializer dependency with the patched MessagePack version. -->
     <PackageReference Include="MessagePack" Version="3.1.8" />
     <PackageReference Include="KristofferStrube.Blazor.DOM" Version="0.4.0" />
     <PackageReference Include="KristofferStrube.Blazor.WebIDL" Version="0.8.0" />
