@@ -1,4 +1,4 @@
-﻿using AngleSharp;
+using AngleSharp;
 using Relewise.Client;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -12,15 +12,15 @@ public class DocumentationCache(HttpClient httpClient)
     private XmlDocumentation? xmlDocumentation;
     private CommunityDocumentation? communityDocumentation;
 
-    static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim semaphoreSlim = new(1, 1);
 
     public async Task<(XmlDocumentation? xml, CommunityDocumentation? community)> GetAsync()
     {
+        await semaphoreSlim.WaitAsync();
         try
         {
             if (xmlDocumentation is null || communityDocumentation is null)
             {
-                await semaphoreSlim.WaitAsync();
                 if (xmlDocumentation is null)
                 {
                     xmlDocumentation = await getAsync();
@@ -35,14 +35,16 @@ public class DocumentationCache(HttpClient httpClient)
             Console.WriteLine(e.Message);
             return (null, null);
         }
+        finally
+        {
+            semaphoreSlim.Release();
+        }
 
         return (xmlDocumentation, communityDocumentation);
     }
 
-    private static async Task<XmlDocumentation> getAsync()
+    private async Task<XmlDocumentation> getAsync()
     {
-        var httpClient = new HttpClient();
-
         var assembly = Assembly.GetAssembly(typeof(ClientBase));
 
         var content = await httpClient.GetStringAsync($"https://cdn.relewise.com/services/blazor-apps/stable/nuget/xmldocs/Relewise.Client/{assembly!.GetName().Version!.ToString()[..^2]}");
