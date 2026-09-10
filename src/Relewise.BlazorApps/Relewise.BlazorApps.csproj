@@ -20,7 +20,7 @@
     <PackageReference Include="AngleSharp.Xml" Version="1.2.0" />
     <PackageReference Include="AngleSharp" Version="1.8.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <!-- Keep MessagePack on the 2.x line used by Relewise.Client and the Relewise services. -->
+    <!-- Keep MessagePack on 2.x; do not upgrade to 3.x. -->
     <PackageReference Include="MessagePack" Version="2.5.302" />
     <PackageReference Include="KristofferStrube.Blazor.DOM" Version="0.4.0" />
     <PackageReference Include="KristofferStrube.Blazor.WebIDL" Version="0.8.0" />
