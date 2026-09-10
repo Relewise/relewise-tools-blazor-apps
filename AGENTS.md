@@ -11,7 +11,7 @@ This is a standalone .NET 10 Blazor WebAssembly application for exploring and ed
 - `XmlSummaries`: SDK XML documentation fetched from the CDN and bundled community documentation. Failures must remain retryable; concurrent callers must complete.
 - `StaticDatasetStorage.cs`, `Layout/MainLayout.razor`, and `wwwroot/js/embedding.js`: browser credentials and the My Relewise iframe handshake. The local JS module sends the ready message across window realms. Authentication messages are a sensitive compatibility boundary; change them only as part of an explicitly scoped task.
 - `NugetClient.cs` and `Pages/Versions.razor`: external CDN metadata/DLL downloads and runtime assembly inspection.
-- `tests/Relewise.BlazorApps.Tests`: deterministic MSTest/bUnit regressions and Playwright smoke tests of published output.
+- `tests/Relewise.BlazorApps.Tests`: deterministic MSTest/bUnit regressions.
 
 ## Setup and validation
 
@@ -23,15 +23,12 @@ From the repository root:
 dotnet workload restore
 dotnet restore relewise-tools-blazor-apps.sln
 dotnet build relewise-tools-blazor-apps.sln --configuration Release --no-restore
-dotnet test tests/Relewise.BlazorApps.Tests --configuration Release --no-build --filter 'TestCategory!=Browser'
+dotnet test tests/Relewise.BlazorApps.Tests --configuration Release --no-build
 pwsh tests/scripts/read-pr-comments.Tests.ps1
 dotnet publish src/Relewise.BlazorApps --configuration Release --no-restore --output artifacts/publish
-pwsh tests/Relewise.BlazorApps.Tests/bin/Release/net10.0/playwright.ps1 install chromium
-$env:BLAZOR_PUBLISH_DIR = (Resolve-Path artifacts/publish/wwwroot).Path
-dotnet test tests/Relewise.BlazorApps.Tests --configuration Release --no-build --filter 'TestCategory=Browser'
 ```
 
-Release publishing uses AOT; a successful build alone is not sufficient for reflection or dependency changes. Browser tests use fixtures and never require real credentials. On Linux, use Playwright's `install --with-deps chromium` command. See README for interactive development and manual checks.
+Release publishing uses AOT; a successful build alone is not sufficient for reflection or dependency changes. See README for interactive development and manual checks.
 
 Do not run build, test-with-build, and publish concurrently against the same intermediate directory. When comparing AOT modes or dependency combinations, use a separate `--artifacts-path` and publish directory for each combination; reused native/stripped assemblies can produce misleading runtime failures.
 
@@ -42,7 +39,7 @@ Do not run build, test-with-build, and publish concurrently against the same int
 - Preserve existing JSON `$type` metadata, compressed model links, the `lastRequest` localStorage format, query parameters, and GitHub Pages path-prefix routing unless explicitly migrating them.
 - Use synthetic data for tests. Product/content tracking and merchandising saves mutate datasets; never use real customer credentials for smoke tests or include credentials in files, output, or PRs.
 - Use focused `feat/`, `fix/`, or `chore/` branches and conventional commit subjects. Preserve unrelated user changes. Do not switch branches, push, or publish merely because a skill describes delivery; follow the user's authorization.
-- Put the task's Trello URL at the top of the PR description when available. Describe resulting behavior, validation, and known limitations; include screenshots for visual changes.
+- Put the task's Trello URL at the top of the PR description when available. Describe resulting behavior, validation, and known limitations.
 - `Validate application` runs on PRs and main; deployment runs only after validation on main. Never merge just to test deployment. Repository administrators should require the `validate` status check after its first run.
 
 ## Repository skills

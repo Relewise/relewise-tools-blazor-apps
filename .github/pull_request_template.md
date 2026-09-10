@@ -2,11 +2,11 @@
 
 ## Description
 
-<!-- Explain the problem and resulting behavior. Include screenshots for visual changes. -->
+<!-- Explain the problem and resulting behavior. -->
 
 ## Validation
 
-<!-- Record tests, Release/AOT publishing, and browser checks actually performed. -->
+<!-- Record tests and Release/AOT publishing actually performed. -->
 
 ## Limitations
 
