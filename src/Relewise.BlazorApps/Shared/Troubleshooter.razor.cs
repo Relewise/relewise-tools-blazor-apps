@@ -314,7 +314,8 @@ namespace Relewise.BlazorApps.Shared
                 selectedProductProperties.DataKeys = selectedProductProperties.DataKeys.Distinct().ToArray();
                 selectedVariantProperties.DataKeys = selectedVariantProperties.DataKeys.Distinct().ToArray();
 
-                if (searchRequest.Settings?.ExplodedVariants > 0 || searchRequest.Term is not null)
+                // Preserve legacy requests, including those returning no variants, and support VariantRequestSettings results.
+                if (searchRequest.Settings?.ExplodedVariants > 0 || response.Results.Any(result => result.Variant?.VariantId is not null) || searchRequest.Term is not null)
                 {
                     List<ProductAndVariantId> specificVariants = new();
                     foreach (var result in response.Results)

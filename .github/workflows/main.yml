@@ -30,19 +30,12 @@ jobs:
       - name: Build
         run: dotnet build relewise-tools-blazor-apps.sln --configuration Release --no-restore
       - name: Regression tests
-        run: dotnet test tests/Relewise.BlazorApps.Tests --configuration Release --no-build --filter 'TestCategory!=Browser'
+        run: dotnet test tests/Relewise.BlazorApps.Tests --configuration Release --no-build
       - name: PR feedback script tests
         shell: pwsh
         run: ./tests/scripts/read-pr-comments.Tests.ps1
       - name: Publish AOT application
         run: dotnet publish src/Relewise.BlazorApps --configuration Release --no-restore --output artifacts/publish
-      - name: Install browser
-        shell: pwsh
-        run: ./tests/Relewise.BlazorApps.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
-      - name: Published browser smoke tests
-        env:
-          BLAZOR_PUBLISH_DIR: ${{ github.workspace }}/artifacts/publish/wwwroot
-        run: dotnet test tests/Relewise.BlazorApps.Tests --configuration Release --no-build --filter 'TestCategory=Browser'
       - name: Upload validated site
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7.0.1
