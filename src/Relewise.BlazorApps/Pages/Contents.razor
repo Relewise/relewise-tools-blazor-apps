@@ -1,3 +1,5 @@
+@using MudBlazor
+@inject ISnackbar Snackbar
 @using Relewise.BlazorApps.Components
 @using KristofferStrube.Blazor.DOM
 @using MudBlazor
@@ -18,14 +20,6 @@
     <ConnectionCredentials>
         <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that can use the <code>DataAccessor</code> and the <code>Tracker</code> to use this.</PermissionsNote>
     </ConnectionCredentials>
-}
-
-<ErrorNotification Message="@error" />
-@if (message is not null)
-{
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
 }
 
 @if (dataAccessor is null || tracker is null || connecting)
@@ -71,8 +65,6 @@ else
 }
 
 @code {
-    private string? error;
-    private string? message;
     private string contentId = "";
     private bool openDetails;
     private DataAccessor? dataAccessor;
@@ -110,20 +102,16 @@ else
     {
         if (connecting) return;
         connecting = true;
-        error = null;
-        message = null;
         try
         {
             if (!Connect()) return;
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             await dataAccessor!.QueryAsync(new ContentQuery("__connection_check__"), cancellation.Token);
-            message = null;
             await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
         }
         catch (Exception ex)
         {
-            error = "Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.Message;
-            message = null;
+            Snackbar.Add("Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.GetBaseException().Message, Severity.Error);
             dataAccessor = null;
             tracker = null;
         }
@@ -141,14 +129,11 @@ else
             StaticDatasetStorage.ServerUrl);
             tracker = new Tracker(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey,
             StaticDatasetStorage.ServerUrl);
-            message = null;
-            error = null;
             return true;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             return false;
         }
     }
@@ -165,9 +150,8 @@ else
             var contentResult = result?.Contents.FirstOrDefault();
             if (contentResult is null)
             {
-                error = "Could not find content without id";
-                message = null;
-                return;    
+                Snackbar.Add("Could not find content without id", Severity.Error);
+                return;
             }
 
             contentIsDisabled = contentResult.Disabled;
@@ -182,13 +166,11 @@ else
                     Custom = contentResult.Custom
                 };
 
-            message = "Successfully fetched the content element.";
-            error = null;
+            Snackbar.Add("Successfully fetched the content element.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             dataAccessor = null;
             tracker = null;
         }
@@ -199,14 +181,12 @@ else
         try
         {
             await tracker!.TrackAsync(new ContentUpdate(content, ContentUpdate.UpdateKind.ReplaceProvidedProperties));
-            message = "Successfully updated the content element.";
+            Snackbar.Add("Successfully updated the content element.", Severity.Success);
             content = null;
-            error = null;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 
@@ -222,13 +202,11 @@ else
             );
 
             contentIsDisabled = false;
-            message = "Successfully enabled the content element.";
-            error = null;
+            Snackbar.Add("Successfully enabled the content element.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 
@@ -243,13 +221,11 @@ else
                 new ContentAdministrativeAction(null, null, contentId, ContentAdministrativeAction.UpdateKind.Disable)
             );
             contentIsDisabled = true;
-            message = "Successfully disabled the content element.";
-            error = null;
+            Snackbar.Add("Successfully disabled the content element.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 

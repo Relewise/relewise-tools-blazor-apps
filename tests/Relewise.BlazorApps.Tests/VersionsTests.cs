@@ -1,3 +1,5 @@
+using MudBlazor;
+using MudBlazor.Services;
 using System.Net;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -19,6 +21,8 @@ public class VersionsTests
     public void FailedVersionDownloadCanBeRetried()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddMudServices();
         int requests = 0;
         using var client = DocumentationCacheTests.CreateClient(request =>
         {
@@ -29,8 +33,8 @@ public class VersionsTests
         context.Services.AddSingleton(new NugetClient(client));
 
         var component = context.Render<Versions>();
-        component.WaitForAssertion(() => Assert.HasCount(1, component.FindAll("[role=alert]")));
-        component.Find("[role=alert] button").Click();
+        component.WaitForAssertion(() => Assert.IsTrue(context.Services.GetRequiredService<ISnackbar>().ShownSnackbars.Any(snackbar => snackbar.Severity == Severity.Error)));
+        component.Find("button").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -44,6 +48,8 @@ public class VersionsTests
     public void FailedComparisonDownloadCanBeRetriedWithoutReloadingVersionList()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddMudServices();
         int versionRequests = 0;
         int dllRequests = 0;
         using var client = DocumentationCacheTests.CreateClient(request =>
@@ -60,18 +66,21 @@ public class VersionsTests
         context.Services.GetRequiredService<NavigationManager>().NavigateTo("/Versions?from=1.0.0&to=2.0.0");
 
         var component = context.Render<Versions>();
-        component.WaitForAssertion(() => Assert.HasCount(1, component.FindAll("[role=alert]")));
-        component.Find("[role=alert] button").Click();
+        component.WaitForAssertion(() => Assert.IsTrue(context.Services.GetRequiredService<ISnackbar>().ShownSnackbars.Any(snackbar => snackbar.Severity == Severity.Error)));
+        component.Find("button").Click();
 
         component.WaitForAssertion(() => Assert.AreEqual(2, dllRequests));
         Assert.AreEqual(1, versionRequests);
-        Assert.HasCount(1, component.FindAll("[role=alert]"));
+        Assert.HasCount(1, component.FindAll("button"));
+        Assert.IsTrue(context.Services.GetRequiredService<ISnackbar>().ShownSnackbars.Any(snackbar => snackbar.Severity == Severity.Error));
     }
 
     [TestMethod]
     public void EmptyVersionListOffersRetry()
     {
         using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddMudServices();
         int requests = 0;
         using var client = DocumentationCacheTests.CreateClient(request =>
         {

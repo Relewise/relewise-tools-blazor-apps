@@ -1,3 +1,4 @@
+using MudBlazor;
 using KristofferStrube.DocumentSearching;
 using KristofferStrube.DocumentSearching.SuffixTree;
 using MessagePack;
@@ -23,8 +24,7 @@ namespace Relewise.BlazorApps.Shared
 {
     public partial class Troubleshooter
     {
-        private string? error;
-        private string? message;
+        [Inject] public required ISnackbar Snackbar { get; set; }
         private Searcher? searcher;
         private DataAccessor? dataAccessor;
         private SearchAdministrator? searchAdministrator;
@@ -78,14 +78,11 @@ namespace Relewise.BlazorApps.Shared
                 await dataAccessor.QueryAsync(new ProductQuery("__connection_check__"), cancellation.Token);
                 await searchAdministrator.LoadAsync(new SynonymsRequest { Take = 1 }, cancellation.Token);
                 await merchandisingAccessor.LoadAsync(cancellation.Token);
-                message = null;
-                error = null;
                 await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
             }
             catch (Exception ex)
             {
-                error = ex.Message;
-                message = null;
+                Snackbar.Add(ex.GetBaseException().Message, MudBlazor.Severity.Error);
                 searcher = null;
                 dataAccessor = null;
                 searchAdministrator = null;
@@ -311,8 +308,7 @@ namespace Relewise.BlazorApps.Shared
                 if (response.Results.Length is 0)
                 {
                     results = [];
-                    message = "Search gave no results.";
-                    error = null;
+                    Snackbar.Add("Search gave no results.", MudBlazor.Severity.Success);
                     return;
                 }
 
@@ -445,14 +441,12 @@ namespace Relewise.BlazorApps.Shared
                     });
                 }
                 results = localResults.ToArray();
-                message = "Successfully searched!";
-                error = null;
+                Snackbar.Add("Successfully searched!", MudBlazor.Severity.Success);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.GetType().Name + ": " + ex.Message + " -- " + ex.StackTrace);
-                error = ex.Message;
-                message = null;
+                Console.WriteLine(ex.GetType().Name + ": " + ex.GetBaseException().Message + " -- " + ex.StackTrace);
+                Snackbar.Add(ex.GetBaseException().Message, MudBlazor.Severity.Error);
             }
             StateHasChanged();
         }

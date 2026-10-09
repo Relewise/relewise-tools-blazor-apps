@@ -1,3 +1,4 @@
+using MudBlazor.Services;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,7 @@ public class EditorTests
     public void VariantSettingsCanBeCreatedEditedAndCleared(Type type)
     {
         using var context = new BunitContext();
+        context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
         context.Services.AddSingleton<DocumentationCache>();
@@ -62,6 +64,7 @@ public class EditorTests
     public void ReadOnlyNullableEnumPreservesNullAndHasNoMutationControls()
     {
         using var context = new BunitContext();
+        context.Services.AddMudServices();
         var component = context.Render<NullableEnumEditor<VariantSorting>>(parameters => parameters
             .Add(p => p.Value, null)
             .Add(p => p.ReadOnly, true)
@@ -83,6 +86,7 @@ public class EditorTests
         Assert.IsNotNull(value);
         Assert.AreEqual(type, value.GetType());
         using var context = new BunitContext();
+        context.Services.AddMudServices();
         var component = context.Render<DynamicComponent>(parameters => parameters
             .Add(p => p.Type, handler.EditorType(type))
             .Add(p => p.Parameters, new Dictionary<string, object>
@@ -97,6 +101,7 @@ public class EditorTests
     public void NullableByteCanBeClearedAndRecreated()
     {
         using var context = new BunitContext();
+        context.Services.AddMudServices();
         object? result = (byte)7;
         var component = context.Render<ByteEditor>(parameters => parameters
             .Add(p => p.Value, (byte?)7)
@@ -114,6 +119,7 @@ public class EditorTests
     public void ReadOnlyByteDoesNotOfferMutationControls()
     {
         using var context = new BunitContext();
+        context.Services.AddMudServices();
         var component = context.Render<ByteEditor>(parameters => parameters
             .Add(p => p.Value, (byte?)7)
             .Add(p => p.AllowNull, true)
@@ -127,6 +133,7 @@ public class EditorTests
     public void DoubleEditorAcceptsIntegralJsonValues()
     {
         using var context = new BunitContext();
+        context.Services.AddMudServices();
         object? result = null;
         var component = context.Render<DoubleEditor>(parameters => parameters
             .Add(p => p.Value, 42L)
@@ -148,6 +155,7 @@ public class EditorTests
     public void FeedRequestsAppearInRecommendationDiscovery()
     {
         using var context = new BunitContext();
+        context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.ComponentFactories.AddStub<Shared.RecommendationConstructor>(parameters => parameters.Get(p => p.RequestType).Name);
         context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));

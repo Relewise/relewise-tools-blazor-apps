@@ -1,9 +1,10 @@
 @using MudBlazor
+@inject ISnackbar Snackbar
 @using Relewise.BlazorApps.Components
 @page "/Recommendations"
 @using Relewise.BlazorApps.TypeEditors
+@using Relewise.BlazorApps.Extensions
 @using System.Reflection
-@using System.Diagnostics
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Converters
 @using global::Relewise.Client.Requests
@@ -11,19 +12,11 @@
 @using global::Relewise.Client.Responses
 @using Relewise.Client.Requests.Recommendations.Feed
 @implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>Blazor Relewise - Recommendations</PageTitle>
 
 <h1>Recommendations</h1>
-<p>Here you can get try to make some recommendations.</p>
-
-<ErrorNotification Message="@error" />
-@if (message is not null)
-{
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
-}
 
 @if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
@@ -34,56 +27,110 @@
 
 @if (recommender is null || connecting)
 {
+    <div class="mb-2">
     <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
-    <br />
-}
-<br />
-
-<div class="input-group">
-    <input @bind=SearchTerm @bind:after=Search id="search" @bind:event="oninput" class="form-control" placeholder="Search" />
-    <div class="input-group-append">
-        <label for="search" class="input-group-text" style="width:240px;">
-            <svg class="bi" width="24" height="24" viewBox="-2 -2 14 13"><polygon fill="transparent" stroke="grey" stroke-width="1" points="12,11 6,6 5,7 2,7 0,5 0,2 2,0 5,0 7,2 7,5 6,6"></polygon></svg>
-            @if (searchTime is not null)
-            {
-                <small style="color: green;margin-left:10px;">
-                    Found @groupings.Sum(g => g.Value.Count) results in @searchTime.Value ms
-                </small>
-            }
-        </label>
     </div>
+}
+
+<div class="mb-2">
+    <RTextField Label="Search" @bind-Value="SearchTerm" @bind-Value:after="Search"
+                Immediate="true" DebounceInterval="250" Clearable="true" FullWidth="true" />
 </div>
-<br />
-
-@foreach (var group in groupings.Where(group => group.Value.Count > 0))
-{
-    <h2>@group.Key Recommendations</h2>
-    @foreach (Type recommendation in group.Value)
-    {
-        <RecommendationConstructor @key=recommendation RequestType=recommendation Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Connect=Connect ResetRecommender=ResetRecommender Recommender="@(connecting ? null : recommender)" />
-        <br />
-    }
-}
-
-@if (uncategorizedTypes.Count > 0)
-{
-    <h2>Uncategorized Recommendations</h2>
-    @foreach (var recommendation in uncategorizedTypes)
-    {
-        <RecommendationConstructor RequestType=recommendation Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Connect=Connect ResetRecommender=ResetRecommender Recommender="@(connecting ? null : recommender)" />
-        <br />
-    }
-}
-
-<br />
+<div class="recommendation-workspace" @ref="workspaceElement">
+    <MudPaper Outlined="true" Elevation="0" Class="recommendation-navigation">
+        <RequestNavigation AdvancedRequestType="typeof(SimilarProductsRequest)" Groups="groupings" Selected="SelectedRecommendation" Name="RecommendationName"
+                                  OnSelected="selection => SelectRecommendation(selection.Group, selection.Request)" />
+    </MudPaper>
+    <MudPaper Outlined="true" Elevation="0" Class="recommendation-content pa-4">
+        @if (SelectedRecommendation is { } recommendation)
+        {
+            GetEditorState(recommendation);
+            @foreach (var entry in editorStates)
+            {
+                Type requestType = entry.Key;
+                bool isSelected = requestType == recommendation;
+                <div style="@(isSelected ? null : "display: none;")" aria-hidden="@(isSelected ? "false" : "true")">
+                    <RecommendationConstructor @key="requestType" RequestType="requestType"
+                                               RequestTitle="@RecommendationName(requestType)" RequestFactory="() => GetRequest(requestType)"
+                                               Request="initValues.GetValueOrDefault(requestType)" State="entry.Value" IsActive="isSelected"
+                                               OpenDetails="true" ShowHeader="false" Connect="Connect" ResetRecommender="ResetRecommender"
+                                               Recommender="@(connecting ? null : recommender)" />
+                </div>
+            }
+        }
+        else
+        {
+            <MudText>No recommendation types match your search.</MudText>
+        }
+    </MudPaper>
+</div>
 
 @code {
-    private double? searchTime;
-    private string? error;
-    private string? message;
+    private ElementReference workspaceElement;
+    private IJSObjectReference? layoutModule;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (!firstRender) return;
+            layoutModule = await ConnectionRuntime.InvokeAsync<IJSObjectReference>("import", "./js/recommendationLayout.js");
+            await layoutModule.InvokeVoidAsync("initialize", workspaceElement);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+        if (layoutModule is null) return;
+        await layoutModule.InvokeVoidAsync("dispose", workspaceElement);
+        await layoutModule.DisposeAsync();
+    }
     private Recommender? recommender;
     private Dictionary<string, List<Type>> groupings = new();
-    private Dictionary<Type, LicensedRequest> initValues = default!;
+    private readonly Dictionary<Type, LicensedRequest> initValues = new();
+    private int activeTabIndex;
+    private readonly Dictionary<string, int> requestTabIndices = new();
+    private readonly Dictionary<Type, RecommendationConstructor.EditorState> editorStates = new();
+
+    private RecommendationConstructor.EditorState GetEditorState(Type type)
+    {
+        if (!editorStates.TryGetValue(type, out var state))
+            editorStates[type] = state = new();
+        return state;
+    }
+
+    private Type? SelectedRecommendation => groupings.Count == 0 ? null
+        : groupings.ElementAt(activeTabIndex).Value.ElementAtOrDefault(GetRequestTabIndex(groupings.ElementAt(activeTabIndex).Key));
+
+    private void SelectRecommendation(string group, Type recommendation)
+    {
+        activeTabIndex = groupings.Keys.ToList().IndexOf(group);
+        requestTabIndices[group] = groupings[group].IndexOf(recommendation);
+    }
+
+    private int GetRequestTabIndex(string group) => Math.Clamp(requestTabIndices.GetValueOrDefault(group), 0, Math.Max(0, groupings[group].Count - 1));
+
+    private static string RecommendationName(Type type)
+    {
+        string name = type.SpaceSeparatedName();
+        return name.EndsWith("Request", StringComparison.Ordinal) ? name[..^8] : name;
+    }
+    private string? loadedCompressedObject;
+
+    private LicensedRequest GetRequest(Type type)
+    {
+        if (!initValues.TryGetValue(type, out var request))
+        {
+            request = (LicensedRequest)Activator.CreateInstance(type)!;
+            initValues[type] = request;
+        }
+        return request;
+    }
 
     [SupplyParameterFromQuery(Name = "q")]
     public string SearchTerm { get; set; } = "";
@@ -111,37 +158,47 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (SearchTerm is null)
+        try
         {
-            SearchTerm = "";
-        }
-
-        if (initValues is null)
-        {
-            initValues = RecommendationGroupings.SelectMany(g => g.Value)
-                .ToDictionary(
-                    keySelector: t => t,
-                    elementSelector: t => (LicensedRequest)t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)!
-                );
-        }
-
-        await Search();
-
-        if (CompressedObject is not null)
-        {
-            String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
-            var jsonSerializerSettings = new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.Auto,
-                    NullValueHandling = NullValueHandling.Ignore,
-                    Formatting = Formatting.None,
-                    Converters = [new StringEnumConverter()]
-                };
-            LicensedRequest decompressedObject = JsonConvert.DeserializeObject<LicensedRequest>(decompressedString, jsonSerializerSettings)!;
-            if (groupings.SelectMany(g => g.Value).FirstOrDefault(t => t.Name == decompressedObject?.GetType().Name) is { } matchingType)
+            if (SearchTerm is null)
             {
-                initValues[matchingType] = decompressedObject;
+                SearchTerm = "";
             }
+
+            await Search();
+
+            if (CompressedObject is not null && CompressedObject != loadedCompressedObject)
+            {
+                String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
+                var jsonSerializerSettings = new JsonSerializerSettings
+                    {
+                        TypeNameHandling = TypeNameHandling.Auto,
+                        NullValueHandling = NullValueHandling.Ignore,
+                        Formatting = Formatting.None,
+                        Converters = [new StringEnumConverter()]
+                    };
+                LicensedRequest decompressedObject = JsonConvert.DeserializeObject<LicensedRequest>(decompressedString, jsonSerializerSettings)!;
+                if (allRecommendationTypes.FirstOrDefault(t => t == decompressedObject?.GetType()) is { } matchingType)
+                {
+                    initValues[matchingType] = decompressedObject;
+                    var state = GetEditorState(matchingType);
+                    state.Request = decompressedObject;
+                    state.RequestInitialized = true;
+                    state.Response = null;
+                    activeTabIndex = groupings.Keys.ToList().FindIndex(key =>
+                        key == "Uncategorized" ? uncategorizedTypes.Contains(matchingType) : RecommendationGroupings[key].Contains(matchingType));
+                    if (activeTabIndex >= 0)
+                    {
+                        var group = groupings.ElementAt(activeTabIndex);
+                        requestTabIndices[group.Key] = Math.Max(0, group.Value.IndexOf(matchingType));
+                    }
+                    loadedCompressedObject = CompressedObject;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 
@@ -154,20 +211,16 @@
     {
         if (connecting) return;
         connecting = true;
-        error = null;
-        message = null;
         try
         {
             if (!Connect()) return;
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             await recommender!.RecommendAsync(new PopularProductsRequest(null, null, "Connection check", User.Anonymous(), global::Relewise.Client.Requests.Shared.PopularityTypes.MostViewed, 60) { Settings = new() { NumberOfRecommendations = 1 } }, cancellation.Token);
-            message = null;
             await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
         }
         catch (Exception ex)
         {
-            error = "Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.Message;
-            message = null;
+            Snackbar.Add("Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.GetBaseException().Message, Severity.Error);
             recommender = null;
         }
         finally
@@ -181,14 +234,11 @@
         try
         {
             recommender = new Recommender(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
-            message = null;
-            error = null;
             return true;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             return false;
         }
     }
@@ -259,8 +309,6 @@
 
     private Task Search()
     {
-        var sw = Stopwatch.StartNew();
-
         groupings = RecommendationGroupings.ToDictionary(
             kvp => kvp.Key,
             kvp => kvp.Value
@@ -268,14 +316,15 @@
                 .ToList()
         );
 
-        if (SearchTerm is "")
+        if (uncategorizedTypes.Count > 0)
+            groupings["Uncategorized"] = uncategorizedTypes.Where(ContainsSearch).ToList();
+
+        if (activeTabIndex >= groupings.Count || groupings.ElementAt(activeTabIndex).Value.Count == 0)
         {
-            searchTime = null;
+            int firstMatch = groupings.Values.ToList().FindIndex(types => types.Count > 0);
+            activeTabIndex = Math.Max(0, firstMatch);
         }
-        else
-        {
-            searchTime = sw.Elapsed.TotalMilliseconds;
-        }
+
         return Task.CompletedTask;
     }
 

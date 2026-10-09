@@ -1,4 +1,5 @@
 @using MudBlazor
+@inject ISnackbar Snackbar
 @using Relewise.BlazorApps.Components
 @using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
@@ -24,14 +25,6 @@
         <li>Settings for overriding request recommendation settings.</li>
     </ul>
 </p>
-
-<ErrorNotification Message="@error" />
-@if (message is not null)
-{
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
-}
 @if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
     <ConnectionCredentials>
@@ -123,8 +116,6 @@ else if (rules is not null)
 <br />
 
 @code {
-    private string? error;
-    private string? message;
     private string name = "";
     private bool creatingNew = false;
     private MerchandisingAccessor? merchandisingAccessor;
@@ -163,20 +154,16 @@ else if (rules is not null)
     {
         if (connecting) return;
         connecting = true;
-        error = null;
-        message = null;
         try
         {
             if (!Connect()) return;
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             await merchandisingAccessor!.LoadAsync(cancellation.Token);
-            message = null;
             await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
         }
         catch (Exception ex)
         {
-            error = "Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.Message;
-            message = null;
+            Snackbar.Add("Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
         }
         finally
@@ -190,33 +177,36 @@ else if (rules is not null)
         try
         {
             merchandisingAccessor = new MerchandisingAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
-
-            message = null;
-            error = null;
             return true;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             return false;
         }
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (CompressedObject is not null)
+        try
         {
-            String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
-            var jsonSerializerSettings = new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.Auto,
-                    NullValueHandling = NullValueHandling.Ignore,
-                    Formatting = Formatting.None,
-                    Converters = [new StringEnumConverter()]
-                };
-            selectedRule = JsonConvert.DeserializeObject<MerchandisingRule>(decompressedString, jsonSerializerSettings)!;
-            loadedModelFromUrl = true;
+            if (CompressedObject is not null)
+            {
+                String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
+                var jsonSerializerSettings = new JsonSerializerSettings
+                    {
+                        TypeNameHandling = TypeNameHandling.Auto,
+                        NullValueHandling = NullValueHandling.Ignore,
+                        Formatting = Formatting.None,
+                        Converters = [new StringEnumConverter()]
+                    };
+                selectedRule = JsonConvert.DeserializeObject<MerchandisingRule>(decompressedString, jsonSerializerSettings)!;
+                loadedModelFromUrl = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 
@@ -228,14 +218,12 @@ else if (rules is not null)
             var response = await merchandisingAccessor!.LoadAsync();
             rules = response.Rules;
 
-            message = "Successfully fetched all merchandising rules for this dataset.";
-            error = null;
+            Snackbar.Add("Successfully fetched all merchandising rules for this dataset.", Severity.Success);
             selectedRule = null;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
         }
     }
@@ -253,14 +241,12 @@ else if (rules is not null)
             await merchandisingAccessor!.SaveAsync(selectedRule!, name);
 
             await ListAllRules();
-            message = "Successfully updated the merchandising rule.";
-            error = null;
+            Snackbar.Add("Successfully updated the merchandising rule.", Severity.Success);
             selectedRule = null;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
         }
     }
@@ -275,14 +261,12 @@ else if (rules is not null)
             await merchandisingAccessor!.SaveAsync(selectedRule!, name);
 
             await ListAllRules();
-            message = "Successfully copied the merchandising rule.";
-            error = null;
+            Snackbar.Add("Successfully copied the merchandising rule.", Severity.Success);
             selectedRule = null;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
         }
     }
@@ -301,15 +285,13 @@ else if (rules is not null)
             await merchandisingAccessor!.SaveAsync(selectedRule!, name);
 
             await ListAllRules();
-            message = "Successfully created the merchandising rule.";
-            error = null;
+            Snackbar.Add("Successfully created the merchandising rule.", Severity.Success);
             selectedRule = null;
             creatingNew = false;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
         }
     }

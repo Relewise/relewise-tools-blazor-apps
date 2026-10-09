@@ -1,3 +1,4 @@
+using MudBlazor;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Newtonsoft.Json;
@@ -14,11 +15,10 @@ namespace Relewise.BlazorApps.Pages
 {
     public partial class RequestExplorer
     {
+        [Inject] public required ISnackbar Snackbar { get; set; }
         private bool readOnly = true;
         private bool openDetails = false;
-        private string? error;
-        private string? message;
-        private Type selectedParseType;
+        private Type selectedParseType = typeof(ProductSearchRequest);
         private readonly static JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings
         {
             TypeNameHandling = TypeNameHandling.Auto,
@@ -26,7 +26,7 @@ namespace Relewise.BlazorApps.Pages
             Formatting = Formatting.Indented,
             Converters = [new StringEnumConverter()]
         };
-        private List<Type> derivedTypes;
+        private List<Type> derivedTypes = [];
         private object? inputObject;
         private bool hideDefaultValueProperties = true;
         private bool hasLastRequestBeenSavedPreviously = false;
@@ -41,18 +41,25 @@ namespace Relewise.BlazorApps.Pages
 
         protected override void OnInitialized()
         {
-            Assembly? assembly = Assembly.GetAssembly(typeof(ClientBase));
-            derivedTypes = assembly!
-                .GetTypes()
-                .Where(type => type != typeof(LicensedRequest) && type.IsAssignableTo(typeof(LicensedRequest)) && !type.IsGenericType && !type.IsAbstract)
-                .OrderBy(type => type.Name)
-                .ToList();
-            derivedTypes.AddRange(merchandisingRules);
-            selectedParseType = typeof(ProductSearchRequest);
-            hasLastRequestBeenSavedPreviously = HasLastRequestBeenSavedPreviously();
+            try
+            {
+                Assembly? assembly = Assembly.GetAssembly(typeof(ClientBase));
+                derivedTypes = assembly!
+                    .GetTypes()
+                    .Where(type => type != typeof(LicensedRequest) && type.IsAssignableTo(typeof(LicensedRequest)) && !type.IsGenericType && !type.IsAbstract)
+                    .OrderBy(type => type.Name)
+                    .ToList();
+                derivedTypes.AddRange(merchandisingRules);
+                selectedParseType = typeof(ProductSearchRequest);
+                hasLastRequestBeenSavedPreviously = HasLastRequestBeenSavedPreviously();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
-        public static async void SaveInLocalStorage(IJSInProcessRuntime InProcessJSRuntime, object? objectToSave)
+        public static void SaveInLocalStorage(IJSInProcessRuntime InProcessJSRuntime, object? objectToSave)
         {
             string serialized = JsonConvert.SerializeObject(objectToSave, typeof(object), jsonSerializerSettings);
             string compressed = ToGzip(serialized);
@@ -61,9 +68,16 @@ namespace Relewise.BlazorApps.Pages
 
         public async Task RetrieveFromLocalStorage()
         {
-            string compressed = JSRuntime.Invoke<string?>("localStorage.getItem", "lastRequest")!;
-            input = await Models.FromGzipAsync(compressed);
-            inputObject = JsonConvert.DeserializeObject<object>(input, jsonSerializerSettings);
+            try
+            {
+                string compressed = JSRuntime.Invoke<string?>("localStorage.getItem", "lastRequest")!;
+                input = await Models.FromGzipAsync(compressed);
+                inputObject = JsonConvert.DeserializeObject<object>(input, jsonSerializerSettings);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
         public bool HasLastRequestBeenSavedPreviously()
@@ -75,56 +89,59 @@ namespace Relewise.BlazorApps.Pages
         {
             try
             {
-                inputObject = JsonConvert.DeserializeObject<object?>(input, jsonSerializerSettings);
-                if (inputObject.GetType() == typeof(JObject))
+                try
                 {
-                    inputObject = null;
-                    throw new Exception("Not allowed to deserialize as JObject");
-                }
-                error = null;
-                message = "Found matching type from $type annotation on object.";
-            }
-            catch (Exception)
-            {
-                int numberOfTypesEquallyGood = 0;
-                Type? bestMatchingSerializationType = null;
-                int shortestMessageSizeDifference = int.MaxValue;
-                foreach (Type type in derivedTypes)
-                {
-                    try
+                    inputObject = JsonConvert.DeserializeObject<object?>(input, jsonSerializerSettings);
+                    if (inputObject.GetType() == typeof(JObject))
                     {
-                        object? deserializedAsType = JsonConvert.DeserializeObject(input, type, jsonSerializerSettings);
-                        string reserialized = JsonConvert.SerializeObject(deserializedAsType, type, jsonSerializerSettings);
-                        int distance = Math.Abs(reserialized.Length - input.Length);
-                        if (distance < shortestMessageSizeDifference)
-                        {
-                            bestMatchingSerializationType = type;
-                            shortestMessageSizeDifference = distance;
-                            numberOfTypesEquallyGood = 1;
-                        }
-                        else if (distance == shortestMessageSizeDifference)
-                        {
-                            numberOfTypesEquallyGood++;
-                        }
+                        inputObject = null;
+                        throw new Exception("Not allowed to deserialize as JObject");
                     }
-                    catch (Exception) { }
+                    Snackbar.Add("Found matching type from $type annotation on object.", Severity.Success);
                 }
-                if (bestMatchingSerializationType is null)
+                catch (Exception)
                 {
-                    error = "Could not find a request type that this was able to be deserialized as.";
-                    message = null;
+                    int numberOfTypesEquallyGood = 0;
+                    Type? bestMatchingSerializationType = null;
+                    int shortestMessageSizeDifference = int.MaxValue;
+                    foreach (Type type in derivedTypes)
+                    {
+                        try
+                        {
+                            object? deserializedAsType = JsonConvert.DeserializeObject(input, type, jsonSerializerSettings);
+                            string reserialized = JsonConvert.SerializeObject(deserializedAsType, type, jsonSerializerSettings);
+                            int distance = Math.Abs(reserialized.Length - input.Length);
+                            if (distance < shortestMessageSizeDifference)
+                            {
+                                bestMatchingSerializationType = type;
+                                shortestMessageSizeDifference = distance;
+                                numberOfTypesEquallyGood = 1;
+                            }
+                            else if (distance == shortestMessageSizeDifference)
+                            {
+                                numberOfTypesEquallyGood++;
+                            }
+                        }
+                        catch (Exception) { }
+                    }
+                    if (bestMatchingSerializationType is null)
+                    {
+                        Snackbar.Add("Could not find a request type that this was able to be deserialized as.", Severity.Error);
+                    }
+                    else if (numberOfTypesEquallyGood is not 1)
+                    {
+                        Snackbar.Add($"Was not able to find a single matching type as multiple ones matches equally good. One of them was '{bestMatchingSerializationType.Name}'. Try to get the request with $type annotation on the object or manully find the type.", Severity.Error);
+                    }
+                    else
+                    {
+                        inputObject = (LicensedRequest?)JsonConvert.DeserializeObject(input, bestMatchingSerializationType, jsonSerializerSettings);
+                        Snackbar.Add($"Successfully found a best match for the request type: '{bestMatchingSerializationType.Name}'", Severity.Success);
+                    }
                 }
-                else if (numberOfTypesEquallyGood is not 1)
-                {
-                    error = $"Was not able to find a single matching type as multiple ones matches equally good. One of them was '{bestMatchingSerializationType.Name}'. Try to get the request with $type annotation on the object or manully find the type.";
-                    message = null;
-                }
-                else
-                {
-                    inputObject = (LicensedRequest?)JsonConvert.DeserializeObject(input, bestMatchingSerializationType, jsonSerializerSettings);
-                    error = null;
-                    message = $"Successfully found a best match for the request type: '{bestMatchingSerializationType.Name}'";
-                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             }
         }
         public void ParseAsSelectedType()
@@ -132,59 +149,78 @@ namespace Relewise.BlazorApps.Pages
             try
             {
                 inputObject = (LicensedRequest?)JsonConvert.DeserializeObject(input, selectedParseType, jsonSerializerSettings);
-                error = null;
-                message = "Successfully parsed as the selected type.";
+                Snackbar.Add("Successfully parsed as the selected type.", Severity.Success);
             }
             catch (Exception ex)
             {
-                error = ex.Message;
-                message = null;
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             }
         }
 
         public void TransferToRecommendationsPage()
         {
-            Type? serializedType = inputObject?.GetType();
-            if (serializedType?.BaseType is not null)
+            try
             {
-                serializedType = serializedType.BaseType;
+                Type? serializedType = inputObject?.GetType();
+                if (serializedType?.BaseType is not null)
+                {
+                    serializedType = serializedType.BaseType;
+                }
+
+                string serialized = JsonConvert.SerializeObject(inputObject, serializedType, jsonSerializerSettings);
+                string compressed = ToGzip(serialized);
+
+                string url = $"{NavigationManager.BaseUri}Recommendations?q={inputObject?.GetType().Name}&o={compressed}";
+                NavigationManager.NavigateTo(url);
             }
-
-            string serialized = JsonConvert.SerializeObject(inputObject, serializedType, jsonSerializerSettings);
-            string compressed = ToGzip(serialized);
-
-            string url = $"{NavigationManager.BaseUri}Recommendations?q={inputObject?.GetType().Name}&o={compressed}";
-            NavigationManager.NavigateTo(url);
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
         public void TransferToSearchesPage()
         {
-            Type? serializedType = inputObject?.GetType();
-            if (serializedType?.BaseType is not null)
+            try
             {
-                serializedType = serializedType.BaseType;
+                Type? serializedType = inputObject?.GetType();
+                if (serializedType?.BaseType is not null)
+                {
+                    serializedType = serializedType.BaseType;
+                }
+
+                string serialized = JsonConvert.SerializeObject(inputObject, serializedType, jsonSerializerSettings);
+                string compressed = ToGzip(serialized);
+
+                string url = $"{NavigationManager.BaseUri}Searches?q={inputObject?.GetType().Name}&o={compressed}";
+                NavigationManager.NavigateTo(url);
             }
-
-            string serialized = JsonConvert.SerializeObject(inputObject, serializedType, jsonSerializerSettings);
-            string compressed = ToGzip(serialized);
-
-            string url = $"{NavigationManager.BaseUri}Searches?q={inputObject?.GetType().Name}&o={compressed}";
-            NavigationManager.NavigateTo(url);
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
         public void TransferToMerchandisingRulesPage()
         {
-            Type? serializedType = inputObject?.GetType();
-            if (serializedType?.BaseType is not null)
+            try
             {
-                serializedType = serializedType.BaseType;
+                Type? serializedType = inputObject?.GetType();
+                if (serializedType?.BaseType is not null)
+                {
+                    serializedType = serializedType.BaseType;
+                }
+
+                string serialized = JsonConvert.SerializeObject(inputObject, serializedType, jsonSerializerSettings);
+                string compressed = ToGzip(serialized);
+
+                string url = $"{NavigationManager.BaseUri}MerchandisingRules?o={compressed}";
+                NavigationManager.NavigateTo(url);
             }
-
-            string serialized = JsonConvert.SerializeObject(inputObject, serializedType, jsonSerializerSettings);
-            string compressed = ToGzip(serialized);
-
-            string url = $"{NavigationManager.BaseUri}MerchandisingRules?o={compressed}";
-            NavigationManager.NavigateTo(url);
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
         public static string ToGzip(string value)

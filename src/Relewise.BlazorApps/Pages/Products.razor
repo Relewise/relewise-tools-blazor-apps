@@ -1,19 +1,16 @@
+@using MudBlazor
 @using Relewise.BlazorApps.Components
-@using KristofferStrube.Blazor.DOM
 @using Relewise.BlazorApps.TypeEditors
 @using Relewise.BlazorApps.Shared.ColumnPresenter
-@using Relewise.BlazorApps.Shared.FilterColumnEditors
-@using KristofferStrube.Blazor.Window
 @using global::Relewise.Client.Requests.Filters
+@using global::Relewise.Client.Requests.Conditions
 @page "/Products"
 @implements IDisposable
-@inject MudBlazor.ISnackbar Snackbar
+@inject ISnackbar Snackbar
 
 <PageTitle>Blazor Relewise - Products</PageTitle>
-
 <h1>Products</h1>
-
-<p>Here you can get a product using the <code>DataAccessor</code>, then make changes to it, and in the end track the changes with the <code>Tracker</code>. You can likewise enable or disable the selected product.</p>
+<p>Find products, edit their properties and variants, or enable and disable them.</p>
 
 @if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
@@ -22,164 +19,132 @@
     </ConnectionCredentials>
 }
 
-<ErrorNotification Message="@error" />
-@if (message is not null)
-{
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
-}
-
 @if (dataAccessor is null || tracker is null || connecting)
 {
     <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
-    <br />
 }
 else
 {
-    <p>Now you can either list all products or get a specific set of products using filters.</p>
-    <p>For now we only have some simple column based options for filtering on the product id or display name, but more will come in the future.</p>
-
-    <button class="btn btn-success" @onclick=LoadProductsFromStart>Load Products</button>
-    <br />
-    <br />
-    @if (productsInView is not null)
-    {
-        <div style="width:100%; display:flex; align-items:center; justify-content:center; padding: 5px; grid-gap: 5px;">
-            <span>showing results from @skip to @(skip + productsInView.Count) out of @totalResults</span>
-            <button class="btn btn-outline-secondary btn-sm" title="Go to previous page" @onclick=GoToPreviousPage>&lt;&lt;</button>
-            <button class="btn btn-outline-secondary btn-sm" title="Go to next page" @onclick=GoToNextPage>&gt;&gt;</button>
+    <MudStack Spacing="2">
+        <div class="product-toolbar">
+            <RTextField Label="Search" Value="@searchText" ValueChanged="SearchChanged"
+                        Immediate="true" DebounceInterval="300" Clearable="true" FullWidth="true" />
+            <RButton Variant="Variant.Outlined" Icon="@Icons.Material.Filled.FilterList" OnClick="ToggleFilters" AriaLabel="Toggle product filters">@(showFilters ? "Hide filters" : "Filters")</RButton>
+            <RButton Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Refresh" Disabled="loadingProducts" OnClick="RefreshProducts">Refresh</RButton>
         </div>
-    }
-    <table width="100%">
-        <thead>
-            <tr>
-                @foreach (var column in columns)
-                {
-                    <th style="vertical-align: top;">
-                        @{
-                            var parameters = new Dictionary<string, object>()
-                    {
-                        ["Column"] = column,
-                    };
-                        }
-                        <DynamicComponent Type="column.FilterColumnEditor" Parameters="parameters"></DynamicComponent>
-                    </th>
-                }
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (productsInView is not null)
-            {
-                @for (int i = 0; i < productsInView.Count; i++)
-                {
-                    var context = productsInView[i];
-                    <tr style="background-color:@(i % 2 == 0 ? "white" : "#DDFFDD")">
-                        @foreach (var column in columns)
-                        {
-                            <td>
-                                @{
-                                    var parameters = new Dictionary<string, object>
-                                ()
+        @if (showFilters)
+        {
+            <MudPaper Outlined="true" Elevation="0" Class="pa-3">
+                <div class="product-filters">
+                    <RTextField Label="Exact product ID" @bind-Value="productIdFilter" Clearable="true" FullWidth="true" />
+                    <RTextField Label="Display name contains" @bind-Value="displayNameFilter" Clearable="true" FullWidth="true" />
+                    <RTextField Label="Name language" @bind-Value="displayNameLanguage" FullWidth="true" />
+                    <RSelect T="string" Label="Status" Items="statusOptions" @bind-Value="statusFilter" />
+                    <MudStack Row="true" Spacing="1">
+                        <RButton OnClick="ApplyFilters" Disabled="loadingProducts">Apply filters</RButton>
+                        <RButton Variant="Variant.Text" OnClick="ClearFilters" Disabled="loadingProducts">Clear</RButton>
+                    </MudStack>
+                </div>
+            </MudPaper>
+        }
+        <MudDataGrid T="ProductAndVariantEditContext" @ref="productGrid" ServerData="LoadProducts"
+                     RowsPerPage="50" Dense="true" Striped="true" Hover="true" Bordered="false" Elevation="0"
+                     SortMode="SortMode.None" Filterable="false" ReadOnly="true">
+            <Columns>
+                <PropertyColumn Property="item => item.Product.Id" Title="Product ID">
+                    <CellTemplate Context="row">
+                        <div class="d-flex align-center justify-space-between" style="width: 100%; gap: 8px;">
+                            <span>@row.Item.Product.Id</span>
+                            <span class="flex-shrink-0"><RCopyButton Text="@row.Item.Product.Id" ToolTip="Copy product ID" /></span>
+                        </div>
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="item => item.DisplayNameText" Title="Display name">
+                    <CellTemplate Context="row">
+                        <MultilingualColumnPresenter Value="row.Item.Product.DisplayName" ShowCopyButton="true" />
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="item => item.Status" Title="Status">
+                    <CellTemplate Context="row">
+                        <MudChip T="string" Size="Size.Small" Color="@(row.Item.ProductIsDisabled ? Color.Default : Color.Success)">
+                            @(row.Item.ProductIsDisabled ? "Disabled" : "Enabled")
+                        </MudChip>
+                    </CellTemplate>
+                </PropertyColumn>
+                <TemplateColumn Title="Variants" Filterable="false">
+                    <CellTemplate Context="row">@(row.Item.ProductVariants?.Count ?? 0)</CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" CellClass="product-actions" Filterable="false">
+                    <CellTemplate Context="row">
+                        <MudStack Row="true" Spacing="1">
+                            @if (row.Item.ProductIsDisabled)
                             {
-                                ["Value"] = column.ColumnSelector(context.Product)!,
-                            };
-                                }
-                                <DynamicComponent Type="column.ColumnPresenter" Parameters="parameters"></DynamicComponent>
-                            </td>
+                                <RIconButton Icon="@Icons.Material.Filled.CheckCircleOutline" ToolTip="Enable product"
+                                             aria-label="Enable product" OnClick="() => EnableProduct(row.Item)" />
+                            }
+                            else
+                            {
+                                <RIconButton Icon="@Icons.Material.Filled.Block" ToolTip="Disable product"
+                                             aria-label="Disable product" OnClick="() => DisableProduct(row.Item)" />
+                            }
+                            @if (row.Item.IsBeingEdited)
+                            {
+                                <RButton Variant="Variant.Text" OnClick="() => DiscardChanges(row.Item)">Discard</RButton>
+                                <RButton OnClick="() => Update(row.Item)">Save changes</RButton>
+                            }
+                            else
+                            {
+                                <RIconButton Icon="@Icons.Material.Filled.Edit" ToolTip="Edit product"
+                                             aria-label="Edit product" OnClick="() => StartEdit(row.Item)" />
+                            }
+                        </MudStack>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <ChildRowRenderer Context="row">
+                @if (row.Item.IsBeingEdited)
+                {
+                    <tr class="mud-table-row">
+                        <td class="mud-table-cell" colspan="5">
+                            <MudStack Class="pa-4" Spacing="2">
+                        <RCheckBox Label="Expand all" @bind-Value="openDetails" />
+                        <ObjectEditor OpenDetails="openDetails" SingleLevelOpenDetails="true" T="Product" Value="row.Item.Product"
+                                      Setter="(object? value) => { row.Item.Product = (Product)value!; StateHasChanged(); }" />
+                        @if (row.Item.ProductVariants is not null && row.Item.ProductVariantsDisabled is not null)
+                        {
+                            <MudText Typo="Typo.h6">Variants</MudText>
+                            @for (int index = 0; index < row.Item.ProductVariants.Count; index++)
+                            {
+                                int variantIndex = index;
+                                <div class="variant-editor">
+                                    <RButton Variant="Variant.Outlined" OnClick="() => ToggleVariant(row.Item, variantIndex)">
+                                        @(row.Item.ProductVariantsDisabled[variantIndex] ? "Enable" : "Disable")
+                                    </RButton>
+                                    <ObjectEditor OpenDetails="openDetails" T="ProductVariant" Value="row.Item.ProductVariants[variantIndex]"
+                                                  Setter="(object? value) => { row.Item.ProductVariants[variantIndex] = (ProductVariant)value!; row.Item.VariantsHadChanges = true; StateHasChanged(); }" />
+                                </div>
+                            }
                         }
-                        <td>
-                            <div style="display:flex; flex-direction:row; grid-gap:2px; justify-content:flex-end;">
-                                @if (context.ProductIsDisabled)
-                                {
-                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick=@(() => EnableProduct(context))>Enable</button>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-warning btn-sm" style="width:70px;height:26px;padding:0px;" @onclick=@(() => DisableProduct(context))>Disable</button>
-                                }
-                                @if (context.IsBeingEdited)
-                                {
-                                    <button class="btn btn-danger btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => DiscardChanges(context)">Discard Changes</button>
-                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => Update(context)">Save Changes</button>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => { context.IsBeingEdited = true; StateHasChanged(); }">Edit</button>
-                                }
-                            </div>
+                            </MudStack>
                         </td>
                     </tr>
-                    @if (context.IsBeingEdited)
-                    {
-                        <tr>
-                            <td colspan="@(columns.Count + 1)">
-                                <label for="openDetails">Expand all: </label>
-                                <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-                                <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Product Value="context.Product" Setter="(Object? obj) => { context.Product = (Product?)obj!; StateHasChanged(); }" />
-                                <br />
-                                @if (context.ProductVariants is not null && context.ProductVariantsDisabled is not null)
-                                {
-                                    <details class="box" open="open">
-                                        <summary>
-                                            Variants
-                                        </summary>
-                                        <div class="two-column-grid">
-                                            @for (int j = 0; j < context.ProductVariants.Count; j++)
-                                            {
-                                                int k = j;
-                                                @if (context.ProductVariantsDisabled[k])
-                                                {
-                                                    <button class="btn btn-success btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => EnableVariant(context, k)">Enable</button>
-                                                }
-                                                else
-                                                {
-                                                    <button class="btn btn-warning btn-sm" style="width:70px;height:26px;padding:0px;" @onclick="() => DisableVariant(context, k)">Disable</button>
-                                                }
-                                                <div>
-                                                    <ObjectEditor OpenDetails=openDetails T=ProductVariant Value="context.ProductVariants[k]" Setter="(Object? obj) => { context.ProductVariants[k] = (ProductVariant)obj!; context.VariantsHadChanges = true; StateHasChanged(); }" />
-                                                </div>
-                                            }
-                                        </div>
-                                    </details>
-                                }
-                            </td>
-                        </tr>
-                    }
                 }
-            }
-        </tbody>
-    </table>
-    @if (productsInView is not null)
-    {
-        <div style="width:100%; display:flex; align-items:center; justify-content:center; padding: 5px; grid-gap: 5px;">
-            <span>showing results from @skip to @(skip + productsInView.Count) out of @totalResults</span>
-            <button class="btn btn-outline-secondary btn-sm" title="Go to previous page" @onclick=GoToPreviousPage>&lt;&lt;</button>
-            <button class="btn btn-outline-secondary btn-sm" title="Go to next page" @onclick=GoToNextPage>&gt;&gt;</button>
-        </div>
-    }
-    <br />
-    <br />
+            </ChildRowRenderer>
+            <NoRecordsContent>
+                <MudText>No products match your search and filters.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudDataGridPager T="ProductAndVariantEditContext" PageSizeOptions="new[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudDataGrid>
+    </MudStack>
 }
 
 @code {
-    private string? error;
-    private string? message;
     private bool openDetails;
     private DataAccessor? dataAccessor;
     private Tracker? tracker;
-    private List<Column> columns = [
-        new Column<ProductIdFilter>(typeof(ProductIdColumnEditor), typeof(StringColumnPresenter), p => p.Id),
-    new Column<ProductDisplayNameFilter>(typeof(DisplayNameColumnEditor), typeof(MultilingualColumnPresenter), p => p.DisplayName),
-    ];
-
-    private List<ProductAndVariantEditContext>? productsInView = null;
-    private int skip = 0;
-    private int totalResults = 0;
-
-    [Inject]
-    public required IJSRuntime JSRuntime { get; set; }
+    private List<ProductAndVariantEditContext>? productsInView;
 
     protected override async Task OnInitializedAsync()
     {
@@ -208,20 +173,16 @@ else
     {
         if (connecting) return;
         connecting = true;
-        error = null;
-        message = null;
         try
         {
             if (!Connect()) return;
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             await dataAccessor!.QueryAsync(new ProductQuery("__connection_check__"), cancellation.Token);
-            message = null;
             await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
         }
         catch (Exception ex)
         {
-            error = "Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.Message;
-            message = null;
+            Snackbar.Add("Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.GetBaseException().Message, Severity.Error);
             dataAccessor = null;
             tracker = null;
         }
@@ -237,40 +198,120 @@ else
         {
             dataAccessor = new DataAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
             tracker = new Tracker(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
-            message = null;
-            error = null;
             return true;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             return false;
         }
     }
 
-    private async Task LoadProductsFromStart()
-    {
-        if (!Connect()) return;
-        skip = 0;
+    private MudDataGrid<ProductAndVariantEditContext>? productGrid;
+    private bool loadingProducts;
+    private string searchText = "";
+    private (int Page, int PageSize, string ProductId, string DisplayName, string Language, string Status)? loadedPageKey;
+    private int loadedTotal;
+    private bool showFilters;
+    private string productIdFilter = "";
+    private string displayNameFilter = "";
+    private string displayNameLanguage = "";
+    private string statusFilter = "All";
+    private string appliedProductId = "";
+    private string appliedDisplayName = "";
+    private string appliedDisplayNameLanguage = "";
+    private string appliedStatus = "All";
+    private readonly string[] statusOptions = ["All", "Enabled", "Disabled"];
 
-        await LoadProducts();
+    private async Task SearchChanged(string value)
+    {
+        searchText = value;
+        if (productGrid is not null)
+            await productGrid.ReloadServerData();
     }
 
-    private async Task LoadProducts()
+    private void ToggleFilters() => showFilters = !showFilters;
+
+    private async Task ApplyFilters()
     {
+        appliedProductId = productIdFilter?.Trim() ?? "";
+        appliedDisplayName = displayNameFilter?.Trim() ?? "";
+        appliedDisplayNameLanguage = displayNameLanguage?.Trim() ?? "";
+        appliedStatus = statusFilter ?? "All";
+        loadedPageKey = null;
+        if (productGrid is null) return;
+        if (productGrid.CurrentPage == 0)
+            await productGrid.ReloadServerData();
+        else
+            productGrid.NavigateTo(MudBlazor.Page.First);
+    }
+
+    private async Task ClearFilters()
+    {
+        productIdFilter = "";
+        displayNameFilter = "";
+        statusFilter = "All";
+        await ApplyFilters();
+    }
+
+    private async Task RefreshProducts()
+    {
+        loadedPageKey = null;
+        if (productGrid is not null)
+            await productGrid.ReloadServerData();
+    }
+
+    private bool MatchesSearch(ProductAndVariantEditContext item)
+    {
+        string term = searchText.Trim();
+        return term.Length == 0
+            || item.Product.Id.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || item.Product.DisplayName?.Values?.Any(value => value.Text?.Contains(term, StringComparison.OrdinalIgnoreCase) == true) == true
+            || item.ProductVariants?.Any(variant => variant.Id.Contains(term, StringComparison.OrdinalIgnoreCase)) == true;
+    }
+
+    private GridData<ProductAndVariantEditContext> LoadedPage() => new()
+    {
+        Items = productsInView?.Where(MatchesSearch).ToArray() ?? [],
+        TotalItems = loadedTotal
+    };
+
+    private FilterCollection ProductFilters()
+    {
+        List<Filter> filters = [];
+        if (!string.IsNullOrWhiteSpace(appliedProductId))
+            filters.Add(new ProductIdFilter(appliedProductId));
+        if (!string.IsNullOrWhiteSpace(appliedDisplayName))
+            filters.Add(new ProductDisplayNameFilter(new ContainsCondition(new DataValue(appliedDisplayName)),
+                string.IsNullOrWhiteSpace(appliedDisplayNameLanguage) ? Language.Undefined : new Language(appliedDisplayNameLanguage)));
+        if (appliedStatus != "All")
+            filters.Add(new ProductDisabledFilter(negated: appliedStatus == "Enabled"));
+        return new FilterCollection(filters.ToArray());
+    }
+
+    private async Task<GridData<ProductAndVariantEditContext>> LoadProducts(GridState<ProductAndVariantEditContext> state, CancellationToken cancellationToken)
+    {
+        var pageKey = (state.Page, state.PageSize, appliedProductId, appliedDisplayName, appliedDisplayNameLanguage, appliedStatus);
+        if (loadedPageKey == pageKey && productsInView is not null) return LoadedPage();
+        loadingProducts = true;
         try
         {
-            FilterCollection filterCollection = new(columns.Where(c => c.Filter is not null).Select(c => c.Filter).ToArray()!);
-
-            var result = await dataAccessor!.QueryAsync(new ProductQuery(filterCollection, 50, false, skip, true)
-                {
-                    IncludeDisabledProducts = true,
-                    IncludeDisabledVariants = true
-                });
-
+            var result = await dataAccessor!.QueryAsync(new ProductQuery
+            {
+                Filters = ProductFilters(),
+                NumberOfResults = state.PageSize,
+                SkipNumberOfResults = state.Page * state.PageSize,
+                ReturnTotalNumberOfResults = true,
+                IncludeDisabledProducts = true,
+                IncludeDisabledVariants = true
+            }, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(displayNameLanguage))
+                displayNameLanguage = result.Products
+                    .SelectMany(product => product.DisplayName?.Values ?? [])
+                    .Select(value => value.Language?.Value)
+                    .FirstOrDefault(language => !string.IsNullOrWhiteSpace(language)) ?? "";
             productsInView = new();
-            totalResults = result.TotalNumberOfResults!.Value;
             foreach (var productResult in result.Products)
             {
                 ProductAndVariantEditContext context = new(new Product(productResult.ProductId)
@@ -314,19 +355,35 @@ else
                 context.VariantsHadChanges = false;
                 productsInView.Add(context);
             }
-
-            Snackbar.Add($"Successfully fetched the product{(productsInView.Count is 1 ? "" : "s") }.", MudBlazor.Severity.Success);
-            message = null;
-            error = null;
+            Snackbar.Add($"Loaded {productsInView.Count} products.", Severity.Success);
+            loadedPageKey = pageKey;
+            loadedTotal = result.TotalNumberOfResults ?? productsInView.Count;
+            return LoadedPage();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return new GridData<ProductAndVariantEditContext> { Items = [], TotalItems = 0 };
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
-            dataAccessor = null;
-            tracker = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            return new GridData<ProductAndVariantEditContext> { Items = [], TotalItems = 0 };
+        }
+        finally
+        {
+            loadingProducts = false;
         }
     }
+
+    private async Task StartEdit(ProductAndVariantEditContext context)
+    {
+        context.IsBeingEdited = true;
+        await Task.CompletedTask;
+    }
+
+    private Task ToggleVariant(ProductAndVariantEditContext context, int index) => context.ProductVariantsDisabled![index]
+        ? EnableVariant(context, index)
+        : DisableVariant(context, index);
 
     private async Task Update(ProductAndVariantEditContext context)
     {
@@ -347,15 +404,13 @@ else
             {
                 await tracker!.TrackAsync(new ProductUpdate(context.Product, ProductUpdate.UpdateKind.ReplaceProvidedProperties));
             }
-            message = "Successfully updated the product" + (context.VariantsHadChanges ? " and variants." : ".");
+            Snackbar.Add("Successfully updated the product" + (context.VariantsHadChanges ? " and variants." : "."), Severity.Success);
             context.IsBeingEdited = false;
             context.VariantsHadChanges = false;
-            error = null;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 
@@ -375,13 +430,11 @@ else
                 new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.Enable)
             );
             context.ProductIsDisabled = false;
-            message = "Successfully enabled the product";
-            error = null;
+            Snackbar.Add("Successfully enabled the product.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 
@@ -396,13 +449,11 @@ else
                 new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.Disable)
             );
             context.ProductIsDisabled = true;
-            message = "Successfully disabled the product";
-            error = null;
+            Snackbar.Add("Successfully disabled the product.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 
@@ -417,13 +468,11 @@ else
                 new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.None, context.ProductVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Enable)
             );
             context.ProductVariantsDisabled[variantIndex] = false;
-            message = "Successfully enabled the variant";
-            error = null;
+            Snackbar.Add("Successfully enabled the variant.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 
@@ -438,26 +487,12 @@ else
                 new ProductAdministrativeAction(null, null, context.Product.Id, ProductAdministrativeAction.UpdateKind.None, context.ProductVariants[variantIndex].Id, ProductAdministrativeAction.UpdateKind.Disable)
             );
             context.ProductVariantsDisabled[variantIndex] = true;
-            message = "Successfully disabled the variant";
-            error = null;
+            Snackbar.Add("Successfully disabled the variant.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
-    }
-
-    public async Task GoToNextPage()
-    {
-        skip += 50;
-        await LoadProducts();
-    }
-
-    public async Task GoToPreviousPage()
-    {
-        skip = Math.Max(0, skip - 50);
-        await LoadProducts();
     }
 
     public void Dispose()
@@ -468,6 +503,8 @@ else
     public class ProductAndVariantEditContext(Product product, bool productIsDisabled)
     {
         public Product Product { get; set; } = product;
+        public string DisplayNameText => string.Join(" / ", Product.DisplayName?.Values?.Select(value => value.Text) ?? []);
+        public string Status => ProductIsDisabled ? "Disabled" : "Enabled";
         public bool ProductIsDisabled { get; set; } = productIsDisabled;
         public List<ProductVariant>? ProductVariants { get; set; } = null;
         public List<bool>? ProductVariantsDisabled { get; set; } = null;

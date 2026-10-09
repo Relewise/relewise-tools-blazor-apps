@@ -1,3 +1,4 @@
+using MudBlazor;
 using Relewise.BlazorApps.XmlSummaries;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -11,9 +12,14 @@ namespace Relewise.BlazorApps.TypeEditors
 {
     public partial class ObjectEditor<T> : ComponentBase
     {
+        [Inject] public required ISnackbar Snackbar { get; set; }
         private bool hasBeenOpen;
         private object? emptyInstanceOfValue;
+        private Type? emptyInstanceType;
         private List<Type> derivedTypes = new();
+        private static readonly Lazy<Type[]> derivedTypeCandidates = new(() => EditorSdkTypes.All.Value
+            .Where(type => type != typeof(T) && type.IsAssignableTo(typeof(T)) && !type.IsGenericType && !type.IsAbstract)
+            .ToArray());
         private Type selectedCreateType = typeof(T);
         private XmlDocumentation? xmlDocumentation;
         private CommunityDocumentation? communityDocumentation;
@@ -45,6 +51,9 @@ namespace Relewise.BlazorApps.TypeEditors
         [Parameter]
         public Type[] AncestorTypes { get; set; } = [];
 
+        [Parameter]
+        public Type[]? AllowedDerivedTypes { get; set; }
+
         [Inject]
         public required IJSRuntime JSRuntime { get; set; }
 
@@ -68,11 +77,10 @@ namespace Relewise.BlazorApps.TypeEditors
 
             (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
 
-            var assembly = Assembly.GetAssembly(typeof(ClientBase));
-            derivedTypes = assembly!
-                .GetTypes()
-                .Where(type => type != typeof(T) && type.IsAssignableTo(typeof(T)) && !type.IsGenericType && !type.IsAbstract)
-                .ToList();
+            derivedTypes = derivedTypeCandidates.Value.ToList();
+
+            if (AllowedDerivedTypes is not null)
+                derivedTypes = derivedTypes.Where(type => AllowedDerivedTypes.Contains(type)).ToList();
 
             if (Settings.TypeInheritanceNotIgnored.Concat(Settings.TypeInheritanceSupported).FirstOrDefault(l => typeof(T).IsAssignableTo(l.BaseType) && AncestorTypes.Any(a => l.AncestorInterfaces.Any(ai => a.IsAssignableTo(ai)))) is { } limiter)
             {
@@ -102,10 +110,11 @@ namespace Relewise.BlazorApps.TypeEditors
             {
                 editedTyped = selectedCreateType;
             }
-            if (editedTyped is not null)
+            if (editedTyped is not null && editedTyped != emptyInstanceType)
             {
                 var editor = Settings.Editors.First(e => e.CanHandle(editedTyped));
                 emptyInstanceOfValue = editor.InitValue(editedTyped);
+                emptyInstanceType = editedTyped;
             }
         }
 
@@ -116,60 +125,88 @@ namespace Relewise.BlazorApps.TypeEditors
 
         public void Create()
         {
-            var editor = Settings.Editors.First(e => e.CanHandle(selectedCreateType));
-            Value = editor.InitValue(selectedCreateType);
-            emptyInstanceOfValue = editor.InitValue(selectedCreateType);
-            Setter(Value);
+            try
+            {
+                var editor = Settings.Editors.First(e => e.CanHandle(selectedCreateType));
+                Value = editor.InitValue(selectedCreateType);
+                emptyInstanceOfValue = editor.InitValue(selectedCreateType);
+                emptyInstanceType = selectedCreateType;
+                Setter(Value);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
         private void RemoveProperty(PropertyInfo propertyInfo)
         {
-            propertyInfo.SetValue(Value, null);
-            Setter(Value);
+            try
+            {
+                propertyInfo.SetValue(Value, null);
+                Setter(Value);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
         public async Task CopyToClipboard()
         {
-            var jsonSerializerSettings = new JsonSerializerSettings
+            try
             {
-                TypeNameHandling = TypeNameHandling.Auto,
-                NullValueHandling = NullValueHandling.Ignore,
-                Formatting = Formatting.Indented
-            };
-            jsonSerializerSettings.Converters.Add(new StringEnumConverter());
+                var jsonSerializerSettings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto,
+                    NullValueHandling = NullValueHandling.Ignore,
+                    Formatting = Formatting.Indented
+                };
+                jsonSerializerSettings.Converters.Add(new StringEnumConverter());
 
-            Type? serializedType = Value?.GetType();
-            if (serializedType?.BaseType is not null)
-            {
-                serializedType = serializedType.BaseType;
+                Type? serializedType = Value?.GetType();
+                if (serializedType?.BaseType is not null)
+                {
+                    serializedType = serializedType.BaseType;
+                }
+
+                await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(Value, serializedType, jsonSerializerSettings));
             }
-
-            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(Value, serializedType, jsonSerializerSettings));
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
         public async Task CopyLinkToClipboard()
         {
-            var jsonSerializerSettings = new JsonSerializerSettings
+            try
             {
-                TypeNameHandling = TypeNameHandling.Auto,
-                NullValueHandling = NullValueHandling.Ignore,
-                Formatting = Formatting.None,
-                Converters = [new StringEnumConverter()]
-            };
+                var jsonSerializerSettings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.Auto,
+                    NullValueHandling = NullValueHandling.Ignore,
+                    Formatting = Formatting.None,
+                    Converters = [new StringEnumConverter()]
+                };
 
-            Type? serializedType = Value?.GetType();
-            if (serializedType?.BaseType is not null)
-            {
-                serializedType = serializedType.BaseType;
+                Type? serializedType = Value?.GetType();
+                if (serializedType?.BaseType is not null)
+                {
+                    serializedType = serializedType.BaseType;
+                }
+
+                string serialized = JsonConvert.SerializeObject(Value, serializedType, jsonSerializerSettings);
+                string compressed = ToGzip(serialized);
+
+                string url = $"{NavigationManager.BaseUri}Models?q={Value?.GetType().Name}&o={compressed}";
+
+                await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", url);
             }
-
-            string serialized = JsonConvert.SerializeObject(Value, serializedType, jsonSerializerSettings);
-            Console.WriteLine(serialized);
-            string compressed = ToGzip(serialized);
-
-            string url = $"{NavigationManager.BaseUri}Models?q={Value?.GetType().Name}&o={compressed}";
-
-            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", url);
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
         public static string ToGzip(string value)
@@ -188,5 +225,10 @@ namespace Relewise.BlazorApps.TypeEditors
         }
 
         private IEnumerable<PropertyInfo>? Properties => Value is null ? null : Settings.GetProperties(Value.GetType());
+    }
+
+    internal static class EditorSdkTypes
+    {
+        internal static readonly Lazy<Type[]> All = new(() => typeof(ClientBase).Assembly.GetTypes());
     }
 }

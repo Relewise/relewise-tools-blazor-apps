@@ -1,0 +1,25 @@
+@using MudBlazor
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<RIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+             ToolTip="@ToolTip" aria-label="@ToolTip" Disabled="string.IsNullOrEmpty(Text)"
+             OnClick="CopyText" />
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string ToolTip { get; set; } = "Copy text";
+
+    private async Task CopyText()
+    {
+        if (string.IsNullOrEmpty(Text)) return;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", Text);
+        }
+        catch (JSException)
+        {
+            Snackbar.Add("Could not copy text. Check your browser's clipboard permissions.", Severity.Error);
+        }
+    }
+}

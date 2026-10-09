@@ -1,0 +1,35 @@
+@using MudBlazor
+
+
+<MudNavMenu Dense="true">
+    @foreach (var group in Groups.Where(group => group.Value.Count > 0))
+    {
+        <MudNavGroup Title="@group.Key" Expanded="expandedGroups.GetValueOrDefault(group.Key, true)"
+                     ExpandedChanged="expanded => expandedGroups[group.Key] = expanded">
+            @foreach (Type requestType in group.Value)
+            {
+                <MudNavLink OnClick="() => OnSelected.InvokeAsync((group.Key, requestType))"
+                            Class="@(Selected == requestType ? "recommendation-selected" : null)"
+                            title="@(requestType == AdvancedRequestType ? "Advanced recommendation" : null)">
+                    <span class="recommendation-label">
+                        @Name(requestType)
+                        @if (requestType == AdvancedRequestType)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Star" Class="recommendation-star" />
+                        }
+                    </span>
+                </MudNavLink>
+            }
+        </MudNavGroup>
+    }
+</MudNavMenu>
+
+@code {
+    [Parameter, EditorRequired] public required IReadOnlyDictionary<string, List<Type>> Groups { get; set; }
+    [Parameter] public Type? AdvancedRequestType { get; set; }
+    [Parameter] public Type? Selected { get; set; }
+    [Parameter, EditorRequired] public required Func<Type, string> Name { get; set; }
+    [Parameter] public EventCallback<(string Group, Type Request)> OnSelected { get; set; }
+
+    private readonly Dictionary<string, bool> expandedGroups = new();
+}

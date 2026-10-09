@@ -1,4 +1,7 @@
-﻿@page "/Versions"
+@using MudBlazor
+@using Relewise.BlazorApps.Components
+@inject ISnackbar Snackbar
+@page "/Versions"
 @using System.Reflection
 @inject NugetClient NugetClient
 @inject NavigationManager NavigationManager
@@ -15,10 +18,7 @@
 
 @if (errorMessage is not null)
 {
-    <div class="alert alert-danger" role="alert">
-        <p>@errorMessage</p>
-        <button class="btn btn-primary" @onclick="Retry">Retry</button>
-    </div>
+    <RButton OnClick="Retry">Retry</RButton>
     return;
 }
 
@@ -263,6 +263,7 @@ else
         {
             Logger.LogError(exception, "Failed to load SDK versions from the Relewise CDN.");
             errorMessage = "Could not load SDK versions from the Relewise CDN. Check your connection and try again.";
+            Snackbar.Add(errorMessage + " " + exception.GetBaseException().Message, Severity.Error);
         }
         finally
         {
@@ -320,6 +321,7 @@ else
             Reset();
             comparisonFailed = true;
             errorMessage = "Could not compare the selected SDK versions. Check your connection and try again.";
+            Snackbar.Add(errorMessage + " " + exception.GetBaseException().Message, Severity.Error);
         }
     }
 

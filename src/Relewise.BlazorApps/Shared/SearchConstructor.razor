@@ -1,64 +1,91 @@
+@using MudBlazor
+@inject ISnackbar Snackbar
 @using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
 @using Relewise.BlazorApps.Extensions
 @using Relewise.BlazorApps.Pages
-@using global::Relewise.Client.Requests.Recommendations
+@using global::Relewise.Client.Requests
 @using global::Relewise.Client.Requests.Search
 @using global::Relewise.Client.Responses
 @using global::Relewise.Client.Responses.Search
 @using global::Relewise.Client.Search
 @inject IJSInProcessRuntime JSRuntime
 
-<details class="box" open=@OpenDetails>
-    <summary>
+@if (ShowHeader)
+{
+<details class="box" open="@isExpanded">
+    <summary @onclick="ToggleRequest" @onclick:preventDefault="true">
         @(NormalName(RequestType))
     </summary>
-    <div style="margin:5px;">
-        <h3>Request</h3>
-        <ObjectEditor
-            OpenDetails=true
-            T=SearchRequest
-            Value="Request"
-            ShowModelShareLink="true"
-                      Setter="(object? obj) => { Request = (SearchRequest?)obj; RequestExplorer.SaveInLocalStorage(JSRuntime, obj); response = null; StateHasChanged(); }" />
-        <br />
-        @if (Searcher is null)
-        {
-            <button class="btn btn-success" disabled="true" @onclick="() => Post()">Post</button>
-            <i>You have to connect before you can post a request.</i>
-        }
-        else
-        {
-            <button class="btn btn-success" @onclick="() => Post()">Post</button>
-        }
-        <br />
-        <ErrorNotification Message="@error" />
-        @if (message is not null)
-        {
-            <span style="color:green;">@message</span>
-        }
-        @if (response is not null)
-        {
-            <br />
-            <br />
-            <h3>Response</h3>
-            <label for="openDetails">Expand all: </label>
-            <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-            <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=SearchResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (SearchResponse?)obj; StateHasChanged(); }" />
-        }
-    </div>
+    @EditorContent
 </details>
+}
+else
+{
+    @EditorContent
+}
+
 
 
 @code {
-    private string? message;
-    private string? error;
-    private bool openDetails;
+    private RenderFragment EditorContent => @<text>
+    @if (isExpanded && IsActive)
+    {
+        <div style="margin:5px;">
+            <h3>@RequestTitle</h3>
+            <ObjectEditor
+                OpenDetails=false
+                SingleLevelOpenDetails=true
+                T=SearchRequest
+                AllowedDerivedTypes="[RequestType]"
+                Value="Request"
+                ShowModelShareLink="true"
+                Setter="(object? obj) => { Request = (SearchRequest?)obj; State.Request = Request; try { RequestExplorer.SaveInLocalStorage(JSRuntime, obj); } catch (Exception ex) { Snackbar.Add(ex.GetBaseException().Message, Severity.Error); } response = null; StateHasChanged(); }" />
+            <br />
+            @if (Searcher is null)
+            {
+                <button class="btn btn-success" disabled="true" @onclick="() => Post()">Post</button>
+                <i>You have to connect before you can post a request.</i>
+            }
+            else
+            {
+                <button class="btn btn-success" @onclick="() => Post()">Post</button>
+            }
+            <br />
+            @if (response is not null)
+            {
+                <br />
+                <br />
+                <h3>Response</h3>
+                <label for="openDetails">Expand all: </label>
+                <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+                <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=SearchResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (SearchResponse?)obj; StateHasChanged(); }" />
+            }
+        </div>
+    }
+    </text>;
 
-    private SearchResponse? response;
+    [Parameter] public bool ShowHeader { get; set; } = true;
+    [Parameter] public string RequestTitle { get; set; } = "Request";
+
+
+    public sealed class EditorState
+    {
+        public SearchRequest? Request { get; set; }
+        public bool RequestInitialized { get; set; }
+        public SearchResponse? Response { get; set; }
+        public bool ResponseExpanded { get; set; }
+    }
+
+    [Parameter] public EditorState State { get; set; } = new();
+    private bool openDetails { get => State.ResponseExpanded; set => State.ResponseExpanded = value; }
+    private bool hasBeenOpened;
+    private bool isExpanded;
+    private bool? previousOpenDetails;
+    private SearchResponse? response { get => State.Response; set => State.Response = value; }
 
     [Parameter, EditorRequired]
-    public required Searcher Searcher { get; set; }
+    public required Searcher? Searcher { get; set; }
 
     [Parameter, EditorRequired]
     public required Func<bool> Connect { get; set; }
@@ -69,11 +96,57 @@
     [Parameter, EditorRequired]
     public required Type RequestType { get; set; }
 
-    [Parameter, EditorRequired]
-    public required SearchRequest Request { get; set; }
+    [Parameter]
+    public SearchRequest? Request { get; set; }
+
+    [Parameter]
+    public Func<SearchRequest>? RequestFactory { get; set; }
 
     [Parameter, EditorRequired]
-    public required bool OpenDetails { get; set; }
+    public bool OpenDetails { get; set; }
+
+    [Parameter]
+    public bool IsActive { get; set; } = true;
+
+    protected override bool ShouldRender() => IsActive;
+
+    protected override void OnParametersSet()
+    {
+        if (State.RequestInitialized) Request = State.Request;
+        if (previousOpenDetails != OpenDetails)
+        {
+            previousOpenDetails = OpenDetails;
+            isExpanded = OpenDetails;
+        }
+        if (isExpanded && IsActive) OpenRequest();
+    }
+
+    private void ToggleRequest()
+    {
+        isExpanded = !isExpanded;
+        if (isExpanded) OpenRequest();
+    }
+
+    private void OpenRequest()
+    {
+        try
+        {
+            if (hasBeenOpened) return;
+            if (State.RequestInitialized)
+                Request = State.Request;
+            else
+            {
+                Request ??= RequestFactory?.Invoke();
+                State.Request = Request;
+                State.RequestInitialized = true;
+            }
+            hasBeenOpened = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
 
     private string NormalName(Type type)
     {
@@ -91,8 +164,7 @@
 
         if (Request is null)
         {
-            message = null;
-            error = "Request was null.";
+            Snackbar.Add("Request was null.", Severity.Error);
             return;
         }
 
@@ -105,14 +177,12 @@
             var responseTask = (Task<SearchResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Searcher, Request])!;
 
             response = await responseTask;
-            message = "Successfully searched.";
-            error = null;
+            Snackbar.Add("Successfully searched.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             ResetSearcher();
-            message = null;
         }
     }
 

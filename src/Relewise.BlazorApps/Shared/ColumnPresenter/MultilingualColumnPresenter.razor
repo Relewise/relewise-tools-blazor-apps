@@ -1,6 +1,16 @@
 ﻿@if (BestLangugaeSpecificMultilingual() is { } name)
 {
-    @name.Text <code>(@name.Language?.Value)</code>
+    @if (ShowCopyButton)
+    {
+        <div class="d-flex align-center justify-space-between" style="width: 100%; gap: 8px;">
+            <span>@name.Text <code>(@name.Language?.Value)</code></span>
+            <span class="flex-shrink-0"><Relewise.BlazorApps.Components.RCopyButton Text="@name.Text" ToolTip="Copy display name" /></span>
+        </div>
+    }
+    else
+    {
+        @name.Text <code>(@name.Language?.Value)</code>
+    }
 }
 else
 {
@@ -8,6 +18,7 @@ else
 }
 
 @code {
+    [Parameter] public bool ShowCopyButton { get; set; }
     [Parameter]
     public required Multilingual? Value { get; set; }
 

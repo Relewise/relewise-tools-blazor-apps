@@ -1,3 +1,5 @@
+@using MudBlazor
+@inject ISnackbar Snackbar
 @using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
 @using Relewise.BlazorApps.Extensions
@@ -8,8 +10,10 @@
 @using global::Relewise.Client.DataTypes
 @inject IJSInProcessRuntime JSRuntime
 
-<details class="box" open=@OpenDetails>
-    <summary @onclick="() => hasBeenOpened = true">
+@if (ShowHeader)
+{
+<details class="box" open="@isExpanded">
+    <summary @onclick="ToggleRequest" @onclick:preventDefault="true">
         @if (advancedRecommendations.Contains(RequestType.Name))
         {
             <svg class="bi" width="20" height="20" style="margin-top:-5px;margin-right:5px;" viewBox="0 0 16 16">
@@ -20,16 +24,30 @@
         }
         @(NormalName(RequestType))
     </summary>
-    @if (hasBeenOpened)
+    @EditorContent
+</details>
+}
+else
+{
+    @EditorContent
+}
+
+
+
+@code {
+    private RenderFragment EditorContent => @<text>
+    @if (isExpanded && IsActive)
     {
         <div style="margin:5px;">
-            <h3>Request</h3>
+            <h3>@RequestTitle</h3>
             <ObjectEditor
-                OpenDetails=true
+                OpenDetails=false
+                SingleLevelOpenDetails=true
                 T=LicensedRequest
+                AllowedDerivedTypes="[RequestType]"
                 Value="Request"
                 ShowModelShareLink="true"
-                Setter="(object? obj) => { Request = (LicensedRequest?)obj; RequestExplorer.SaveInLocalStorage(JSRuntime, obj); response = null; StateHasChanged(); }" />
+                Setter="(object? obj) => { Request = (LicensedRequest?)obj; State.Request = Request; try { RequestExplorer.SaveInLocalStorage(JSRuntime, obj); } catch (Exception ex) { Snackbar.Add(ex.GetBaseException().Message, Severity.Error); } response = null; StateHasChanged(); }" />
             <br />
             @if (Recommender is null)
             {
@@ -41,11 +59,6 @@
                 <button class="btn btn-success" @onclick="() => Post()">Post</button>
             }
             <br />
-            <ErrorNotification Message="@error" />
-            @if (message is not null)
-            {
-                <span style="color:green;">@message</span>
-            }
             @if (response is not null)
             {
                 <br />
@@ -57,16 +70,26 @@
             }
         </div>
     }
-</details>
+    </text>;
 
+    [Parameter] public bool ShowHeader { get; set; } = true;
+    [Parameter] public string RequestTitle { get; set; } = "Request";
 
-@code {
     private List<string> advancedRecommendations = ["SimilarProductsRequest"];
-    private string? message;
-    private string? error;
-    private bool openDetails;
+    public sealed class EditorState
+    {
+        public LicensedRequest? Request { get; set; }
+        public bool RequestInitialized { get; set; }
+        public TimedResponse? Response { get; set; }
+        public bool ResponseExpanded { get; set; }
+    }
+
+    [Parameter] public EditorState State { get; set; } = new();
+    private bool openDetails { get => State.ResponseExpanded; set => State.ResponseExpanded = value; }
     private bool hasBeenOpened;
-    private TimedResponse? response;
+    private bool isExpanded;
+    private bool? previousOpenDetails;
+    private TimedResponse? response { get => State.Response; set => State.Response = value; }
 
     [Parameter, EditorRequired]
     public required Recommender Recommender { get; set; }
@@ -80,13 +103,57 @@
     [Parameter, EditorRequired]
     public required Type RequestType { get; set; }
 
-    [Parameter, EditorRequired]
-    public LicensedRequest Request { get; set; }
+    [Parameter]
+    public LicensedRequest? Request { get; set; }
+
+    [Parameter]
+    public Func<LicensedRequest>? RequestFactory { get; set; }
 
     [Parameter, EditorRequired]
     public bool OpenDetails { get; set; }
 
-    protected override void OnParametersSet() => hasBeenOpened |= OpenDetails;
+    [Parameter]
+    public bool IsActive { get; set; } = true;
+
+    protected override bool ShouldRender() => IsActive;
+
+    protected override void OnParametersSet()
+    {
+        if (State.RequestInitialized) Request = State.Request;
+        if (previousOpenDetails != OpenDetails)
+        {
+            previousOpenDetails = OpenDetails;
+            isExpanded = OpenDetails;
+        }
+        if (isExpanded && IsActive) OpenRequest();
+    }
+
+    private void ToggleRequest()
+    {
+        isExpanded = !isExpanded;
+        if (isExpanded) OpenRequest();
+    }
+
+    private void OpenRequest()
+    {
+        try
+        {
+            if (hasBeenOpened) return;
+            if (State.RequestInitialized)
+                Request = State.Request;
+            else
+            {
+                Request ??= RequestFactory?.Invoke();
+                State.Request = Request;
+                State.RequestInitialized = true;
+            }
+            hasBeenOpened = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
 
     private string NormalName(Type type)
     {
@@ -104,8 +171,7 @@
 
         if (Request is null)
         {
-            message = null;
-            error = "Request was null.";
+            Snackbar.Add("Request was null.", Severity.Error);
             return;
         }
 
@@ -118,14 +184,12 @@
             var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Recommender, Request])!;
 
             response = await responseTask;
-            message = "Successfully recommended.";
-            error = null;
+            Snackbar.Add("Successfully recommended.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             ResetRecommender();
-            message = null;
         }
     }
 

@@ -21,6 +21,7 @@ Keep the configured HTTPS launch profile (`https://localhost:7176`) for local de
 If that port is occupied, inspect its owning process and stop only task-started development servers. Do not silently choose another port or stop unrelated processes.
 
 Use `dotnet watch --no-hot-reload --project src/Relewise.BlazorApps` during development. WebAssembly hot reload has repeatedly caused runtime metadata assertions after Razor changes; rebuild and restart on edits instead.
+Restart the watcher after adding Razor components: newly added files have been missed by its existing watch list, leaving the running assembly behind the source.
 
 From the repository root:
 

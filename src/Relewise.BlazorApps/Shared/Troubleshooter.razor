@@ -12,14 +12,6 @@
 
 <h2>Troubleshooter</h2>
 <p>We can do a bit of analysis which might make troublshooting easier. Try it out!</p>
-
-<ErrorNotification Message="@error" />
-@if (message is not null)
-{
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
-}
 @if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
     <ConnectionCredentials>
