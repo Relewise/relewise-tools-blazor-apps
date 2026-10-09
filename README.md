@@ -18,6 +18,8 @@ dotnet watch --project src/Relewise.BlazorApps
 
 Open the localhost URL printed by the dev server. The application is standalone WebAssembly; it does not need a local backend or private NuGet feed.
 
+Keep the configured HTTPS launch profile (`https://localhost:7176`) when running locally. Changing the scheme or port can prevent external service requests from working.
+
 Model editing works without dataset credentials. SDK documentation and version comparison use `https://cdn.relewise.com/services/blazor-apps/stable/nuget/`. That service is maintained in `cdn.relewise.com`, under `src/Services.BlazorApps.Website`. Dataset operations call the supplied Relewise server directly from the browser. Embedded mode receives credentials through the My Relewise parent-window handshake.
 
 ## Validate changes

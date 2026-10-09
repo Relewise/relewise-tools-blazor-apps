@@ -1,5 +1,5 @@
 ﻿.box {
-    border: 1px solid var(--color-green);
+    border: 1px solid var(--color-blue-light);
     border-radius: 5px;
 }
 
@@ -12,19 +12,19 @@
 
 summary {
     padding-left: 5px;
-    background-color: var(--color-green);
+    background-color: var(--color-blue-light);
     font-size: 20px;
-    color: white;
+    color: var(--color-text);
 }
 
 
 table {
-    border: 1px solid var(--color-green);
+    border: 1px solid var(--color-blue-light);
 }
 
 thead {
-    background-color: var(--color-green);
-    color: white;
+    background-color: var(--color-blue-light);
+    color: var(--color-text);
     font-weight: 700;
 }
 

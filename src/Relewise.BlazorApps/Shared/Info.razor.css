@@ -9,6 +9,6 @@
 }
 
 .light {
-    background-color: #f8f8f8;
-    color: black;
+    background-color: var(--color-blue-soft);
+    color: var(--color-text);
 }

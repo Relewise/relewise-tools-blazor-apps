@@ -6,6 +6,6 @@
 }
 
 .list>div:is(:hover) {
-    background-color:aliceblue;
+    background-color:var(--color-blue-soft);
 }
 

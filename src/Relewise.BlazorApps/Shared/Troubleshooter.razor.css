@@ -16,12 +16,12 @@
 .card {
     display: flex;
     flex-direction: column;
-    border: 2px solid black;
+    border: 2px solid var(--color-blue-light);
     border-radius: 10px;
 }
 
 .header {
-    border-bottom: 2px solid black;
+    border-bottom: 2px solid var(--color-blue-light);
     display: grid;
     grid-template-columns: 1fr auto;
     padding: 5px;
@@ -49,21 +49,29 @@
 }
 
 .purple {
-    background-color: #4207c1;
-    color: white;
+    background-color: var(--color-pink);
+    color: var(--color-text);
 }
 
 .green {
-    background-color: #42c107;
-    color: white;
+    background-color: var(--color-green);
+    color: var(--color-text);
 }
 
 .blue {
-    background-color: #07a5c1;
-    color: white;
+    background-color: var(--color-blue);
+    color: var(--color-white);
 }
 
 .orange {
-    background-color: #c16807;
-    color: white;
+    background-color: var(--color-yellow);
+    color: var(--color-text);
+}
+
+.icon svg [stroke="#FFFFFF"] {
+    stroke: currentColor;
+}
+
+.icon svg [fill="#FFFFFF"] {
+    fill: currentColor;
 }

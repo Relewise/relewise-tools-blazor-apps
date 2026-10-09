@@ -17,6 +17,9 @@ This is a standalone .NET 10 Blazor WebAssembly application for exploring and ed
 
 Use the SDK selected by `global.json`, PowerShell 7 for repository scripts, and the `wasm-tools` workload. All packages restore from public NuGet; no private feed credentials are needed.
 
+Keep the configured HTTPS launch profile (`https://localhost:7176`) for local development. Overriding the scheme or port can break external service requests. Restart `dotnet watch` after changing package references or startup service registrations; hot reload cannot reliably apply those changes.
+If that port is occupied, inspect its owning process and stop only task-started development servers. Do not silently choose another port or stop unrelated processes.
+
 From the repository root:
 
 ```powershell
@@ -35,6 +38,7 @@ Do not run build, test-with-build, and publish concurrently against the same int
 ## Change and delivery conventions
 
 - Follow nearby C#/Razor style; avoid repository-wide formatting during functional changes. `.editorconfig` records formatting defaults.
+- This is a public repository. Do not add internal CDN or My Relewise implementation details, private source paths, credentials, or internal configuration to code, documentation, tests, or PR descriptions. Describe compatibility requirements only at the level needed to work on this application.
 - Add regression tests for changed behavior, especially editor type selection, numeric conversion, serialization, cache retry/concurrency, and route compatibility. Do not add assertions for incidental wording.
 - Preserve existing JSON `$type` metadata, compressed model links, the `lastRequest` localStorage format, query parameters, and GitHub Pages path-prefix routing unless explicitly migrating them.
 - Use synthetic data for tests. Product/content tracking and merchandising saves mutate datasets; never use real customer credentials for smoke tests or include credentials in files, output, or PRs.

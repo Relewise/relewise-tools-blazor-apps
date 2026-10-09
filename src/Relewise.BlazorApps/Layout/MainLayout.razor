@@ -2,26 +2,49 @@
 @using KristofferStrube.Blazor.Window
 @inherits LayoutComponentBase
 
-<div class="page">
-    @if (StaticDatasetStorage.ParentOrigin is null)
-    {
-        <div class="sidebar">
-            <NavMenu />
-        </div>
-    }
+<MudThemeProvider Theme="AppTheme.Relewise" IsDarkMode="false" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
-    <main>
-        <div class="top-row px-4">
-            <small>Experimental Relewise tools • Maintained by Relewise</small>
-        </div>
+<div class="app-shell">
+    <MudLayout>
+        @if (!IsEmbedded)
+        {
+            <MudAppBar Elevation="0" Dense="true">
+                <a class="app-brand" href="" aria-label="Relewise: Blazor Apps">
+                    <img src="images/relewise-logo-white.svg" alt="Relewise" />
+                </a>
+                <MudSpacer />
+                <MudText Typo="Typo.caption" Class="app-note">Experimental Relewise tools • Maintained by Relewise</MudText>
+            </MudAppBar>
+        }
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+        @if (!IsEmbedded)
+        {
+            <MudDrawer Open="true" Variant="DrawerVariant.Persistent"
+                       ClipMode="DrawerClipMode.Always" Elevation="0" Class="app-drawer" id="tool-navigation">
+                <NavMenu />
+            </MudDrawer>
+        }
+
+        <MudMainContent Class="@(IsEmbedded ? "embedded-content" : null)">
+            @if (IsEmbedded)
+            {
+                <div class="embedded-note">
+                    <MudText Typo="Typo.caption">Experimental Relewise tools • Maintained by Relewise</MudText>
+                </div>
+            }
+            <article class="tool-content">
+                @Body
+            </article>
+        </MudMainContent>
+    </MudLayout>
 </div>
 
 @code {
+    private bool IsEmbedded => StaticDatasetStorage.ParentOrigin is not null;
+
     [Inject]
     public required NavigationManager NavigationManager { get; set; }
 

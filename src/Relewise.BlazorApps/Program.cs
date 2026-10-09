@@ -5,6 +5,7 @@ using KristofferStrube.Blazor.Window;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
+using MudBlazor.Services;
 
 AppContext.SetSwitch("System.Reflection.NullabilityInfoContext.IsSupported", true);
 
@@ -13,6 +14,7 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped<Popper>();
+builder.Services.AddMudServices();
 builder.Services.AddScoped<NugetClient>();
 builder.Services.AddSingleton<DocumentationCache>();
 builder.Services.AddSingleton(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });

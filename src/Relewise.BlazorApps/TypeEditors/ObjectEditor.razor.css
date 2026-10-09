@@ -18,7 +18,7 @@
 summary {
     padding-left: 5px;
     background-color: var(--color-blue-light);
-    color: white;
+    color: var(--color-text);
 }
 
 .summary-invalid {

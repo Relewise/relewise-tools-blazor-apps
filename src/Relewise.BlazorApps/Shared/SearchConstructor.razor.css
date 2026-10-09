@@ -1,5 +1,5 @@
 ﻿.box {
-    border: 1px solid var(--color-green);
+    border: 1px solid var(--color-blue-light);
     border-radius: 5px;
 }
 
@@ -12,7 +12,7 @@
 
 summary {
     padding-left: 5px;
-    background-color: var(--color-green);
+    background-color: var(--color-blue-light);
     font-size: 20px;
-    color: white;
+    color: var(--color-text);
 }
