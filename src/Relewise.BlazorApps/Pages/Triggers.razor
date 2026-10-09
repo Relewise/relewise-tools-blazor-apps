@@ -1,3 +1,5 @@
+@using MudBlazor
+@using Relewise.BlazorApps.Components
 @using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
 @using System.Threading
@@ -13,12 +15,7 @@
 <h1>Triggers</h1>
 <p>Here you can create and edit Trigger Configurations.</p>
 
-@if (error is not null)
-{
-    <code>@error</code>
-    <br />
-    <br />
-}
+<ErrorNotification Message="@error" />
 @if (message is not null)
 {
     <span style="color:green;">@message</span>
@@ -27,18 +24,14 @@
 }
 @if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
-    <p>
-        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
-        <br />
-        <small>You can't use your Master key in this application so you will have to create some separate key that has access to edit Triggers to use this.</small>
-    </p>
-
-    <ConnectionCredentials />
+    <ConnectionCredentials>
+        <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that has access to edit Triggers to use this.</PermissionsNote>
+    </ConnectionCredentials>
 }
 
-@if (triggerAccessor is null)
+@if (triggerAccessor is null || connecting)
 {
-    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
     <br />
 }
 else
@@ -106,7 +99,10 @@ else if (configurations is not null)
     {
         if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
         {
-            Connect();
+            if (StaticDatasetStorage.ParentOrigin is null)
+                await ConnectAsync();
+            else
+                Connect();
         }
         StaticDatasetStorage.AuthenticationReceived += Authenticated;
     }
@@ -115,6 +111,38 @@ else if (configurations is not null)
     {
         Connect();
         StateHasChanged();
+    }
+
+    private bool connecting;
+
+    [Inject]
+    public required IJSRuntime ConnectionRuntime { get; set; }
+
+    private async Task ConnectAsync()
+    {
+        if (connecting) return;
+        connecting = true;
+        error = null;
+        message = null;
+        try
+        {
+            if (!Connect()) return;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var loadMethod = triggerAccessorType.GetMethods().First(m => m.Name == "LoadAsync" && m.ReturnType == typeof(Task<TriggerConfigurationCollectionResponse>));
+            await (Task<TriggerConfigurationCollectionResponse>)loadMethod.Invoke(triggerAccessor, [cancellation.Token])!;
+            message = null;
+            await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
+        }
+        catch (Exception ex)
+        {
+            error = "Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.Message;
+            message = null;
+            triggerAccessor = null;
+        }
+        finally
+        {
+            connecting = false;
+        }
     }
 
     private bool Connect()
@@ -126,7 +154,7 @@ else if (configurations is not null)
                 .Single(c => c.GetParameters() is { Length: 4 } p && p[3].ParameterType == typeof(TimeSpan))
                 .Invoke([new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl, TimeSpan.FromSeconds(30)]);
 
-            message = "Successfully initialized the TriggerAccessor.";
+            message = null;
             error = null;
             return true;
         }

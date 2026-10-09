@@ -1,3 +1,5 @@
+@using MudBlazor
+@using Relewise.BlazorApps.Components
 @page "/Searches"
 @using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
@@ -17,12 +19,7 @@
 <p>Here you can get try to make some searchers.</p>
 
 
-@if (error is not null)
-{
-    <code>@error</code>
-    <br />
-    <br />
-}
+<ErrorNotification Message="@error" />
 @if (message is not null)
 {
     <span style="color:green;">@message</span>
@@ -31,18 +28,14 @@
 }
 @if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
-    <p>
-        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
-        <br />
-        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>.</small>
-    </p>
-
-    <ConnectionCredentials />
+    <ConnectionCredentials>
+        <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>.</PermissionsNote>
+    </ConnectionCredentials>
 }
 
-@if (searcher is null)
+@if (searcher is null || connecting)
 {
-    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
     <br />
 }
 <br />
@@ -68,7 +61,7 @@
     <h2>@group.Key Searches</h2>
     @foreach (Type search in group.Value)
     {
-        <SearchConstructor RequestType=search Request=initValues[search] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="searcher" />
+        <SearchConstructor RequestType=search Request=initValues[search] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="@(connecting ? null : searcher)" />
         <br />
     }
 }
@@ -78,7 +71,7 @@
     <h2>Uncategorized Searches</h2>
     @foreach (var type in uncategorizedTypes)
     {
-        <SearchConstructor RequestType=type Request=initValues[type] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="searcher" />
+        <SearchConstructor RequestType=type Request=initValues[type] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="@(connecting ? null : searcher)" />
         <br />
     }
 }
@@ -104,7 +97,10 @@
     {
         if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
         {
-            Connect();
+            if (StaticDatasetStorage.ParentOrigin is null)
+                await ConnectAsync();
+            else
+                Connect();
         }
         StaticDatasetStorage.AuthenticationReceived += Authenticated;
     }
@@ -152,12 +148,43 @@
         }
     }
 
+    private bool connecting;
+
+    [Inject]
+    public required IJSRuntime ConnectionRuntime { get; set; }
+
+    private async Task ConnectAsync()
+    {
+        if (connecting) return;
+        connecting = true;
+        error = null;
+        message = null;
+        try
+        {
+            if (!Connect()) return;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await searcher!.SearchAsync(new ProductSearchRequest(null, null, User.Anonymous(), "Connection check", null, 0, 1), cancellation.Token);
+            message = null;
+            await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
+        }
+        catch (Exception ex)
+        {
+            error = "Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.Message;
+            message = null;
+            searcher = null;
+        }
+        finally
+        {
+            connecting = false;
+        }
+    }
+
     private bool Connect()
     {
         try
         {
             searcher = new Searcher(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
-            message = "Successfully initialized the Searcher.";
+            message = null;
             error = null;
             return true;
         }

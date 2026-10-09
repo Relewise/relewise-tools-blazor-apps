@@ -60,7 +60,6 @@ public static class SavedConnectionStorage
             {
                 await module.InvokeVoidAsync("save", StaticDatasetStorage.ServerUrl, StaticDatasetStorage.DatasetId, StaticDatasetStorage.ApiKey);
                 HasSavedConfiguration = true;
-                StaticDatasetStorage.NotifyAuthenticationReceived();
             }
             Error = null;
         }

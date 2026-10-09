@@ -20,6 +20,8 @@ Use the SDK selected by `global.json`, PowerShell 7 for repository scripts, and 
 Keep the configured HTTPS launch profile (`https://localhost:7176`) for local development. Overriding the scheme or port can break external service requests. Restart `dotnet watch` after changing package references or startup service registrations; hot reload cannot reliably apply those changes.
 If that port is occupied, inspect its owning process and stop only task-started development servers. Do not silently choose another port or stop unrelated processes.
 
+Use `dotnet watch --no-hot-reload --project src/Relewise.BlazorApps` during development. WebAssembly hot reload has repeatedly caused runtime metadata assertions after Razor changes; rebuild and restart on edits instead.
+
 From the repository root:
 
 ```powershell

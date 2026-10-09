@@ -1,4 +1,4 @@
-﻿@using Relewise.BlazorApps.TypeEditors
+@using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
 @using Relewise.BlazorApps.Extensions
 @using Relewise.BlazorApps.Pages
@@ -9,7 +9,7 @@
 @inject IJSInProcessRuntime JSRuntime
 
 <details class="box" open=@OpenDetails>
-    <summary>
+    <summary @onclick="() => hasBeenOpened = true">
         @if (advancedRecommendations.Contains(RequestType.Name))
         {
             <svg class="bi" width="20" height="20" style="margin-top:-5px;margin-right:5px;" viewBox="0 0 16 16">
@@ -20,43 +20,43 @@
         }
         @(NormalName(RequestType))
     </summary>
-    <div style="margin:5px;">
-        <h3>Request</h3>
-        <ObjectEditor
-            OpenDetails=true
-            T=LicensedRequest
-            Value="Request"
-            ShowModelShareLink="true"
-            Setter="(object? obj) => { Request = (LicensedRequest?)obj; RequestExplorer.SaveInLocalStorage(JSRuntime, obj); response = null; StateHasChanged(); }" />
-        <br />
-        @if (Recommender is null)
-        {
-            <button class="btn btn-success" disabled="true" @onclick="() => Post()">Post</button>
-            <i>You have to connect before you can post a request.</i>
-        }
-        else
-        {
-            <button class="btn btn-success" @onclick="() => Post()">Post</button>
-        }
-        <br />
-        @if (error is not null)
-        {
-            <code>@error</code>
-        }
-        else if (message is not null)
-        {
-            <span style="color:green;">@message</span>
-        }
-        @if (response is not null)
-        {
+    @if (hasBeenOpened)
+    {
+        <div style="margin:5px;">
+            <h3>Request</h3>
+            <ObjectEditor
+                OpenDetails=true
+                T=LicensedRequest
+                Value="Request"
+                ShowModelShareLink="true"
+                Setter="(object? obj) => { Request = (LicensedRequest?)obj; RequestExplorer.SaveInLocalStorage(JSRuntime, obj); response = null; StateHasChanged(); }" />
             <br />
+            @if (Recommender is null)
+            {
+                <button class="btn btn-success" disabled="true" @onclick="() => Post()">Post</button>
+                <i>You have to connect before you can post a request.</i>
+            }
+            else
+            {
+                <button class="btn btn-success" @onclick="() => Post()">Post</button>
+            }
             <br />
-            <h3>Response</h3>
-            <label for="openDetails">Expand all: </label>
-            <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-            <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=RecommendationResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (RecommendationResponse?)obj; StateHasChanged(); }" />
-        }
-    </div>
+            <ErrorNotification Message="@error" />
+            @if (message is not null)
+            {
+                <span style="color:green;">@message</span>
+            }
+            @if (response is not null)
+            {
+                <br />
+                <br />
+                <h3>Response</h3>
+                <label for="openDetails">Expand all: </label>
+                <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+                <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=RecommendationResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (RecommendationResponse?)obj; StateHasChanged(); }" />
+            }
+        </div>
+    }
 </details>
 
 
@@ -65,6 +65,7 @@
     private string? message;
     private string? error;
     private bool openDetails;
+    private bool hasBeenOpened;
     private TimedResponse? response;
 
     [Parameter, EditorRequired]
@@ -84,6 +85,8 @@
 
     [Parameter, EditorRequired]
     public bool OpenDetails { get; set; }
+
+    protected override void OnParametersSet() => hasBeenOpened |= OpenDetails;
 
     private string NormalName(Type type)
     {

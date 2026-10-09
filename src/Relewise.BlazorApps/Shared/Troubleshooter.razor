@@ -3,6 +3,7 @@
 @using Newtonsoft.Json.Converters
 @using global::Relewise.Client.Requests.Search
 @using global::Relewise.Client.Search
+@using Relewise.BlazorApps.Components
 
 @if (Request is not ProductSearchRequest)
 {
@@ -12,12 +13,7 @@
 <h2>Troubleshooter</h2>
 <p>We can do a bit of analysis which might make troublshooting easier. Try it out!</p>
 
-@if (error is not null)
-{
-    <code>@error</code>
-    <br />
-    <br />
-}
+<ErrorNotification Message="@error" />
 @if (message is not null)
 {
     <span style="color:green;">@message</span>
@@ -26,18 +22,14 @@
 }
 @if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
-    <p>
-        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
-        <br />
-        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>, <code>DataAccessor</code>, and <code>Search Administrator</code>, and listing all merchandising rules.</small>
-    </p>
-
-    <ConnectionCredentials />
+    <ConnectionCredentials>
+        <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>, <code>DataAccessor</code>, and <code>Search Administrator</code>, and listing all merchandising rules.</PermissionsNote>
+    </ConnectionCredentials>
 }
 
-@if (searcher is null)
+@if (searcher is null || connecting)
 {
-    <button class="btn btn-success" @onclick="Connect">Connect</button>
+    <RButton Disabled="connecting" OnClick="Connect">@(connecting ? "Connecting…" : "Connect")</RButton>
     <br />
     return;
 }

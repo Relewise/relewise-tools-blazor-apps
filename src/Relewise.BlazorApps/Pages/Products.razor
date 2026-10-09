@@ -1,3 +1,4 @@
+@using Relewise.BlazorApps.Components
 @using KristofferStrube.Blazor.DOM
 @using Relewise.BlazorApps.TypeEditors
 @using Relewise.BlazorApps.Shared.ColumnPresenter
@@ -6,6 +7,7 @@
 @using global::Relewise.Client.Requests.Filters
 @page "/Products"
 @implements IDisposable
+@inject MudBlazor.ISnackbar Snackbar
 
 <PageTitle>Blazor Relewise - Products</PageTitle>
 
@@ -15,21 +17,12 @@
 
 @if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
-    <p>
-        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
-        <br />
-        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>DataAccessor</code> and the <code>Tracker</code> to use this.</small>
-    </p>
-
-    <ConnectionCredentials />
+    <ConnectionCredentials>
+        <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that can use the <code>DataAccessor</code> and the <code>Tracker</code> to use this.</PermissionsNote>
+    </ConnectionCredentials>
 }
 
-@if (error is not null)
-{
-    <code>@error</code>
-    <br />
-    <br />
-}
+<ErrorNotification Message="@error" />
 @if (message is not null)
 {
     <span style="color:green;">@message</span>
@@ -37,9 +30,9 @@
     <br />
 }
 
-@if (dataAccessor is null || tracker is null)
+@if (dataAccessor is null || tracker is null || connecting)
 {
-    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
     <br />
 }
 else
@@ -192,7 +185,10 @@ else
     {
         if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
         {
-            Connect();
+            if (StaticDatasetStorage.ParentOrigin is null)
+                await ConnectAsync();
+            else
+                Connect();
         }
         StaticDatasetStorage.AuthenticationReceived += Authenticated;
     }
@@ -203,13 +199,45 @@ else
         StateHasChanged();
     }
 
+    private bool connecting;
+
+    [Inject]
+    public required IJSRuntime ConnectionRuntime { get; set; }
+
+    private async Task ConnectAsync()
+    {
+        if (connecting) return;
+        connecting = true;
+        error = null;
+        message = null;
+        try
+        {
+            if (!Connect()) return;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await dataAccessor!.QueryAsync(new ProductQuery("__connection_check__"), cancellation.Token);
+            message = null;
+            await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
+        }
+        catch (Exception ex)
+        {
+            error = "Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.Message;
+            message = null;
+            dataAccessor = null;
+            tracker = null;
+        }
+        finally
+        {
+            connecting = false;
+        }
+    }
+
     private bool Connect()
     {
         try
         {
             dataAccessor = new DataAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
             tracker = new Tracker(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
-            message = "Successfully initialized the DataAccessor and Tracker.";
+            message = null;
             error = null;
             return true;
         }
@@ -287,7 +315,8 @@ else
                 productsInView.Add(context);
             }
 
-            message = $"Successfully fetched the product{(productsInView.Count is 1 ? "" : "s")}.";
+            Snackbar.Add($"Successfully fetched the product{(productsInView.Count is 1 ? "" : "s") }.", MudBlazor.Severity.Success);
+            message = null;
             error = null;
         }
         catch (Exception ex)
@@ -296,7 +325,6 @@ else
             message = null;
             dataAccessor = null;
             tracker = null;
-            throw;
         }
     }
 

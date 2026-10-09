@@ -1,3 +1,5 @@
+@using MudBlazor
+@using Relewise.BlazorApps.Components
 @page "/Recommendations"
 @using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
@@ -15,12 +17,7 @@
 <h1>Recommendations</h1>
 <p>Here you can get try to make some recommendations.</p>
 
-@if (error is not null)
-{
-    <code>@error</code>
-    <br />
-    <br />
-}
+<ErrorNotification Message="@error" />
 @if (message is not null)
 {
     <span style="color:green;">@message</span>
@@ -30,18 +27,14 @@
 
 @if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
-    <p>
-        First you need to insert your Server URL, Dataset ID, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
-        <br />
-        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Recommender</code>.</small>
-    </p>
-
-    <ConnectionCredentials />
+    <ConnectionCredentials>
+        <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Recommender</code>.</PermissionsNote>
+    </ConnectionCredentials>
 }
 
-@if (recommender is null)
+@if (recommender is null || connecting)
 {
-    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
     <br />
 }
 <br />
@@ -67,7 +60,7 @@
     <h2>@group.Key Recommendations</h2>
     @foreach (Type recommendation in group.Value)
     {
-        <RecommendationConstructor @key=recommendation RequestType=recommendation Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Connect=Connect ResetRecommender=ResetRecommender Recommender="recommender" />
+        <RecommendationConstructor @key=recommendation RequestType=recommendation Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Connect=Connect ResetRecommender=ResetRecommender Recommender="@(connecting ? null : recommender)" />
         <br />
     }
 }
@@ -77,7 +70,7 @@
     <h2>Uncategorized Recommendations</h2>
     @foreach (var recommendation in uncategorizedTypes)
     {
-        <RecommendationConstructor RequestType=recommendation Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Connect=Connect ResetRecommender=ResetRecommender Recommender="recommender" />
+        <RecommendationConstructor RequestType=recommendation Request=initValues[recommendation] OpenDetails=@(groupings.Sum(g => g.Value.Count) == 1) Connect=Connect ResetRecommender=ResetRecommender Recommender="@(connecting ? null : recommender)" />
         <br />
     }
 }
@@ -102,7 +95,10 @@
     {
         if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
         {
-            Connect();
+            if (StaticDatasetStorage.ParentOrigin is null)
+                await ConnectAsync();
+            else
+                Connect();
         }
         StaticDatasetStorage.AuthenticationReceived += Authenticated;
     }
@@ -149,12 +145,43 @@
         }
     }
 
+    private bool connecting;
+
+    [Inject]
+    public required IJSRuntime ConnectionRuntime { get; set; }
+
+    private async Task ConnectAsync()
+    {
+        if (connecting) return;
+        connecting = true;
+        error = null;
+        message = null;
+        try
+        {
+            if (!Connect()) return;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await recommender!.RecommendAsync(new PopularProductsRequest(null, null, "Connection check", User.Anonymous(), global::Relewise.Client.Requests.Shared.PopularityTypes.MostViewed, 60) { Settings = new() { NumberOfRecommendations = 1 } }, cancellation.Token);
+            message = null;
+            await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
+        }
+        catch (Exception ex)
+        {
+            error = "Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.Message;
+            message = null;
+            recommender = null;
+        }
+        finally
+        {
+            connecting = false;
+        }
+    }
+
     private bool Connect()
     {
         try
         {
             recommender = new Recommender(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
-            message = "Successfully initialized the Recommender.";
+            message = null;
             error = null;
             return true;
         }

@@ -13,7 +13,7 @@ Install the .NET SDK selected by `global.json`. From the repository root:
 ```powershell
 dotnet workload restore
 dotnet restore relewise-tools-blazor-apps.sln
-dotnet watch --project src/Relewise.BlazorApps
+dotnet watch --no-hot-reload --project src/Relewise.BlazorApps
 ```
 
 Open the localhost URL printed by the dev server. The application is standalone WebAssembly; it does not need a local backend or private NuGet feed.

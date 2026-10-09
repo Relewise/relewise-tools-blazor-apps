@@ -2,6 +2,7 @@ using KristofferStrube.DocumentSearching;
 using KristofferStrube.DocumentSearching.SuffixTree;
 using MessagePack;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Relewise.Client;
@@ -35,6 +36,11 @@ namespace Relewise.BlazorApps.Shared
         [Parameter, EditorRequired]
         public required object Request { get; set; }
 
+        [Inject]
+        public required IJSRuntime ConnectionRuntime { get; set; }
+
+        private bool connecting;
+
         protected override async Task OnInitializedAsync()
         {
             jsonSerializerSettings.Converters.Add(new StringEnumConverter());
@@ -58,6 +64,8 @@ namespace Relewise.BlazorApps.Shared
 
         private async Task Connect()
         {
+            if (connecting) return;
+            connecting = true;
             try
             {
                 searcher = new Searcher(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
@@ -65,13 +73,27 @@ namespace Relewise.BlazorApps.Shared
                 searchAdministrator = new SearchAdministrator(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
                 merchandisingAccessor = new MerchandisingAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
 
-                message = "Successfully initialized the Searcher, DataAccessor, SearchAdministator, and MerchandisingAccessor.";
+                using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                await searcher.SearchAsync(new ProductSearchRequest(null, null, User.Anonymous(), "Connection check", null, 0, 1), cancellation.Token);
+                await dataAccessor.QueryAsync(new ProductQuery("__connection_check__"), cancellation.Token);
+                await searchAdministrator.LoadAsync(new SynonymsRequest { Take = 1 }, cancellation.Token);
+                await merchandisingAccessor.LoadAsync(cancellation.Token);
+                message = null;
                 error = null;
+                await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
             }
             catch (Exception ex)
             {
                 error = ex.Message;
                 message = null;
+                searcher = null;
+                dataAccessor = null;
+                searchAdministrator = null;
+                merchandisingAccessor = null;
+            }
+            finally
+            {
+                connecting = false;
             }
         }
 

@@ -1,4 +1,4 @@
-﻿@using Relewise.BlazorApps.TypeEditors
+@using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
 @using Relewise.BlazorApps.Extensions
 @using Relewise.BlazorApps.Pages
@@ -32,11 +32,8 @@
             <button class="btn btn-success" @onclick="() => Post()">Post</button>
         }
         <br />
-        @if (error is not null)
-        {
-            <code>@error</code>
-        }
-        else if (message is not null)
+        <ErrorNotification Message="@error" />
+        @if (message is not null)
         {
             <span style="color:green;">@message</span>
         }

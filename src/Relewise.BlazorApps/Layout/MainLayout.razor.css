@@ -17,6 +17,17 @@
     padding: 24px 32px;
 }
 
+.saved-configuration-action {
+    float: right;
+    margin: 8px 0 8px 16px;
+}
+
+.tool-content::after {
+    content: "";
+    display: block;
+    clear: both;
+}
+
 .app-shell ::deep .embedded-content {
     padding-top: 0;
 }

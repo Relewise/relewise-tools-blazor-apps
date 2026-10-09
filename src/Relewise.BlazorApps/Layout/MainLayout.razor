@@ -39,11 +39,10 @@
             <article class="tool-content">
                 @if (!IsEmbedded && SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration)
                 {
-                    <button class="btn btn-secondary btn-sm mb-3" @onclick="ForgetConfiguration">Forget saved configuration</button>
-                    @if (SavedConnectionStorage.Error is not null)
-                    {
-                        <p role="alert">@SavedConnectionStorage.Error</p>
-                    }
+                    <div class="saved-configuration-action">
+                        <RButton Variant="Variant.Outlined" Color="Color.Default" OnClick="ForgetConfiguration">Forget saved configuration</RButton>
+                    </div>
+                    <ErrorNotification Message="@SavedConnectionStorage.Error" />
                 }
                 @if (connectionReady)
                 {
