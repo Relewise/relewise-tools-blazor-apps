@@ -2,6 +2,7 @@
 @using System.Reflection
 @inject NugetClient NugetClient
 @inject NavigationManager NavigationManager
+@inject ILogger<Versions> Logger
 
 <PageTitle>Blazor Relewise - Versions</PageTitle>
 
@@ -12,9 +13,25 @@
     Select a version on the left and the right to compare them.
 </p>
 
-@if (versions.Count is 0)
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger" role="alert">
+        <p>@errorMessage</p>
+        <button class="btn btn-primary" @onclick="Retry">Retry</button>
+    </div>
+    return;
+}
+
+@if (loadingVersions)
 {
     <text>Loading Versions ...</text>
+    return;
+}
+
+@if (versions.Count is 0)
+{
+    <p>No SDK versions are currently available.</p>
+    <button class="btn btn-primary" @onclick="LoadVersions">Retry</button>
     return;
 }
 
@@ -209,6 +226,9 @@ else
 @code {
     private List<NugetClient.PackageVersion> versions = new();
     private bool selectingVersions = true;
+    private bool loadingVersions = true;
+    private string? errorMessage;
+    private bool comparisonFailed;
 
     public bool ReadyToCompare => LeftVersion is not null && RightVersion is not null;
 
@@ -228,7 +248,31 @@ else
     [SupplyParameterFromQuery(Name = "compareToPreviousVersion")]
     public string? CompareToPreviousVersion { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadVersions();
+
+    private async Task LoadVersions()
+    {
+        errorMessage = null;
+        comparisonFailed = false;
+        loadingVersions = true;
+        try
+        {
+            await InitializeVersions();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Failed to load SDK versions from the Relewise CDN.");
+            errorMessage = "Could not load SDK versions from the Relewise CDN. Check your connection and try again.";
+        }
+        finally
+        {
+            loadingVersions = false;
+        }
+    }
+
+    private Task Retry() => comparisonFailed ? Compare() : LoadVersions();
+
+    private async Task InitializeVersions()
     {
         versions = await NugetClient.Versions("Relewise.Client");
 
@@ -263,6 +307,23 @@ else
     }
 
     private async Task Compare()
+    {
+        errorMessage = null;
+        comparisonFailed = false;
+        try
+        {
+            await CompareVersions();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Failed to compare SDK versions {FromVersion} and {ToVersion}.", LeftVersion, RightVersion);
+            Reset();
+            comparisonFailed = true;
+            errorMessage = "Could not compare the selected SDK versions. Check your connection and try again.";
+        }
+    }
+
+    private async Task CompareVersions()
     {
         selectingVersions = false;
         StateHasChanged();
