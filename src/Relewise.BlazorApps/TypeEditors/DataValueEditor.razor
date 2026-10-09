@@ -1,4 +1,4 @@
-﻿
+
 
 <details class="box" open="@OpenDetails">
     <summary>
@@ -38,7 +38,7 @@
                 {
                     <ErrorBoundary>
                         <ChildContent>
-                            <DynamicComponent Type="@editor.EditorType(dataValueEnumTypesToTypes[Value!.Type])" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails,  ["Value"] = Value.Value, ["Setter"] = (object? obj) => { Value.Value = obj; Setter(Value); } })" />
+                            <DynamicComponent Type="@editor.EditorType(dataValueEnumTypesToTypes[Value!.Type])" Parameters="@(Settings.WithNumericNullability(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails,  ["Value"] = Value.Value, ["Setter"] = (object? obj) => { Value.Value = obj; Setter(Value); } }, dataValueEnumTypesToTypes[Value!.Type]))" />
                         </ChildContent>
                         <ErrorContent>
                             <code>Failed to initialize editor part for @dataValueEnumTypesToTypes[Value!.Type].ToString()</code>

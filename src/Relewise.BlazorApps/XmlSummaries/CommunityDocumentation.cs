@@ -17,7 +17,7 @@ public class CommunityDocumentation(List<CommunityDocumentationEntry> entries)
 
     public string? GetSummary(string endsWith)
     {
-        if (entries.FirstOrDefault(kvp => kvp.Name.ToLower().EndsWith(endsWith.ToLower())) is
+        if (entries.FirstOrDefault(kvp => kvp.Name.EndsWith(endsWith, StringComparison.OrdinalIgnoreCase)) is
             { Name: { } matchingKey, Summary: { Length: > 0 } matchingSummary })
         {
             return matchingSummary[0..1].ToUpper() + matchingSummary[1..];

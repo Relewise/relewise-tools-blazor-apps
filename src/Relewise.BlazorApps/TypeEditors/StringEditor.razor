@@ -1,21 +1,13 @@
-﻿@if (Value is null)
-{
-    @if (!ReadOnly)
-    {
-        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new string</button>
-    }
-}
-else
-{
-    <div class="input-container">
-        <input disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
-        @if (!ReadOnly)
-        {
-            <button class="btn btn-outline-danger btn-sm" @onclick=@(() => { Value = null; Setter(null); })><nobr>Set to NULL</nobr></button>
-        }
-    </div>
-}
+@using Relewise.BlazorApps.Components
+
+<RTextField Value="@Value" ValueChanged="UpdateValue" Label="@Label" Placeholder="<NULL>"
+            Clearable="@(!ReadOnly)" ReadOnly="ReadOnly" Disabled="ReadOnly"
+            Immediate="true" FullWidth="true" />
+
 @code {
+    [Parameter]
+    public string? Label { get; set; }
+
     [Parameter]
     public bool ReadOnly { get; set; } = false;
 
@@ -31,9 +23,10 @@ else
     [Parameter]
     public Type[] AncestorTypes { get; set; } = [];
 
-    public void Create()
+    private void UpdateValue(string? value)
     {
-        Value = "";
+        if (ReadOnly) return;
+        Value = string.IsNullOrEmpty(value) ? null : value;
         Setter(Value);
     }
 }

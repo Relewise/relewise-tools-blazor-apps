@@ -5,6 +5,7 @@ using Microsoft.JSInterop;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Relewise.Client;
+using Relewise.Client.DataTypes;
 using System.IO.Compression;
 using System.Reflection;
 
@@ -14,6 +15,9 @@ namespace Relewise.BlazorApps.TypeEditors
     {
         [Inject] public required ISnackbar Snackbar { get; set; }
         private bool hasBeenOpen;
+        private bool openCreatedValue;
+        private bool typeMenuOpen;
+        private bool IsTopLevel => AncestorTypes.Length == 0;
         private object? emptyInstanceOfValue;
         private Type? emptyInstanceType;
         private List<Type> derivedTypes = new();
@@ -22,6 +26,8 @@ namespace Relewise.BlazorApps.TypeEditors
             .ToArray());
         private Type selectedCreateType = typeof(T);
         private XmlDocumentation? xmlDocumentation;
+        private XmlDocumentation? typeTitleDocumentation;
+        private readonly Dictionary<Type, string> typeTitles = new();
         private CommunityDocumentation? communityDocumentation;
 
         [Parameter]
@@ -35,6 +41,9 @@ namespace Relewise.BlazorApps.TypeEditors
 
         [Parameter]
         public bool SingleLevelOpenDetails { get; set; } = false;
+
+        [Parameter]
+        public string? InlineHelp { get; set; }
 
         [Parameter, CascadingParameter]
         public bool? HideDefaultValueProperties { get; set; }
@@ -123,6 +132,60 @@ namespace Relewise.BlazorApps.TypeEditors
             selectedCreateType = derivedTypes.First(t => t.Name == (string?)eventArgs.Value);
         }
 
+        private void SwitchType(Type type)
+        {
+            selectedCreateType = type;
+            typeMenuOpen = false;
+            Create();
+        }
+
+        private string GetTypeTitle(Type type)
+        {
+            // A failed documentation load can succeed later. Do not retain missing
+            // titles when the documentation instance changes after a retry.
+            if (!ReferenceEquals(typeTitleDocumentation, xmlDocumentation))
+            {
+                typeTitles.Clear();
+                typeTitleDocumentation = xmlDocumentation;
+            }
+
+            if (!typeTitles.TryGetValue(type, out var title))
+            {
+                title = xmlDocumentation?.GetSummary(type) ?? "";
+                typeTitles.Add(type, title);
+            }
+
+            return title;
+        }
+
+        private static bool IsInlineValueType(Type type) => type == typeof(Language) || type == typeof(Currency);
+
+        private Type InlineValueType => Value?.GetType() ?? typeof(T);
+
+        private string? InlineValue => Value switch
+        {
+            Language language => language.Value,
+            Currency currency => currency.Value,
+            _ => null
+        };
+
+        private void UpdateInlineValue(object? value)
+        {
+            if (ReadOnly) return;
+            try
+            {
+                bool isCurrency = InlineValueType == typeof(Currency);
+                Value = value is string text && !string.IsNullOrWhiteSpace(text)
+                    ? isCurrency ? (object)new Currency(text) : new Language(text)
+                    : null;
+                Setter(Value);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
+        }
+
         public void Create()
         {
             try
@@ -131,6 +194,8 @@ namespace Relewise.BlazorApps.TypeEditors
                 Value = editor.InitValue(selectedCreateType);
                 emptyInstanceOfValue = editor.InitValue(selectedCreateType);
                 emptyInstanceType = selectedCreateType;
+                hasBeenOpen = true;
+                openCreatedValue = true;
                 Setter(Value);
             }
             catch (Exception ex)

@@ -32,12 +32,10 @@ else
     @if (isExpanded && IsActive)
     {
         <div style="margin:5px;">
-            <h3>@RequestTitle</h3>
             <ObjectEditor
                 OpenDetails=false
                 SingleLevelOpenDetails=true
                 T=SearchRequest
-                AllowedDerivedTypes="[RequestType]"
                 Value="Request"
                 ShowModelShareLink="true"
                 Setter="(object? obj) => { Request = (SearchRequest?)obj; State.Request = Request; try { RequestExplorer.SaveInLocalStorage(JSRuntime, obj); } catch (Exception ex) { Snackbar.Add(ex.GetBaseException().Message, Severity.Error); } response = null; StateHasChanged(); }" />

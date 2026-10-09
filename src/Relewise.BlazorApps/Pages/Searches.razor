@@ -36,10 +36,19 @@
     <RTextField Label="Search" @bind-Value="SearchTerm" @bind-Value:after="Search"
                 Immediate="true" DebounceInterval="250" Clearable="true" FullWidth="true" />
 </div>
-<div class="recommendation-workspace" @ref="workspaceElement">
+<div class="recommendation-workspace @(navigationOpen ? null : "navigation-collapsed")" @ref="workspaceElement">
     <MudPaper Outlined="true" Elevation="0" Class="recommendation-navigation">
+        <div class="content-navigation-toolbar">
+            <RIconButton Icon="@(navigationOpen ? Icons.Material.Filled.ChevronLeft : Icons.Material.Filled.ChevronRight)"
+                         ToolTip="@(navigationOpen ? "Collapse content sidebar" : "Expand content sidebar")"
+                         aria-label="@(navigationOpen ? "Collapse content sidebar" : "Expand content sidebar")"
+                         aria-expanded="@(navigationOpen ? "true" : "false")" aria-controls="content-navigation-menu"
+                         OnClick="() => navigationOpen = !navigationOpen" />
+        </div>
+        <div id="content-navigation-menu" class="content-navigation-menu" hidden="@(!navigationOpen)">
         <RequestNavigation Groups="groupings" Selected="selectedSearch" Name="SearchName"
                            OnSelected="selection => selectedSearch = selection.Request" />
+        </div>
     </MudPaper>
     <MudPaper Outlined="true" Elevation="0" Class="recommendation-content pa-4">
         @if (selectedSearch is { } search)
@@ -64,6 +73,7 @@
     </MudPaper>
 </div>
 @code {
+    private bool navigationOpen = true;
     private Searcher? searcher;
     private Dictionary<string, List<Type>> groupings = new();
     private readonly Dictionary<Type, SearchRequest> initValues = new();

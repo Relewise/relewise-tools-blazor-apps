@@ -47,8 +47,16 @@
     }
 </div>
 
-<div class="recommendation-workspace" @ref="workspaceElement">
+<div class="recommendation-workspace @(navigationOpen ? null : "navigation-collapsed")" @ref="workspaceElement">
     <MudPaper Outlined="true" Elevation="0" Class="recommendation-navigation">
+        <div class="content-navigation-toolbar">
+            <RIconButton Icon="@(navigationOpen ? Icons.Material.Filled.ChevronLeft : Icons.Material.Filled.ChevronRight)"
+                         ToolTip="@(navigationOpen ? "Collapse content sidebar" : "Expand content sidebar")"
+                         aria-label="@(navigationOpen ? "Collapse content sidebar" : "Expand content sidebar")"
+                         aria-expanded="@(navigationOpen ? "true" : "false")" aria-controls="content-navigation-menu"
+                         OnClick="() => navigationOpen = !navigationOpen" />
+        </div>
+        <div id="content-navigation-menu" class="content-navigation-menu" hidden="@(!navigationOpen)">
         <MudNavMenu Dense="true" Style="height: 100%; overflow-y: auto;">
             <Virtualize Items="menuTypes" Context="type" ItemSize="31">
                 <MudNavLink OnClick="() => selectedModel = type"
@@ -58,6 +66,7 @@
                 </MudNavLink>
             </Virtualize>
         </MudNavMenu>
+        </div>
     </MudPaper>
     <MudPaper Outlined="true" Elevation="0" Class="recommendation-content pa-4">
         @if (selectedModel is { } selected)
@@ -79,6 +88,7 @@
     </MudPaper>
 </div>
 @code {
+    private bool navigationOpen = true;
     private Type? selectedModel;
     private List<Type> menuTypes = [];
     private readonly Dictionary<Type, ModelEditor.EditorState> editorStates = new();

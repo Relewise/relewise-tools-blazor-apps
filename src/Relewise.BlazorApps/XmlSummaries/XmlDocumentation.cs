@@ -23,7 +23,7 @@ public class XmlDocumentation
 
     public string? GetSummary(string endsWith)
     {
-        if (Summaries.FirstOrDefault(kvp => kvp.Key.ToLower().EndsWith(endsWith.ToLower())) is
+        if (Summaries.FirstOrDefault(kvp => kvp.Key.EndsWith(endsWith, StringComparison.OrdinalIgnoreCase)) is
             { Key: { } matchingKey, Value: { Length: > 0 } matchingSummary })
         {
             return matchingSummary[0..1].ToUpper() + matchingSummary[1..];

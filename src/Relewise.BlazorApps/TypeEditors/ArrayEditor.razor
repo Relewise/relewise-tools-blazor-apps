@@ -29,7 +29,7 @@ else
                     };
                     <ErrorBoundary>
                         <ChildContent>
-                            <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="@parameters" />
+                            <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="@Settings.WithNumericNullability(parameters, typeof(T))" />
                         </ChildContent>
                         <ErrorContent>
                             <code>Failed to initialize editor part for @Settings.Name(typeof(T))</code>

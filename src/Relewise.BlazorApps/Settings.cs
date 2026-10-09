@@ -473,5 +473,14 @@ public static class Settings
         return name;
     }
 
+    public static Dictionary<string, object> WithNumericNullability(Dictionary<string, object> parameters, Type valueType)
+    {
+        var numericType = Nullable.GetUnderlyingType(valueType) ?? valueType;
+        if (numericType == typeof(int) || numericType == typeof(double) || numericType == typeof(decimal)
+            || numericType == typeof(ushort) || numericType == typeof(byte))
+            parameters["AllowNull"] = Nullable.GetUnderlyingType(valueType) is not null;
+        return parameters;
+    }
+
     public static IEnumerable<PropertyInfo> GetProperties(Type type) => type.GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "DatasetId" and not "APIKeySecret");
 }

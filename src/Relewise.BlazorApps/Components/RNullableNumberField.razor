@@ -1,0 +1,20 @@
+@using MudBlazor
+@typeparam T where T : struct
+
+<MudNumericField T="T?" Value="Value" ValueChanged="UpdateValue" Label="@Label"
+                 Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true"
+                 Immediate="true" HideSpinButtons="false" Disabled="ReadOnly"
+                 Clearable="@(AllowNull && !ReadOnly)" Required="@(!AllowNull)"
+                 Placeholder="@(AllowNull ? "<NULL>" : null)" />
+
+@code {
+    [Parameter] public T? Value { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public EventCallback<T?> ValueChanged { get; set; }
+    [Parameter] public bool AllowNull { get; set; } = true;
+    [Parameter] public bool ReadOnly { get; set; }
+
+    private Task UpdateValue(T? value) => !ReadOnly && (AllowNull || value.HasValue)
+        ? ValueChanged.InvokeAsync(value)
+        : Task.CompletedTask;
+}

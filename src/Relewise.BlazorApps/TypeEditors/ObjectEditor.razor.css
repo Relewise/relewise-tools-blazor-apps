@@ -1,4 +1,4 @@
-﻿.box {
+.box {
     border: 1px solid var(--color-blue-light);
     border-radius: 5px;
     flex: 1;
@@ -6,6 +6,41 @@
 
 .box-invalid {
     border: 1px solid var(--color-gray);
+}
+
+.object-top-level {
+    border-color: var(--mud-palette-lines-default);
+}
+
+.object-top-level-header {
+    background: transparent;
+    padding: 8px;
+}
+
+.object-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+}
+
+.object-header-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 500;
+}
+
+.object-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.object-header-warning {
+    display: block;
+    margin-top: 4px;
 }
 
 .two-column-grid {
@@ -30,5 +65,32 @@ summary {
     flex-direction: row;
     flex: 1 0;
     grid-gap: 5px;
+}
+
+.inline-value-field {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+}
+
+.inline-value-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.inline-value-copy {
+    margin-top: 4px;
+}
+
+.inline-value-field ::deep .inline-value-tooltip {
+    width: 100%;
+}
+
+.inline-value-label {
+    display: flex;
+    align-items: center;
+    padding-top: 4px;
 }
 

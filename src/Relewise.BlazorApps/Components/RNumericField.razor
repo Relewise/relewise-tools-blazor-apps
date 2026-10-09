@@ -10,6 +10,8 @@
                  Class="@Class"
                  Style="@Style"
                  HideSpinButtons="@HideSpinButtons"
+                 Immediate="@Immediate"
+                 FullWidth="@FullWidth"
                  Required="@Required"
                  ValueChanged="@ValueChanged"
                  Disabled="@Disabled"
@@ -45,6 +47,10 @@
     [Parameter] public bool Required { get; set; }
 
     [Parameter] public bool HideSpinButtons { get; set; }
+
+    [Parameter] public bool Immediate { get; set; }
+
+    [Parameter] public bool FullWidth { get; set; }
 
     [Parameter] public Expression<Func<int>>? For { get; set; }
 

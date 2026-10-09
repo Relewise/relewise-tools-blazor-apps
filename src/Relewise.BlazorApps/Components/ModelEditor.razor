@@ -61,8 +61,7 @@
                     StateHasChanged();
                 }
             };
-            if (editorType == typeof(ByteEditor) && Nullable.GetUnderlyingType(ModelType) == typeof(byte))
-                parameters["AllowNull"] = true;
+            Settings.WithNumericNullability(parameters, ModelType);
             if (editorType.IsConstructedGenericType && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>))
             {
                 parameters["ShowModelShareLink"] = true;

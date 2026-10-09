@@ -1,23 +1,34 @@
-@if (Value is null)
+@using Relewise.BlazorApps.Components
+
+@if (AllowNull)
 {
-    <div>
-        <code>&lt;NULL&gt;</code>
-        @if (!ReadOnly)
-        {
-            <text>&nbsp;</text>
-            <button class="btn btn-outline-success btn-sm" @onclick=SetToZero>Set to 0</button>
-        }
-    </div>
+    <RNullableNumberField T="byte" Value="Value"
+                      ValueChanged="value => { Value = value; Setter(value); }"
+                      AllowNull="AllowNull" ReadOnly="ReadOnly" />
 }
 else
 {
-    <div class="input-container">
-        <input type="number" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
-        @if (!ReadOnly && AllowNull)
-        {
-            <button class="btn btn-outline-danger btn-sm" @onclick=SetToNull><nobr>Set to NULL</nobr></button>
-        }
-    </div>
+    @if (Value is null)
+    {
+        <div>
+            <code>&lt;NULL&gt;</code>
+            @if (!ReadOnly)
+            {
+                <text>&nbsp;</text>
+                <button class="btn btn-outline-success btn-sm" @onclick=SetToZero>Set to 0</button>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="input-container">
+            <input type="number" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
+            @if (!ReadOnly && AllowNull)
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick=SetToNull><nobr>Set to NULL</nobr></button>
+            }
+        </div>
+    }
 }
 
 @code {

@@ -13,6 +13,11 @@
         @if (!IsEmbedded)
         {
             <MudAppBar Elevation="0" Dense="true">
+                <RIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
+                             ToolTip="@(mainNavigationOpen ? "Collapse main sidebar" : "Expand main sidebar")"
+                             aria-label="@(mainNavigationOpen ? "Collapse main sidebar" : "Expand main sidebar")"
+                             aria-expanded="@(mainNavigationOpen ? "true" : "false")" aria-controls="tool-navigation"
+                             OnClick="() => mainNavigationOpen = !mainNavigationOpen" />
                 <a class="app-brand" href="" aria-label="Relewise: Blazor Apps">
                     <img src="images/relewise-logo-white.svg" alt="Relewise" />
                 </a>
@@ -23,7 +28,7 @@
 
         @if (!IsEmbedded)
         {
-            <MudDrawer Open="true" Variant="DrawerVariant.Persistent"
+            <MudDrawer @bind-Open="mainNavigationOpen" Variant="DrawerVariant.Persistent"
                        ClipMode="DrawerClipMode.Always" Elevation="0" Class="app-drawer" id="tool-navigation">
                 <NavMenu />
             </MudDrawer>
@@ -54,6 +59,7 @@
 </div>
 
 @code {
+    private bool mainNavigationOpen = true;
     private bool connectionRestored;
     private bool connectionReady = !SavedConnectionStorage.Enabled;
     private bool IsEmbedded => StaticDatasetStorage.ParentOrigin is not null;

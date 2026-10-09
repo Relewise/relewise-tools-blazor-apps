@@ -1,4 +1,4 @@
-﻿@typeparam TKey where TKey : notnull
+@typeparam TKey where TKey : notnull
 @typeparam TValue
 
 @if (Value is null)
@@ -23,7 +23,7 @@ else
                     {
                         <ErrorBoundary>
                             <ChildContent>
-                                <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = localKey, ["Setter"] = (object? obj) => { Value[(TKey)obj] = Value[(TKey)localKey]; Value.Remove((TKey)localKey); localKey = (TKey)obj; } })" />
+                                <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="@(Settings.WithNumericNullability(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = localKey, ["Setter"] = (object? obj) => { Value[(TKey)obj] = Value[(TKey)localKey]; Value.Remove((TKey)localKey); localKey = (TKey)obj; } }, typeof(TKey)))" />
                             </ChildContent>
                             <ErrorContent>
                                 <code>Failed to initialize editor part for @Settings.Name(typeof(TKey))</code>
@@ -46,7 +46,7 @@ else
                     };
                     <ErrorBoundary>
                         <ChildContent>
-                            <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="parameters" />
+                            <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="@Settings.WithNumericNullability(parameters, typeof(TValue))" />
                         </ChildContent>
                         <ErrorContent>
                             <code>Failed to initialize editor part for @Settings.Name(typeof(TValue))</code>

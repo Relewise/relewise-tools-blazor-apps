@@ -16,6 +16,67 @@ namespace Relewise.BlazorApps.Tests;
 public class EditorTests
 {
     [TestMethod]
+    public void LanguageCanBeEnteredAndClearedWithoutCreatingAnObjectFirst()
+    {
+        using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
+        context.Services.AddSingleton<DocumentationCache>();
+        object? result = null;
+        var component = context.Render<ObjectEditor<Relewise.Client.DataTypes.Language>>(p => p
+            .Add(c => c.Value, null)
+            .Add(c => c.Setter, value => result = value));
+
+        Assert.AreEqual(0, component.FindAll("details").Count);
+        Assert.AreEqual(1, component.FindAll("button[aria-label='Copy Language as JSON']").Count);
+        component.Find("input").Input("en-gb");
+        Assert.AreEqual("en-gb", ((Relewise.Client.DataTypes.Language)result!).Value);
+        component.Find("input").Input("");
+        Assert.IsNull(result);
+    }
+
+    [TestMethod]
+    public void CurrencyCanBeEnteredAndClearedWithoutCreatingAnObjectFirst()
+    {
+        using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
+        context.Services.AddSingleton<DocumentationCache>();
+        object? result = null;
+        var component = context.Render<ObjectEditor<Relewise.Client.DataTypes.Currency>>(p => p
+            .Add(c => c.Value, null)
+            .Add(c => c.Setter, value => result = value));
+
+        Assert.AreEqual(0, component.FindAll("details").Count);
+        Assert.AreEqual(1, component.FindAll("button[aria-label='Copy Currency as JSON']").Count);
+        component.Find("input").Input("EUR");
+        Assert.AreEqual("EUR", ((Relewise.Client.DataTypes.Currency)result!).Value);
+        component.Find("input").Input("");
+        Assert.IsNull(result);
+    }
+
+    [TestMethod]
+    public void CreatingComplexObjectOpensOnlyTheCreatedLevel()
+    {
+        using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
+        context.Services.AddSingleton<DocumentationCache>();
+        var component = context.Render<ObjectEditor<ProductSearchSettings>>(p => p
+            .Add(c => c.Value, null)
+            .Add(c => c.AncestorTypes, [typeof(SearchRequest)])
+            .Add(c => c.Setter, _ => { }));
+
+        component.Find("button").Click();
+        Assert.IsTrue(component.Find("details").HasAttribute("open"));
+        Assert.IsTrue(component.FindAll("details details").All(details => !details.HasAttribute("open")));
+        Assert.IsTrue(component.FindAll("input").Count > 0);
+    }
+
+    [TestMethod]
     [DataRow(typeof(VariantSearchRequestSettings))]
     [DataRow(typeof(VariantRecommendationRequestSettings))]
     public void VariantSettingsCanBeCreatedEditedAndCleared(Type type)
@@ -102,15 +163,16 @@ public class EditorTests
     {
         using var context = new BunitContext();
         context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         object? result = (byte)7;
         var component = context.Render<ByteEditor>(parameters => parameters
             .Add(p => p.Value, (byte?)7)
             .Add(p => p.AllowNull, true)
             .Add(p => p.Setter, value => result = value));
-        component.Find("button").Click();
+        component.Find("input").Input("");
         Assert.IsNull(result);
-        Assert.AreEqual(0, component.FindAll("input").Count);
-        component.Find("button").Click();
+        Assert.AreEqual(1, component.FindAll("input").Count);
+        component.Find("input").Input("0");
         Assert.AreEqual((byte)0, result);
         Assert.AreEqual("0", component.Find("input").GetAttribute("value"));
     }
@@ -120,12 +182,13 @@ public class EditorTests
     {
         using var context = new BunitContext();
         context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var component = context.Render<ByteEditor>(parameters => parameters
             .Add(p => p.Value, (byte?)7)
             .Add(p => p.AllowNull, true)
             .Add(p => p.ReadOnly, true)
             .Add(p => p.Setter, _ => Assert.Fail("Read-only editor invoked setter.")));
-        Assert.AreEqual(0, component.FindAll("button").Count);
+        Assert.IsTrue(component.FindComponent<MudBlazor.MudNumericField<byte?>>().Instance.Disabled);
         Assert.IsTrue(component.Find("input").HasAttribute("disabled"));
     }
 
@@ -134,12 +197,118 @@ public class EditorTests
     {
         using var context = new BunitContext();
         context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         object? result = null;
         var component = context.Render<DoubleEditor>(parameters => parameters
             .Add(p => p.Value, 42L)
             .Add(p => p.Setter, value => result = value));
         component.Find("input").Input("42.5");
         Assert.AreEqual(42.5, result);
+    }
+
+    [TestMethod]
+    [DataRow(typeof(int))]
+    [DataRow(typeof(double))]
+    [DataRow(typeof(decimal))]
+    [DataRow(typeof(ushort))]
+    [DataRow(typeof(byte))]
+    public void OptionalNumericFieldsCanBeEnteredClearedAndSetToZero(Type type)
+    {
+        using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        object? result = null;
+        var editor = Settings.Editors.First(e => e.CanHandle(type));
+        var parameters = Settings.WithNumericNullability(new Dictionary<string, object>
+        {
+            ["Value"] = null!,
+            ["Setter"] = (Action<object?>)(value => result = value)
+        }, typeof(Nullable<>).MakeGenericType(type));
+        var component = context.Render<DynamicComponent>(p => p
+            .Add(c => c.Type, editor.EditorType(type))
+            .Add(c => c.Parameters, parameters));
+
+        component.Find("input").Input("3");
+        Assert.AreEqual(Convert.ChangeType(3, type), result);
+        component.Find("input").Input("");
+        Assert.IsNull(result);
+        component.Find("input").Input("0");
+        Assert.AreEqual(Convert.ChangeType(0, type), result);
+    }
+
+    [TestMethod]
+    public void RequiredIntegerUsesNumericFieldWithoutNullControls()
+    {
+        using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        object? result = 2;
+        var component = context.Render<IntEditor>(p => p
+            .Add(c => c.Value, 2)
+            .Add(c => c.AllowNull, false)
+            .Add(c => c.Setter, value => result = value));
+
+        var field = component.FindComponent<MudBlazor.MudNumericField<int>>().Instance;
+        Assert.IsFalse(field.HideSpinButtons);
+        Assert.IsFalse(field.Clearable);
+        Assert.IsNull(field.Placeholder);
+        component.Find("input").Input("3");
+        Assert.AreEqual(3, result);
+        component.Find("input").Input("");
+        Assert.IsInstanceOfType<int>(result);
+    }
+
+    [TestMethod]
+    public void StringFieldCanBeEditedFromNullAndClearedBackToNull()
+    {
+        using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        object? result = null;
+        var component = context.Render<StringEditor>(p => p
+            .Add(c => c.Value, null)
+            .Add(c => c.Setter, value => result = value));
+
+        Assert.AreEqual("<NULL>", component.Find("input").GetAttribute("placeholder"));
+        Assert.IsTrue(string.IsNullOrEmpty(component.Find("input").GetAttribute("value")));
+        component.Find("input").Input("hello");
+        Assert.AreEqual("hello", result);
+        component.Find("input").Input(" ");
+        Assert.AreEqual(" ", result);
+        component.Find("input").Input("");
+        Assert.IsNull(result);
+        component.Find("input").Input("again");
+        Assert.AreEqual("again", result);
+        component.Find("button").Click();
+        Assert.IsNull(result);
+    }
+
+    [TestMethod]
+    public void StringFieldDisplaysTheSuppliedValue()
+    {
+        using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var component = context.Render<StringEditor>(p => p
+            .Add(c => c.Value, "existing text")
+            .Add(c => c.Setter, _ => { }));
+
+        Assert.AreEqual("existing text", component.Find("input").GetAttribute("value"));
+    }
+
+    [TestMethod]
+    public void ReadOnlyStringHasNoClearControl()
+    {
+        using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var component = context.Render<StringEditor>(p => p
+            .Add(c => c.Value, "hello")
+            .Add(c => c.ReadOnly, true)
+            .Add(c => c.Setter, _ => Assert.Fail("Read-only editor invoked setter.")));
+
+        Assert.IsTrue(component.Find("input").HasAttribute("disabled"));
+        Assert.AreEqual(0, component.FindAll("button").Count);
     }
 
     [TestMethod]

@@ -205,6 +205,15 @@ code {
 }
 
 
+.mud-tooltip,
+.popper {
+    max-width: min(500px, calc(100vw - 32px));
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+    box-sizing: border-box;
+}
+
 .popper {
     background: var(--color-text);
     color: white;

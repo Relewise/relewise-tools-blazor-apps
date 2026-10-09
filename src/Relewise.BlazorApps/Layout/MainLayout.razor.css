@@ -52,6 +52,10 @@
 }
 
 @media (max-width: 599.98px) {
+    .app-shell ::deep .app-drawer.mud-drawer--closed {
+        display: none;
+    }
+
     .app-shell ::deep .app-drawer {
         position: static;
         width: 100%;
