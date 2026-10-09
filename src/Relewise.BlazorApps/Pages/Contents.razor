@@ -1,4 +1,4 @@
-﻿@using KristofferStrube.Blazor.DOM
+@using KristofferStrube.Blazor.DOM
 @using Relewise.BlazorApps.TypeEditors
 @using KristofferStrube.Blazor.Window
 @page "/Content"
@@ -11,7 +11,7 @@
 <p>Here you can get some content using the <code>DataAccessor</code>, then make changes to it, and in the end track the
     changes with the <code>Tracker</code>. You can likewise enable or disable the selected content.</p>
 
-@if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+@if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
     <p>
         First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these

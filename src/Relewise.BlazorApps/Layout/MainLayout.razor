@@ -1,6 +1,7 @@
 @using KristofferStrube.Blazor.DOM
 @using KristofferStrube.Blazor.Window
 @inherits LayoutComponentBase
+@implements IDisposable
 
 <MudThemeProvider Theme="AppTheme.Relewise" IsDarkMode="false" />
 <MudPopoverProvider />
@@ -36,14 +37,40 @@
                 </div>
             }
             <article class="tool-content">
-                @Body
+                @if (!IsEmbedded && SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration)
+                {
+                    <button class="btn btn-secondary btn-sm mb-3" @onclick="ForgetConfiguration">Forget saved configuration</button>
+                    @if (SavedConnectionStorage.Error is not null)
+                    {
+                        <p role="alert">@SavedConnectionStorage.Error</p>
+                    }
+                }
+                @if (connectionReady)
+                {
+                    @Body
+                }
             </article>
         </MudMainContent>
     </MudLayout>
 </div>
 
 @code {
+    private bool connectionRestored;
+    private bool connectionReady = !SavedConnectionStorage.Enabled;
     private bool IsEmbedded => StaticDatasetStorage.ParentOrigin is not null;
+
+    protected override void OnInitialized() => SavedConnectionStorage.Changed += ConnectionChanged;
+
+    private void ConnectionChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => SavedConnectionStorage.Changed -= ConnectionChanged;
+
+    private async Task ForgetConfiguration()
+    {
+        await SavedConnectionStorage.ForgetAsync(JSRuntime);
+        if (SavedConnectionStorage.Error is null)
+            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
 
     [Inject]
     public required NavigationManager NavigationManager { get; set; }
@@ -71,6 +98,12 @@
             StaticDatasetStorage.DatasetId = datasetId;
             NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter("datasetId", (string?)null), false);
         }
+        else if (SavedConnectionStorage.Enabled && !IsEmbedded && !connectionRestored)
+        {
+            connectionRestored = true;
+            await SavedConnectionStorage.RestoreAsync(JSRuntime);
+        }
+        connectionReady = true;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
