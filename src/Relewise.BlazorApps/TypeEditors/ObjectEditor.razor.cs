@@ -4,6 +4,7 @@ using Microsoft.JSInterop;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Relewise.Client;
+using Relewise.Client.Requests;
 using System.IO.Compression;
 using System.Reflection;
 
@@ -11,6 +12,8 @@ namespace Relewise.BlazorApps.TypeEditors
 {
     public partial class ObjectEditor<T> : ComponentBase
     {
+        private const string DisableMerchandisingKey = "Debug_DisableMerchandising";
+
         private bool hasBeenOpen;
         private object? emptyInstanceOfValue;
         private List<Type> derivedTypes = new();
@@ -125,6 +128,24 @@ namespace Relewise.BlazorApps.TypeEditors
         private void RemoveProperty(PropertyInfo propertyInfo)
         {
             propertyInfo.SetValue(Value, null);
+            Setter(Value);
+        }
+
+        private void SetDisableMerchandising(LicensedRequest request, bool disabled)
+        {
+            if (ReadOnly)
+                return;
+
+            if (disabled)
+            {
+                request.Custom ??= new();
+                request.Custom[DisableMerchandisingKey] = "true";
+            }
+            else
+            {
+                request.Custom?.Remove(DisableMerchandisingKey);
+            }
+
             Setter(Value);
         }
 
