@@ -445,7 +445,7 @@ namespace Relewise.BlazorApps.Shared
 
             foreach (var rule in merchandisingRulesRepsonse.Rules)
             {
-                if (!rule.Enabled)
+                if (!rule.Enabled || rule.Status is MerchandisingRule.StatusName.Inactive)
                     continue;
 
                 var contextFilters = rule.Conditions.Context.Filters;
