@@ -9,7 +9,7 @@ else
 {
     <div class="input-container">
         <input disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
-        @if (!ReadOnly)
+        @if (!ReadOnly && AllowNull)
         {
             <button class="btn btn-outline-danger btn-sm" @onclick=@(() => { Value = null; Setter(null); })><nobr>Set to NULL</nobr></button>
         }
@@ -18,6 +18,9 @@ else
 @code {
     [Parameter]
     public bool ReadOnly { get; set; } = false;
+
+    [Parameter]
+    public bool AllowNull { get; set; } = true;
 
     [Parameter]
     public bool OpenDetails { get; set; } = false;
