@@ -1,0 +1,17 @@
+@using MudBlazor
+@inject ISnackbar Snackbar
+
+@code {
+    [Parameter]
+    public string? Message { get; set; }
+
+    private string? previousMessage;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(Message) && Message != previousMessage)
+            Snackbar.Add(Message, Severity.Error);
+
+        previousMessage = Message;
+    }
+}

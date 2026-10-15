@@ -1,216 +1,128 @@
-﻿@page "/Versions"
+@using MudBlazor
+@using Relewise.BlazorApps.Components
+@using Relewise.BlazorApps.Shared
 @using System.Reflection
+@inject ISnackbar Snackbar
 @inject NugetClient NugetClient
 @inject NavigationManager NavigationManager
+@inject ILogger<Versions> Logger
+@page "/Versions"
 
 <PageTitle>Blazor Relewise - Versions</PageTitle>
 
 <h1>Versions</h1>
-<p>
-    Here you can compare different versions of the Relewise SDK to see what features have been added between versions.
-    <br />
-    Select a version on the left and the right to compare them.
-</p>
+<MudText Class="mb-4" Color="Color.Secondary">Compare Relewise SDK releases to see added types, enum values, and property changes.</MudText>
 
-@if (versions.Count is 0)
+@if (errorMessage is not null)
 {
-    <text>Loading Versions ...</text>
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-3">@errorMessage</MudAlert>
+    <RButton OnClick="Retry" Icon="@Icons.Material.Filled.Refresh">Retry</RButton>
+    @if (comparisonFailed)
+    {
+        <RButton Variant="Variant.Outlined" Class="ml-2" OnClick="Reset">Select versions</RButton>
+    }
+    return;
+}
+@if (loadingVersions)
+{
+    <MudStack Spacing="2" Class="py-4">
+        <MudText>Loading SDK versions…</MudText>
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    </MudStack>
+    return;
+}
+@if (versions.Count == 0)
+{
+    <MudAlert Severity="Severity.Info" Class="mb-3">No SDK versions are currently available.</MudAlert>
+    <RButton OnClick="LoadVersions" Icon="@Icons.Material.Filled.Refresh">Retry</RButton>
     return;
 }
 
 @if (selectingVersions)
 {
-    <center>
-        <button style="width:200px;" class="btn @(ReadyToCompare ? "btn-success" : "btn-secondary")" disabled="@(!ReadyToCompare)" @onclick=Compare>Compare!</button>
-    </center>
-    <br />
-    <div style="display:flex;flex-direction:row;">
-        <div class="list">
-            @foreach (var version in versions)
-            {
-                <div @onclick="() => LeftVersion = version.Version" style="@(version.Version == LeftVersion ? "background-color:lightBlue" : "")">
-                    @version.Version
-                    <small>&nbsp;(@version.Published.ToString("d"))</small>
-                </div>
-            }
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4">
+        <div class="version-selectors">
+            <MudAutocomplete T="string" Label="From version" @bind-Value="LeftVersion" SearchFunc="FindVersions"
+                             Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Clearable="true"
+                             HelperText="@PublishedOn(LeftVersion)" MaxItems="50" ResetValueOnEmptyText="true" Strict="false">
+                <ItemTemplate Context="version">
+                    <div class="version-option"><span>@version</span><span>@PublishedOn(version)</span></div>
+                </ItemTemplate>
+            </MudAutocomplete>
+            <MudAutocomplete T="string" Label="To version" @bind-Value="RightVersion" SearchFunc="FindVersions"
+                             Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Clearable="true"
+                             HelperText="@PublishedOn(RightVersion)" MaxItems="50" ResetValueOnEmptyText="true" Strict="false">
+                <ItemTemplate Context="version">
+                    <div class="version-option"><span>@version</span><span>@PublishedOn(version)</span></div>
+                </ItemTemplate>
+            </MudAutocomplete>
+            <RButton OnClick="Compare" Disabled="@(!ReadyToCompare)" Variant="Variant.Outlined"
+                     Icon="@Icons.Material.Filled.CompareArrows" Size="Size.Medium" Class="version-compare-button">Compare selected versions</RButton>
         </div>
-        <div class="list">
-            @foreach (var version in versions)
-            {
-                <div @onclick="() => RightVersion = version.Version" style="@(version.Version == RightVersion ? "background-color:lightBlue" : "")">
-                    @version.Version
-                    <small>&nbsp;(@version.Published.ToString("d"))</small>
-                </div>
-            }
-        </div>
-    </div>
+    </MudPaper>
 }
 else
 {
-    <center>
-        <h2>
-            <div style="display:flex;flex-direction:column;">
-                <div>
-                    Comparing
-                </div>
-                <div style="display:grid;grid-template-columns:1fr auto 1fr">
-                    <div style="display:flex;flex-direction:row;justify-content:right;">
-                        <div style="display:flex;flex-direction:column;padding-right:20px;">
-                            <code>@LeftVersion</code>
-                            <span style="font-size:medium;">(@(VersionTime(LeftVersion).ToString("d")))</span>
-                        </div>
-                    </div>
-                    <div>
-                        ⇒
-                    </div>
-                    <div style="display:flex;flex-direction:row;justify-content:left;">
-                        <div style="display:flex;flex-direction:column;padding-left:20px;">
-                            <code>@RightVersion</code>
-                            <span style="font-size:medium;">(@(VersionTime(RightVersion).ToString("d")))</span>
-                        </div>
-                    </div>
-                </div>
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4 mb-4">
+        <div class="comparison-heading">
+            <div class="comparison-versions">
+                <div><MudText Typo="Typo.overline">From</MudText><MudText Typo="Typo.h6">@LeftVersion</MudText><MudText Typo="Typo.caption" Color="Color.Secondary">@PublishedOn(LeftVersion)</MudText></div>
+                <RIcon Icon="@Icons.Material.Filled.ArrowForward" />
+                <div><MudText Typo="Typo.overline">To</MudText><MudText Typo="Typo.h6">@RightVersion</MudText><MudText Typo="Typo.caption" Color="Color.Secondary">@PublishedOn(RightVersion)</MudText></div>
             </div>
-        </h2>
-        <button style="width:200px;" class="btn btn-secondary btn-sm" @onclick=Reset>Select New Versions</button>
-        <br />
-    </center>
-    <br />
-
-    <hr />
-    <details open>
-        <summary style="font-size:xx-large">
-            Enums with added values (@(changedEnums?.Count ?? 0))
-        </summary>
-        @if (changedEnums is null)
-        {
-            <p>Loading changed enums ...</p>
-        }
-        else
-        {
-            if (changedEnums.Count == 0)
-            {
-                <p>There were no changed enums between these versions.</p>
-            }
-            @foreach ((Type type, var values) in changedEnums)
-            {
-                <h4>@Settings.Name(type)</h4>
-                <ul>
-                    @foreach (var value in values)
-                    {
-                        <li style="color:green;">@value</li>
-                    }
-                </ul>
-            }
-        }
-    </details>
-
-    <hr />
-    <details open>
-        <summary style="font-size:xx-large">
-            Enums types that were added (@(addedEnums?.Count ?? 0))
-        </summary>
-        @if (addedEnums is null)
-        {
-            <p>Loading added enums ...</p>
-        }
-        else
-        {
-            if (addedEnums.Count == 0)
-            {
-                <p>There were no added enums between these versions.</p>
-            }
-            @foreach (Type type in addedEnums)
-            {
-                <h4 style="color:green;">@Settings.Name(type)</h4>
-            }
-        }
-    </details>
-
-    <hr />
-    <details open>
-        <summary style="font-size:xx-large">
-            Types with changed properties (@(changedProperties?.Count ?? 0))
-        </summary>
-        @if (changedProperties is null)
-        {
-            <p>Loading changed properties ...</p>
-        }
-        else
-        {
-            if (changedProperties.Count == 0)
-            {
-                <p>There were no properties that were changed between these versions.</p>
-            }
-            @foreach ((Type type, var properties) in changedProperties)
-            {
-                <h4>@Settings.Name(type)</h4>
-                <ul>
-                    @foreach (var property in properties)
-                    {
-                        <li>@property.Name : <s style="color:red;">@property.OldType</s> <span style="color:green;">@property.NewType</span></li>
-                    }
-                </ul>
-            }
-        }
-    </details>
-
-    <hr />
-    <details open>
-        <summary style="font-size:xx-large">
-            Types with added properties (@(addedProperties?.Count ?? 0))
-        </summary>
-        @if (addedProperties is null)
-        {
-            <p>Loading added properties ...</p>
-        }
-        else
-        {
-            if (addedProperties.Count == 0)
-            {
-                <p>There were no added properties between these versions.</p>
-            }
-            @foreach ((Type type, var properties) in addedProperties)
-            {
-                <h4>@Settings.Name(type)</h4>
-                <ul>
-                    @foreach (var property in properties)
-                    {
-                        <li style="color:green;">@property.Name : @Settings.PropertyTypeName(property)</li>
-                    }
-                </ul>
-            }
-        }
-    </details>
-
-    <hr />
-    <details open>
-        <summary style="font-size:xx-large">
-            Added Types (@(addedTypes?.Count ?? 0))
-        </summary>
-        @if (addedTypes is null)
-        {
-            <p>Loading added types ...</p>
-        }
-        else
-        {
-            if (addedTypes.Count == 0)
-            {
-                <p>There were no added types between these versions.</p>
-            }
-            @foreach (Type type in addedTypes)
-            {
-                <h4 style="color:green;">@Settings.Name(type)</h4>
-            }
-        }
-    </details>
+            <RButton Variant="Variant.Outlined" OnClick="Reset" Disabled="comparing">Select versions</RButton>
+        </div>
+    </MudPaper>
+    @if (comparing)
+    {
+        <MudStack Spacing="2" Class="py-4">
+            <MudText>@comparisonStatus</MudText>
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        </MudStack>
+    }
+    else
+    {
+        <MudText Class="mb-3" Color="Color.Secondary">@TotalChanges @(TotalChanges == 1 ? "change" : "changes") found. Expand a section to explore the details.</MudText>
+        <MudExpansionPanels MultiExpansion="true" Dense="true" Elevation="0" Outlined="true">
+            <VersionChangesPanel Title="Added types" Rows="AddedTypeRows" />
+            <VersionChangesPanel Title="Added enum types" Rows="AddedEnumRows" />
+            <VersionChangesPanel Title="Added enum values" Rows="EnumValueRows" ShowMember="true" MemberTitle="Added value" />
+            <VersionChangesPanel Title="Added properties" Rows="AddedPropertyRows" ShowMember="true" ShowCurrent="true" />
+            <VersionChangesPanel Title="Changed property types" Rows="ChangedPropertyRows" ShowMember="true" ShowPrevious="true" ShowCurrent="true" CurrentTitle="New type" />
+        </MudExpansionPanels>
+    }
 }
 
 @code {
     private List<NugetClient.PackageVersion> versions = new();
     private bool selectingVersions = true;
+    private bool loadingVersions = true;
+    private string? errorMessage;
+    private bool comparisonFailed;
+    private bool comparing;
+    private string comparisonStatus = "Preparing comparison…";
 
-    public bool ReadyToCompare => LeftVersion is not null && RightVersion is not null;
+    public bool ReadyToCompare => versions.Any(version => version.Version == LeftVersion)
+        && versions.Any(version => version.Version == RightVersion);
+
+    private NugetClient.PackageVersion[] LatestReleases => versions.Where(version => !version.Version.Contains('-'))
+        .OrderByDescending(version => version.Published).Take(2).ToArray();
+
+    private Task<IEnumerable<string>> FindVersions(string text, CancellationToken cancellationToken)
+        => Task.FromResult(versions.Where(version => string.IsNullOrWhiteSpace(text)
+            || version.Version.Contains(text, StringComparison.OrdinalIgnoreCase)).Select(version => version.Version));
+
+    private string PublishedOn(string? version) => versions.FirstOrDefault(item => item.Version == version) is { } match
+        ? $"Published {match.Published:d MMM yyyy}" : "";
+
+    private IReadOnlyList<VersionChangeRow> AddedTypeRows => addedTypes?.Select(type => new VersionChangeRow(Settings.Name(type))).ToArray() ?? [];
+    private IReadOnlyList<VersionChangeRow> AddedEnumRows => addedEnums?.Select(type => new VersionChangeRow(Settings.Name(type))).ToArray() ?? [];
+    private IReadOnlyList<VersionChangeRow> EnumValueRows => changedEnums?.SelectMany(item => item.Item2.Select(value => new VersionChangeRow(Settings.Name(item.Item1), value))).ToArray() ?? [];
+    private IReadOnlyList<VersionChangeRow> AddedPropertyRows => addedProperties?.SelectMany(item => item.PropertiesAdded.Select(property => new VersionChangeRow(Settings.Name(item.Type), property.Name, Current: Settings.PropertyTypeName(property)))).ToArray() ?? [];
+    private IReadOnlyList<VersionChangeRow> ChangedPropertyRows => changedProperties?.SelectMany(item => item.PropertiesChanged.Select(property => new VersionChangeRow(Settings.Name(item.Type), property.Name, property.OldType, property.NewType))).ToArray() ?? [];
+    private int TotalChanges => (addedTypes?.Count ?? 0) + (addedEnums?.Count ?? 0)
+        + (changedEnums?.Sum(item => item.Item2.Count) ?? 0) + (addedProperties?.Sum(item => item.PropertiesAdded.Count) ?? 0)
+        + (changedProperties?.Sum(item => item.PropertiesChanged.Count) ?? 0);
 
     List<Type>? addedEnums;
     List<(Type, List<string>)>? changedEnums;
@@ -228,7 +140,32 @@ else
     [SupplyParameterFromQuery(Name = "compareToPreviousVersion")]
     public string? CompareToPreviousVersion { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadVersions();
+
+    private async Task LoadVersions()
+    {
+        errorMessage = null;
+        comparisonFailed = false;
+        loadingVersions = true;
+        try
+        {
+            await InitializeVersions();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Failed to load SDK versions from the Relewise CDN.");
+            errorMessage = "Could not load SDK versions from the Relewise CDN. Check your connection and try again.";
+            Snackbar.Add(errorMessage + " " + exception.GetBaseException().Message, Severity.Error);
+        }
+        finally
+        {
+            loadingVersions = false;
+        }
+    }
+
+    private Task Retry() => comparisonFailed ? Compare() : LoadVersions();
+
+    private async Task InitializeVersions()
     {
         versions = await NugetClient.Versions("Relewise.Client");
 
@@ -238,22 +175,29 @@ else
         if (!versions.Any(v => v.Version == RightVersion))
             RightVersion = null;
 
+        bool compareFromLink = LeftVersion is not null && RightVersion is not null;
+
         if (versions.Count > 0
             && versions.FirstOrDefault(v => v.Version == CompareToPreviousVersion) is { } comparingVersion
             && versions.Last() != comparingVersion)
         {
             LeftVersion = versions[versions.IndexOf(comparingVersion) + 1].Version;
             RightVersion = comparingVersion.Version;
+            compareFromLink = true;
         }
 
-        if (LeftVersion is not null && RightVersion is not null)
+        var latest = LatestReleases;
+        if (latest.Length > 0) RightVersion ??= latest[0].Version;
+        if (latest.Length > 1) LeftVersion ??= latest[1].Version;
+        loadingVersions = false;
+        if (compareFromLink)
             await Compare();
     }
 
-    private DateTimeOffset VersionTime(string version) => versions.Single(v => v.Version == version).Published;
-
     private void Reset()
     {
+        errorMessage = null;
+        comparisonFailed = false;
         selectingVersions = true;
         addedEnums = null;
         changedEnums = null;
@@ -263,6 +207,29 @@ else
     }
 
     private async Task Compare()
+    {
+        errorMessage = null;
+        comparisonFailed = false;
+        comparing = true;
+        try
+        {
+            await CompareVersions();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Failed to compare SDK versions {FromVersion} and {ToVersion}.", LeftVersion, RightVersion);
+            Reset();
+            comparisonFailed = true;
+            errorMessage = "Could not compare the selected SDK versions. Check your connection and try again.";
+            Snackbar.Add(errorMessage + " " + exception.GetBaseException().Message, Severity.Error);
+        }
+        finally
+        {
+            comparing = false;
+        }
+    }
+
+    private async Task CompareVersions()
     {
         selectingVersions = false;
         StateHasChanged();
@@ -280,8 +247,14 @@ else
         });
         NavigationManager.NavigateTo(url, replace: true);
 
+        comparisonStatus = $"Downloading SDK {LeftVersion}…";
+        StateHasChanged();
         var oldestDLL = await NugetClient.DLL("Relewise.Client", LeftVersion!);
+        comparisonStatus = $"Downloading SDK {RightVersion}…";
+        StateHasChanged();
         var newestDLL = await NugetClient.DLL("Relewise.Client", RightVersion!);
+        comparisonStatus = "Comparing SDK assemblies…";
+        StateHasChanged();
 
         var oldestAssembly = Assembly.Load(oldestDLL);
         var newestAssembly = Assembly.Load(newestDLL);

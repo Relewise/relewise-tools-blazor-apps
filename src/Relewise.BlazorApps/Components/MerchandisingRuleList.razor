@@ -1,0 +1,22 @@
+@using Humanizer
+@using Relewise.Client.DataTypes.Merchandising.Rules
+
+<ConfigurationDataGrid T="MerchandisingRule" Items="rows" ShowPriority="true" Loading="Loading"
+                       CreateLabel="Create new rule" EmptyText="No merchandising rules match your search and filters."
+                       OnEdit="OnEdit" OnRefresh="OnRefresh" OnCreate="OnCreate" />
+
+@code {
+    [Parameter, EditorRequired] public required MerchandisingRule[] Rules { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public EventCallback<MerchandisingRule> OnEdit { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    [Parameter] public EventCallback OnCreate { get; set; }
+
+    private ConfigurationListItem<MerchandisingRule>[] rows = [];
+
+    protected override void OnParametersSet()
+        => rows = Rules.OrderBy(rule => rule.Priority).Select(rule => new ConfigurationListItem<MerchandisingRule>(
+            rule, string.IsNullOrWhiteSpace(rule.Name) ? "Unnamed rule" : rule.Name,
+            Settings.Name(rule.GetType()).Humanize(LetterCasing.Sentence), rule.Group ?? "", rule.Description ?? "",
+            rule.Enabled, rule.Priority)).ToArray();
+}

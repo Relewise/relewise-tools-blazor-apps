@@ -1,91 +1,267 @@
-﻿@typeparam T
+@typeparam T
+@using MudBlazor
+@using Relewise.BlazorApps.Components
+@using Microsoft.JSInterop
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Converters
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
 
 @if (Value is null)
 {
-    @if (!ReadOnly)
-    {
-        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new List&lt;@Settings.Name(typeof(T))&gt;</button>
-    }
+    <div class="list-null @(ReadOnly ? null : "list-editable")" tabindex="@(ReadOnly ? -1 : 0)"
+         aria-label="Create list" @onclick="Create" @onclick:stopPropagation="true" @onkeydown="CreateKeyDown">
+        <span class="list-placeholder">&lt;NULL&gt;</span>
+        @if (!ReadOnly)
+        {
+            <RButton Variant="Variant.Text" OnClick="Create">Create</RButton>
+        }
+    </div>
 }
 else
 {
-    <details class="box" open=@OpenDetails>
-        <summary>
-            <i>List&lt;@Settings.Name(typeof(T))&gt <small>with @Value.Count @(@Value.Count is 1 ? "element" : "elements")</small></i>
-        </summary>
-        <div class="two-column-grid">
-            @for (int i = 0; i < Value.Count; i++)
-            {
-                var k = i;
-                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T))) is { } editor)
+    <section class="list-box" data-expanded="@(expanded ? "true" : "false")">
+        <header @onclick="ToggleExpanded">
+            <button class="list-title" type="button" aria-expanded="@(expanded ? "true" : "false")"
+                    @onclick="ToggleExpanded" @onclick:stopPropagation="true">List · @Value.Count @(Value.Count == 1 ? "item" : "items")</button>
+            <span class="list-actions" @onclick:stopPropagation="true">
+                <RIconButton Icon="@Icons.Material.Outlined.ContentCopy" ToolTip="Copy as JSON"
+                             aria-label="Copy list as JSON" OnClick="Copy" />
+                @if (!ReadOnly)
                 {
-                    var parameters = new Dictionary<string, object?>()
+                    <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                 ToolTip="Remove list" aria-label="Remove list" OnClick="RemoveList" />
+                }
+            </span>
+        </header>
+        @if (expanded)
+        {
+            <div class="list-entries">
+                @for (int i = 0; i < rows.Count; i++)
+                {
+                    var index = i;
+                    var row = rows[index];
+                    var parameters = ItemParameters(row, index);
+                    <div class="list-row" @key="row">
+                        <span class="list-index">@(index < Value.Count ? (index + 1).ToString() : "")</span>
+                        <div class="list-value">
+                            <ErrorBoundary>
+                                <ChildContent>
+                                    <DynamicComponent Type="@itemEditor.EditorType(typeof(T))" Parameters="parameters" />
+                                </ChildContent>
+                                <ErrorContent><code>Failed to initialize editor for @Settings.Name(typeof(T))</code></ErrorContent>
+                            </ErrorBoundary>
+                        </div>
+                        @if (!ReadOnly && (!HasObjectHeader(index) || Value[index] is null))
                         {
-                            ["ReadOnly"] = ReadOnly,
-                            ["OpenDetails"] = OpenDetails,
-                            ["Value"] = Value[k],
-                            ["Setter"] = (object? obj) => { Value[k] = (T)obj!; Setter(Value); },
-                            ["AncestorTypes"] = AncestorTypes
-                        };
-                    <ErrorBoundary>
-                        <ChildContent>
-                            <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="parameters" />
-                        </ChildContent>
-                        <ErrorContent>
-                            <code>Failed to initialize editor part for @Settings.Name(typeof(T))</code>
-                        </ErrorContent>
-                    </ErrorBoundary>
-                    @if (!ReadOnly)
+                            <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                         ToolTip="Remove item" aria-label="@($"Remove item {index + 1}")"
+                                         Disabled="@(index >= Value.Count)" OnClick="() => RemoveRow(row)" />
+                        }
+                    </div>
+                }
+                @if (!ReadOnly && typeof(T) != typeof(string))
+                {
+                    @if (creationTypes.Count > 1)
                     {
-                        <button class="btn btn-sm btn-warning" style="padding-top:0;padding-bottom:0;" @onclick="() => Remove(k)">X</button>
+                        <MudMenu Label="@($"+ Add {Settings.Name(typeof(T))}")" Variant="Variant.Text" Size="Size.Small"
+                                 Dense="true" MaxHeight="400" @bind-Open="typeMenuOpen">
+                            @if (typeMenuOpen)
+                            {
+                                @foreach (var type in creationTypes)
+                                {
+                                    <MudMenuItem OnClick="() => AddType(type)">@Settings.Name(type)</MudMenuItem>
+                                }
+                            }
+                        </MudMenu>
                     }
                     else
                     {
-                        <span></span>
+                        <RButton Variant="Variant.Text" Icon="@Icons.Material.Filled.Add" OnClick="Add"
+                                 Disabled="@(IsObjectEditor && creationTypes.Count == 0)">Add @Settings.Name(typeof(T))</RButton>
+                    }
+                    @if (IsObjectEditor && creationTypes.Count == 0)
+                    {
+                        <span class="list-placeholder">No available item types in this context.</span>
                     }
                 }
-            }
-            @if (!ReadOnly)
-            {
-                <button class="btn btn-outline-primary btn-sm" style="grid-column: span 2" @onclick=Add>+ Add new @Settings.Name(typeof(T))</button>
-            }
-        </div>
-    </details>
+            </div>
+        }
+    </section>
 }
+
 @code {
-    [Parameter]
-    public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool OpenDetails { get; set; }
+    [Parameter, EditorRequired] public required List<T>? Value { get; set; }
+    [Parameter, EditorRequired] public required Action<object?> Setter { get; set; }
+    [Parameter] public Type[] AncestorTypes { get; set; } = [];
 
-    [Parameter]
-    public bool OpenDetails { get; set; } = false;
+    private sealed class Row { public bool Open { get; set; } }
+    private readonly List<Row> rows = [];
+    private readonly EditorHandler itemEditor = Settings.Editors.First(editor => editor.CanHandle(typeof(T)));
+    private static readonly Lazy<Type[]> candidates = new(() => EditorSdkTypes.All.Value
+        .Where(type => type != typeof(T) && type.IsAssignableTo(typeof(T)) && !type.IsGenericType && !type.IsAbstract).ToArray());
+    private List<Type> creationTypes = [];
+    private List<T>? trackedValue;
+    private bool expanded;
+    private bool? previousOpenDetails;
+    private bool typeMenuOpen;
+    private bool IsObjectEditor => itemEditor.EditorType(typeof(T)) == typeof(ObjectEditor<T>);
+    private bool HasObjectHeader(int index)
+    {
+        var type = index < Value!.Count && Value[index] is { } item ? item.GetType() : typeof(T);
+        return IsObjectEditor && type != typeof(global::Relewise.Client.DataTypes.Language)
+            && type != typeof(global::Relewise.Client.DataTypes.Currency);
+    }
 
-    [Parameter, EditorRequired]
-    public required List<T> Value { get; set; }
+    protected override void OnParametersSet()
+    {
+        if (!previousOpenDetails.HasValue || !ReferenceEquals(Value, trackedValue))
+        {
+            trackedValue = Value;
+            rows.Clear();
+            expanded = OpenDetails || (!ReadOnly && Value is { Count: 0 });
+        }
+        else if (previousOpenDetails != OpenDetails)
+            expanded = OpenDetails;
+        previousOpenDetails = OpenDetails;
+        SyncRows();
+        if (IsObjectEditor)
+        {
+            creationTypes = candidates.Value.ToList();
+            if (!typeof(T).IsAbstract && !typeof(T).IsInterface)
+                creationTypes.Insert(0, typeof(T));
+            if (Settings.TypeInheritanceNotIgnored.Concat(Settings.TypeInheritanceSupported).FirstOrDefault(l =>
+                typeof(T).IsAssignableTo(l.BaseType) && AncestorTypes.Any(a => l.AncestorInterfaces.Any(ai => a.IsAssignableTo(ai)))) is { } limiter)
+                creationTypes = creationTypes.Where(type => limiter.TypeInhertianceLimit.Any(l => type.IsAssignableTo(l))).ToList();
+        }
+    }
 
-    [Parameter, EditorRequired]
-    public required Action<object?> Setter { get; set; }
+    private void SyncRows()
+    {
+        int count = Value is null ? 0 : Value.Count + (!ReadOnly && typeof(T) == typeof(string) ? 1 : 0);
+        while (rows.Count < count) rows.Add(new Row());
+        if (rows.Count > count) rows.RemoveRange(count, rows.Count - count);
+    }
 
-    [Parameter]
-    public Type[] AncestorTypes { get; set; } = [];
+    private Dictionary<string, object?> ItemParameters(Row row, int index)
+    {
+        var parameters = new Dictionary<string, object?>
+        {
+            ["ReadOnly"] = ReadOnly,
+            ["OpenDetails"] = OpenDetails || row.Open,
+            ["Value"] = index < Value!.Count ? Value[index] : null,
+            ["Setter"] = (Action<object?>)(value => Update(row, value)),
+            ["AncestorTypes"] = AncestorTypes.Length == 0 ? [typeof(List<T>)] : AncestorTypes
+        };
+        if (IsObjectEditor)
+        {
+            parameters["OnRemove"] = EventCallback.Factory.Create(this, () => RemoveRow(row));
+            parameters["RemoveLabel"] = $"Remove item {index + 1}";
+        }
+        return Settings.WithNumericNullability(parameters, typeof(T));
+    }
+
+    private void Update(Row row, object? value)
+    {
+        if (ReadOnly || Value is null) return;
+        int index = rows.IndexOf(row);
+        if (index < 0) return;
+        bool refresh = index == Value.Count || IsObjectEditor && !ReferenceEquals(Value[index], value);
+        if (index == Value.Count && typeof(T) == typeof(string))
+        {
+            if (value is not string { Length: > 0 }) return;
+            Value.Add((T)value);
+            rows.Add(new Row());
+        }
+        else
+            Value[index] = (T)value!;
+        Setter(Value);
+        if (refresh) StateHasChanged();
+    }
 
     public void Create()
     {
-        Value = Activator.CreateInstance<List<T>>();
+        if (ReadOnly || Value is not null) return;
+        Value = [];
+        trackedValue = Value;
+        rows.Clear();
+        SyncRows();
+        expanded = true;
         Setter(Value);
     }
 
-    public void Add()
+    private void CreateKeyDown(KeyboardEventArgs args)
     {
-        T? newItem = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T))) is { } editor
-            ? (T?)editor.InitValue(typeof(T))
-            : default(T);
-        Value.Add(newItem);
+        if (args.Key is "Enter" or " ") Create();
+    }
+
+    private void ToggleExpanded() => expanded = !expanded;
+
+    public void Add() => AddType(IsObjectEditor ? creationTypes.FirstOrDefault() : typeof(T));
+
+    private void AddType(Type? type)
+    {
+        if (ReadOnly || Value is null || type is null) return;
+        try
+        {
+            var editor = Settings.Editors.First(editor => editor.CanHandle(type));
+            object? item = editor.InitValue(type);
+            if (item is null && type.IsValueType && Nullable.GetUnderlyingType(type) is null)
+                item = Activator.CreateInstance(type);
+            if (item is null && type.IsGenericType && (type.GetGenericTypeDefinition() == typeof(List<>)
+                || type.GetGenericTypeDefinition() == typeof(Dictionary<,>)))
+                item = Activator.CreateInstance(type);
+            if (item is null && IsObjectEditor && Nullable.GetUnderlyingType(type) is null)
+                throw new InvalidOperationException($"Unable to create {Settings.Name(type)}.");
+            Value.Add((T)item!);
+            rows.Add(new Row { Open = true });
+            expanded = true;
+            typeMenuOpen = false;
+            Setter(Value);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+
+    public void Remove(int index)
+    {
+        if (ReadOnly || Value is null || index < 0 || index >= Value.Count) return;
+        Value.RemoveAt(index);
+        rows.RemoveAt(index);
         Setter(Value);
     }
 
-    public void Remove(int i)
+    private void RemoveRow(Row row)
     {
-        Value.RemoveAt(i);
-        Setter(Value);
+        int index = rows.IndexOf(row);
+        if (index >= 0) Remove(index);
+    }
+
+    private void RemoveList()
+    {
+        if (ReadOnly) return;
+        Value = null;
+        trackedValue = null;
+        rows.Clear();
+        Setter(null);
+    }
+
+    private async Task Copy()
+    {
+        try
+        {
+            var settings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Auto, Formatting = Formatting.Indented };
+            settings.Converters.Add(new StringEnumConverter());
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(Value, typeof(List<T>), settings));
+            Snackbar.Add("Copied list as JSON.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
     }
 }

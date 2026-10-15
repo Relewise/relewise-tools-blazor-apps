@@ -1,4 +1,7 @@
-﻿@using Relewise.BlazorApps.TypeEditors
+@using MudBlazor
+@inject ISnackbar Snackbar
+@using Relewise.BlazorApps.Components
+@using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
 @using System.Threading
 @using Newtonsoft.Json
@@ -22,52 +25,34 @@
         <li>Settings for overriding request recommendation settings.</li>
     </ul>
 </p>
-
-@if (error is not null)
+@if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
-    <code>@error</code>
+    <ConnectionCredentials>
+        <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that has access to edit merchandising rules to use this.</PermissionsNote>
+    </ConnectionCredentials>
+}
+
+@if (merchandisingAccessor is null || connecting)
+{
+    <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
     <br />
     <br />
 }
-@if (message is not null)
+else if (selectedRule is not null || creatingNew)
 {
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
-}
-@if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
-{
-    <p>
-        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
-        <br />
-        <small>You can't use your Master key in this application so you will have to create some separate key that has access to edit merchandising rules to use this.</small>
-    </p>
-
-    <ConnectionCredentials />
-}
-
-@if (merchandisingAccessor is null)
-{
-    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
-    <br />
-    <br />
-}
-else
-{
-    <p>Now you can get an overview over all the existing merchandising rules in the dataset or create a new.</p>
-
-    <button class="btn btn-primary" @onclick=ListAllRules>List All Rules</button>
-    <button class="btn btn-success" @onclick=CreateNewRule>Create New Rule</button>
-    <br />
-    <br />
+    <div class="d-flex flex-wrap align-center my-3" style="gap: 8px;">
+        <RButton Variant="Variant.Outlined" OnClick="ListAllRules" Icon="@Icons.Material.Outlined.Refresh">Refresh rules</RButton>
+        <RButton OnClick="CreateNewRule" Icon="@Icons.Material.Filled.Add">Create new rule</RButton>
+    </div>
 }
 
 @if (selectedRule is not null || creatingNew)
 {
-    <ObjectEditor OpenDetails=true ShowModelShareLink=true T=MerchandisingRule Value="selectedRule" Setter="(Object? obj) => { selectedRule = (MerchandisingRule?)obj; StateHasChanged(); }" />
+    <CascadingValue Value="editorValidation">
+        <ObjectEditor OpenDetails=true ShowModelShareLink=true T=MerchandisingRule Value="selectedRule" Setter="(Object? obj) => { selectedRule = (MerchandisingRule?)obj; StateHasChanged(); }" />
+    </CascadingValue>
     <br />
-    <label for="name">Your name: </label>
-    <input @bind=name id="name" />
+    <RTextField Label="Your name" @bind-Value="name" Immediate="true" FullWidth="true" />
     <br />
     <br />
     @if (creatingNew)
@@ -102,36 +87,21 @@ else
 }
 else if (rules is not null)
 {
-    <h2>All Merchandising Rules</h2>
-    <hr />
-    foreach (MerchandisingRule rule in rules.OrderBy(c => c.Priority))
-    {
-        <div>
-            <h3 style="display:inline;">
-                @rule.Name (<code>@rule.GetType().Name)</code>
-            </h3>
-            &nbsp;
-            @if (rule.Enabled)
-            {
-                <span class="badge bg-success">enabled</span>
-            }
-            else
-            {
-                <span class="badge bg-danger">disabled</span>
-            }
-            <br />
-            <p>@rule.Description</p>
-            <button class="btn btn-primary" @onclick="() => Edit(rule)">Edit</button>
-            <hr />
-        </div>
-    }
+    <MerchandisingRuleList Rules="rules" OnEdit="Edit" OnRefresh="ListAllRules" OnCreate="CreateNewRule" Loading="loadingRules" />
 }
 <br />
 <br />
 
 @code {
-    private string? error;
-    private string? message;
+    private readonly EditorValidationState editorValidation = new();
+
+    private bool ValidateEditor()
+    {
+        if (editorValidation.IsValid) return true;
+        Snackbar.Add(string.Join(" ", editorValidation.Errors), Severity.Error);
+        return false;
+    }
+
     private string name = "";
     private bool creatingNew = false;
     private MerchandisingAccessor? merchandisingAccessor;
@@ -146,16 +116,48 @@ else if (rules is not null)
     {
         if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
         {
-            Connect();
+            await ConnectAsync();
         }
         StaticDatasetStorage.AuthenticationReceived += Authenticated;
         await Task.CompletedTask;
     }
 
-    private void Authenticated(object? sender, EventArgs args)
+    private async void Authenticated(object? sender, EventArgs args)
     {
-        Connect();
-        StateHasChanged();
+        await InvokeAsync(async () =>
+        {
+            await ConnectAsync();
+            StateHasChanged();
+        });
+    }
+
+    private bool connecting;
+    private bool loadingRules;
+
+    [Inject]
+    public required IJSRuntime ConnectionRuntime { get; set; }
+
+    private async Task ConnectAsync()
+    {
+        if (connecting) return;
+        connecting = true;
+        try
+        {
+            if (!Connect()) return;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var response = await merchandisingAccessor!.LoadAsync(cancellation.Token);
+            rules = response.Rules;
+            await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.GetBaseException().Message, Severity.Error);
+            merchandisingAccessor = null;
+        }
+        finally
+        {
+            connecting = false;
+        }
     }
 
     private bool Connect()
@@ -163,53 +165,60 @@ else if (rules is not null)
         try
         {
             merchandisingAccessor = new MerchandisingAccessor(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
-
-            message = "Successfully initialized the Merchandising Accessor.";
-            error = null;
             return true;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             return false;
         }
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (CompressedObject is not null)
+        try
         {
-            String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
-            var jsonSerializerSettings = new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.Auto,
-                    NullValueHandling = NullValueHandling.Ignore,
-                    Formatting = Formatting.None,
-                    Converters = [new StringEnumConverter()]
-                };
-            selectedRule = JsonConvert.DeserializeObject<MerchandisingRule>(decompressedString, jsonSerializerSettings)!;
-            loadedModelFromUrl = true;
+            if (CompressedObject is not null)
+            {
+                String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
+                var jsonSerializerSettings = new JsonSerializerSettings
+                    {
+                        TypeNameHandling = TypeNameHandling.Auto,
+                        NullValueHandling = NullValueHandling.Ignore,
+                        Formatting = Formatting.None,
+                        Converters = [new StringEnumConverter()]
+                    };
+                selectedRule = JsonConvert.DeserializeObject<MerchandisingRule>(decompressedString, jsonSerializerSettings)!;
+                loadedModelFromUrl = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
 
     private async Task ListAllRules()
     {
-        if (!Connect()) return;
+        if (loadingRules || !Connect()) return;
+        loadingRules = true;
         try
         {
             var response = await merchandisingAccessor!.LoadAsync();
             rules = response.Rules;
 
-            message = "Successfully fetched all merchandising rules for this dataset.";
-            error = null;
+            Snackbar.Add("Successfully fetched all merchandising rules for this dataset.", Severity.Success);
             selectedRule = null;
+            creatingNew = false;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
+        }
+        finally
+        {
+            loadingRules = false;
         }
     }
 
@@ -220,26 +229,26 @@ else if (rules is not null)
 
     private async Task Update()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {
             await merchandisingAccessor!.SaveAsync(selectedRule!, name);
 
             await ListAllRules();
-            message = "Successfully updated the merchandising rule.";
-            error = null;
+            Snackbar.Add("Successfully updated the merchandising rule.", Severity.Success);
             selectedRule = null;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
         }
     }
 
     private async Task Copy()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {
@@ -248,14 +257,12 @@ else if (rules is not null)
             await merchandisingAccessor!.SaveAsync(selectedRule!, name);
 
             await ListAllRules();
-            message = "Successfully copied the merchandising rule.";
-            error = null;
+            Snackbar.Add("Successfully copied the merchandising rule.", Severity.Success);
             selectedRule = null;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
         }
     }
@@ -268,21 +275,20 @@ else if (rules is not null)
 
     private async Task Create()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {
             await merchandisingAccessor!.SaveAsync(selectedRule!, name);
 
             await ListAllRules();
-            message = "Successfully created the merchandising rule.";
-            error = null;
+            Snackbar.Add("Successfully created the merchandising rule.", Severity.Success);
             selectedRule = null;
             creatingNew = false;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
         }
     }

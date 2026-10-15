@@ -1,27 +1,93 @@
 @using KristofferStrube.Blazor.DOM
 @using KristofferStrube.Blazor.Window
 @inherits LayoutComponentBase
+@implements IDisposable
 
-<div class="page">
-    @if (StaticDatasetStorage.ParentOrigin is null)
-    {
-        <div class="sidebar">
-            <NavMenu />
-        </div>
-    }
+<MudThemeProvider Theme="AppTheme.Relewise" IsDarkMode="false" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
-    <main>
-        <div class="top-row px-4">
-            <small>Experimental Relewise tools • Maintained by Relewise</small>
-        </div>
+<div class="app-shell">
+    <MudLayout>
+        @if (!IsEmbedded)
+        {
+            <MudAppBar Elevation="0" Dense="true">
+                <RIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
+                             ToolTip="@(mainNavigationOpen ? "Collapse main sidebar" : "Expand main sidebar")"
+                             aria-label="@(mainNavigationOpen ? "Collapse main sidebar" : "Expand main sidebar")"
+                             aria-expanded="@(mainNavigationOpen ? "true" : "false")" aria-controls="tool-navigation"
+                             OnClick="() => mainNavigationOpen = !mainNavigationOpen" />
+                <a class="app-brand" href="" aria-label="Relewise API Explorer">
+                    <span>Relewise API Explorer</span>
+                </a>
+                <MudSpacer />
+                <MudText Typo="Typo.caption" Class="app-note">Experimental Relewise tools</MudText>
+            </MudAppBar>
+        }
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+        @if (!IsEmbedded)
+        {
+            <MudDrawer @bind-Open="mainNavigationOpen" Variant="DrawerVariant.Persistent"
+                       ClipMode="DrawerClipMode.Always" Elevation="0" Class="app-drawer" id="tool-navigation">
+                <NavMenu />
+            </MudDrawer>
+        }
+
+        <MudMainContent Class="@(IsEmbedded ? "embedded-content" : null)">
+            @if (IsEmbedded)
+            {
+                <div class="embedded-note">
+                    <MudText Typo="Typo.caption">Experimental Relewise tools • Maintained by Relewise</MudText>
+                </div>
+            }
+            <article class="tool-content">
+                @if (!IsEmbedded && SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration)
+                {
+                    <div class="saved-configuration-action">
+                        <MudTooltip Placement="Placement.Left">
+                            <TooltipContent>
+                                <div class="connection-tooltip">
+                                    <strong>Server</strong><span>@StaticDatasetStorage.ServerUrl</span>
+                                    <strong>Dataset ID</strong><span>@StaticDatasetStorage.DatasetId</span>
+                                </div>
+                            </TooltipContent>
+                            <ChildContent>
+                                <RButton Variant="Variant.Outlined" Color="Color.Error" Class="forget-configuration-button"
+                                         OnClick="ForgetConfiguration">Forget saved configuration</RButton>
+                            </ChildContent>
+                        </MudTooltip>
+                    </div>
+                    <ErrorNotification Message="@SavedConnectionStorage.Error" />
+                }
+                @if (connectionReady)
+                {
+                    @Body
+                }
+            </article>
+        </MudMainContent>
+    </MudLayout>
 </div>
 
 @code {
+    private bool mainNavigationOpen = true;
+    private bool connectionRestored;
+    private bool connectionReady = !SavedConnectionStorage.Enabled;
+    private bool IsEmbedded => StaticDatasetStorage.ParentOrigin is not null;
+
+    protected override void OnInitialized() => SavedConnectionStorage.Changed += ConnectionChanged;
+
+    private void ConnectionChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => SavedConnectionStorage.Changed -= ConnectionChanged;
+
+    private async Task ForgetConfiguration()
+    {
+        await SavedConnectionStorage.ForgetAsync(JSRuntime);
+        if (SavedConnectionStorage.Error is null)
+            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
+
     [Inject]
     public required NavigationManager NavigationManager { get; set; }
 
@@ -48,6 +114,12 @@
             StaticDatasetStorage.DatasetId = datasetId;
             NavigationManager.NavigateTo(NavigationManager.GetUriWithQueryParameter("datasetId", (string?)null), false);
         }
+        else if (SavedConnectionStorage.Enabled && !IsEmbedded && !connectionRestored)
+        {
+            connectionRestored = true;
+            await SavedConnectionStorage.RestoreAsync(JSRuntime);
+        }
+        connectionReady = true;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

@@ -1,0 +1,48 @@
+@using System.Globalization
+
+@if (ReadOnly)
+{
+    <RTextField Value="@DisplayValue" Placeholder="<NULL>" Disabled="true" FullWidth="true" />
+}
+else
+{
+    <div class="date-time-fields">
+        <MudDatePicker Date="Value?.Date" DateChanged="UpdateDate" DateFormat="yyyy-MM-dd"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="AllowNull" Editable="true" />
+        <MudTimePicker Time="Value?.TimeOfDay" TimeChanged="UpdateTime" TimeFormat="HH:mm:ss"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Editable="true" />
+        @if (Offset is not null)
+        {
+            <span class="date-time-offset">@Offset</span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public DateTime? Value { get; set; }
+    [Parameter] public EventCallback<DateTime?> ValueChanged { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool AllowNull { get; set; } = true;
+    [Parameter] public string? Offset { get; set; }
+
+    private string? DisplayValue => Value is { } date
+        ? date.ToString("yyyy-MM-dd HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture)
+            + (Offset is not null ? " " + Offset : date.Kind == DateTimeKind.Utc ? " UTC" : "")
+        : null;
+
+    private Task UpdateDate(DateTime? date)
+    {
+        if (ReadOnly || (date is null && !AllowNull)) return Task.CompletedTask;
+        DateTime? value = date is { } selected
+            ? DateTime.SpecifyKind(selected.Date + (Value?.TimeOfDay ?? TimeSpan.Zero), Value?.Kind ?? DateTimeKind.Unspecified)
+            : null;
+        return ValueChanged.InvokeAsync(value);
+    }
+
+    private Task UpdateTime(TimeSpan? time)
+    {
+        if (ReadOnly || time is null) return Task.CompletedTask;
+        DateTime value = (Value?.Date ?? DateTime.MinValue.Date) + time.Value;
+        return ValueChanged.InvokeAsync(value);
+    }
+}

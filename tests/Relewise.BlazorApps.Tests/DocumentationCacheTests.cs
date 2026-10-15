@@ -10,6 +10,23 @@ public class DocumentationCacheTests
     internal const string Xml = "<doc><assembly><name>Relewise.Client</name></assembly><members><member name=\"T:Relewise.Client.TestModel\"><summary>Fixture documentation</summary></member></members></doc>";
 
     [TestMethod]
+    public void SummarySuffixLookupPreservesFirstMatchAndHandlesMissingDocumentation()
+    {
+        var documentation = new XmlDocumentation
+        {
+            Summaries = new()
+            {
+                ["P:Fixture.First.NestedModel.Name"] = "first summary",
+                ["P:Fixture.Second.NestedModel.Name"] = "second summary"
+            }
+        };
+
+        Assert.AreEqual("First summary", documentation.GetSummary("nestedmodel.NAME"));
+        Assert.AreEqual("Second summary", documentation.GetSummary("Fixture.Second.NestedModel.Name"));
+        Assert.IsNull(documentation.GetSummary("MissingModel"));
+    }
+
+    [TestMethod]
     public async Task ConcurrentCallersShareOneSuccessfulLoad()
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -1,98 +1,129 @@
-﻿@page "/Searches"
+@using MudBlazor
+@inject ISnackbar Snackbar
+@using Relewise.BlazorApps.Components
+@page "/Searches"
+@using Relewise.BlazorApps.Extensions
 @using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Converters
-@using System.Diagnostics
 @using global::Relewise.Client.Requests
 @using global::Relewise.Client.Requests.Recommendations
 @using global::Relewise.Client.Requests.Search
 @using global::Relewise.Client.Responses
 @using global::Relewise.Client.Search
 @implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>Blazor Relewise - Searches</PageTitle>
 
 <h1>Searches</h1>
-<p>Here you can get try to make some searchers.</p>
-
-
-@if (error is not null)
+@if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
-    <code>@error</code>
-    <br />
-    <br />
-}
-@if (message is not null)
-{
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
-}
-@if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
-{
-    <p>
-        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
-        <br />
-        <small>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>.</small>
-    </p>
-
-    <ConnectionCredentials />
+    <ConnectionCredentials>
+        <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>.</PermissionsNote>
+    </ConnectionCredentials>
 }
 
-@if (searcher is null)
+@if (searcher is null || connecting)
 {
-    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
-    <br />
-}
-<br />
-
-<div class="input-group">
-    <input @bind=SearchTerm @bind:after=Search id="search" @bind:event="oninput" class="form-control" placeholder="Search" />
-    <div class="input-group-append">
-        <label for="search" class="input-group-text" style="width:240px;">
-            <svg class="bi" width="24" height="24" viewBox="-2 -2 14 13"><polygon fill="transparent" stroke="grey" stroke-width="1" points="12,11 6,6 5,7 2,7 0,5 0,2 2,0 5,0 7,2 7,5 6,6"></polygon></svg>
-            @if (searchTime is not null)
-            {
-                <small style="color: green;margin-left:10px;">
-                    Found @groupings.Sum(g => g.Value.Count) results in @searchTime.Value ms
-                </small>
-            }
-        </label>
+    <div class="mb-2">
+    <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
     </div>
+}
+
+<div class="mb-2">
+    <RTextField Label="Search" @bind-Value="SearchTerm" @bind-Value:after="Search"
+                Immediate="true" DebounceInterval="250" Clearable="true" FullWidth="true" />
 </div>
-<br />
-
-@foreach (var group in groupings.Where(group => group.Value.Count > 0))
-{
-    <h2>@group.Key Searches</h2>
-    @foreach (Type search in group.Value)
-    {
-        <SearchConstructor RequestType=search Request=initValues[search] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="searcher" />
-        <br />
-    }
-}
-
-@if (uncategorizedTypes.Count > 0)
-{
-    <h2>Uncategorized Searches</h2>
-    @foreach (var type in uncategorizedTypes)
-    {
-        <SearchConstructor RequestType=type Request=initValues[type] OpenDetails=loadedModelFromUrl Connect=Connect ResetSearcher=ResetSearcher Searcher="searcher" />
-        <br />
-    }
-}
-
-<br />
-
+<div class="recommendation-workspace @(navigationOpen ? null : "navigation-collapsed")" @ref="workspaceElement">
+    <MudPaper Outlined="true" Elevation="0" Class="recommendation-navigation">
+        <div class="content-navigation-toolbar">
+            <RIconButton Icon="@(navigationOpen ? Icons.Material.Filled.ChevronLeft : Icons.Material.Filled.ChevronRight)"
+                         ToolTip="@(navigationOpen ? "Collapse content sidebar" : "Expand content sidebar")"
+                         aria-label="@(navigationOpen ? "Collapse content sidebar" : "Expand content sidebar")"
+                         aria-expanded="@(navigationOpen ? "true" : "false")" aria-controls="content-navigation-menu"
+                         OnClick="() => navigationOpen = !navigationOpen" />
+        </div>
+        <div id="content-navigation-menu" class="content-navigation-menu" hidden="@(!navigationOpen)">
+        <RequestNavigation Groups="groupings" Selected="selectedSearch" Name="SearchName"
+                           OnSelected="selection => selectedSearch = selection.Request" />
+        </div>
+    </MudPaper>
+    <MudPaper Outlined="true" Elevation="0" Class="recommendation-content pa-4">
+        @if (selectedSearch is { } search)
+        {
+            GetEditorState(search);
+            @foreach (var entry in editorStates)
+            {
+                Type requestType = entry.Key;
+                bool isSelected = requestType == search;
+                <div style="@(isSelected ? null : "display: none;")" aria-hidden="@(isSelected ? "false" : "true")">
+                    <SearchConstructor @key="requestType" RequestType="requestType" RequestTitle="@SearchName(requestType)"
+                                       RequestFactory="() => GetRequest(requestType)" Request="initValues.GetValueOrDefault(requestType)"
+                                       State="entry.Value" IsActive="isSelected" OpenDetails="true" ShowHeader="false"
+                                       Connect="Connect" Searcher="@(connecting ? null : searcher)" />
+                </div>
+            }
+        }
+        else
+        {
+            <MudText>No search types match your search.</MudText>
+        }
+    </MudPaper>
+</div>
 @code {
-    private string? error;
-    private string? message;
-    private double? searchTime;
+    private bool navigationOpen = true;
     private Searcher? searcher;
     private Dictionary<string, List<Type>> groupings = new();
-    private Dictionary<Type, SearchRequest> initValues = default!;
-    private bool loadedModelFromUrl;
+    private readonly Dictionary<Type, SearchRequest> initValues = new();
+    private Type? selectedSearch;
+    private string? loadedCompressedObject;
+    private readonly Dictionary<Type, SearchConstructor.EditorState> editorStates = new();
+    private ElementReference workspaceElement;
+    private IJSObjectReference? layoutModule;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (!firstRender) return;
+            layoutModule = await ConnectionRuntime.InvokeAsync<IJSObjectReference>("import", "./js/recommendationLayout.js");
+            await layoutModule.InvokeVoidAsync("initialize", workspaceElement);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+        if (layoutModule is null) return;
+        await layoutModule.InvokeVoidAsync("dispose", workspaceElement);
+        await layoutModule.DisposeAsync();
+    }
+
+    private SearchConstructor.EditorState GetEditorState(Type type)
+    {
+        if (!editorStates.TryGetValue(type, out var state))
+            editorStates[type] = state = new();
+        return state;
+    }
+
+    private SearchRequest GetRequest(Type type)
+    {
+        if (!initValues.TryGetValue(type, out var request))
+            initValues[type] = request = (SearchRequest)Activator.CreateInstance(type)!;
+        return request;
+    }
+
+    private static string SearchName(Type type)
+    {
+        string name = type.SpaceSeparatedName();
+        return name.EndsWith("Request", StringComparison.Ordinal) ? name[..^8] : name;
+    }
 
     [SupplyParameterFromQuery(Name = "q")]
     public string SearchTerm { get; set; } = "";
@@ -104,7 +135,10 @@
     {
         if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
         {
-            Connect();
+            if (StaticDatasetStorage.ParentOrigin is null)
+                await ConnectAsync();
+            else
+                Connect();
         }
         StaticDatasetStorage.AuthenticationReceived += Authenticated;
     }
@@ -117,38 +151,76 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (SearchTerm is null)
+        try
         {
-            SearchTerm = "";
-        }
-
-        if (initValues is null)
-        {
-            initValues = allSearchRequestTypes
-                .ToDictionary(
-                    keySelector: t => t,
-                    elementSelector: t => (SearchRequest)t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)!
-                );
-        }
-
-        await Search();
-
-        if (CompressedObject is not null)
-        {
-            String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
-            var jsonSerializerSettings = new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.Auto,
-                    NullValueHandling = NullValueHandling.Ignore,
-                    Formatting = Formatting.None,
-                    Converters = [new StringEnumConverter()]
-                };
-            SearchRequest decompressedObject = JsonConvert.DeserializeObject<SearchRequest>(decompressedString, jsonSerializerSettings)!;
-            if (allSearchRequestTypes.FirstOrDefault(t => t.Name == decompressedObject?.GetType().Name) is { } matchingType)
+            if (SearchTerm is null)
             {
-                initValues[matchingType] = decompressedObject;
-                loadedModelFromUrl = true;
+                SearchTerm = "";
             }
+
+            await Search();
+
+            if (CompressedObject is not null && CompressedObject != loadedCompressedObject)
+            {
+                String decompressedString = await Models.FromGzipAsync(CompressedObject.Replace(" ", "+"));
+                var jsonSerializerSettings = new JsonSerializerSettings
+                    {
+                        TypeNameHandling = TypeNameHandling.Auto,
+                        NullValueHandling = NullValueHandling.Ignore,
+                        Formatting = Formatting.None,
+                        Converters = [new StringEnumConverter()]
+                    };
+                SearchRequest decompressedObject = JsonConvert.DeserializeObject<SearchRequest>(decompressedString, jsonSerializerSettings)!;
+                if (allSearchRequestTypes.FirstOrDefault(t => t == decompressedObject?.GetType()) is { } matchingType)
+                {
+                    initValues[matchingType] = decompressedObject;
+                    var state = GetEditorState(matchingType);
+                    state.Request = decompressedObject;
+                    state.RequestInitialized = true;
+                    state.Response = null;
+                    // A shared model should remain selectable even when the query filters its name.
+                    if (!groupings.Values.Any(types => types.Contains(matchingType)))
+                    {
+                        string group = SearchRequestGroupings.FirstOrDefault(entry => entry.Value.Contains(matchingType)).Key ?? "Uncategorized";
+                        if (!groupings.TryGetValue(group, out var types))
+                            groupings[group] = types = new();
+                        types.Add(matchingType);
+                    }
+                    selectedSearch = matchingType;
+                    loadedCompressedObject = CompressedObject;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+
+    private bool connecting;
+
+    [Inject]
+    public required IJSRuntime ConnectionRuntime { get; set; }
+
+    private async Task ConnectAsync()
+    {
+        if (connecting) return;
+        connecting = true;
+        try
+        {
+            if (!Connect()) return;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await searcher!.SearchAsync(new ProductSearchRequest(null, null, User.Anonymous(), "Connection check", null, 0, 1), cancellation.Token);
+            await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.GetBaseException().Message, Severity.Error);
+            searcher = null;
+        }
+        finally
+        {
+            connecting = false;
         }
     }
 
@@ -157,44 +229,29 @@
         try
         {
             searcher = new Searcher(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
-            message = "Successfully initialized the Searcher.";
-            error = null;
             return true;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             return false;
         }
     }
 
-    private void ResetSearcher()
-    {
-        searcher = null;
-        StateHasChanged();
-    }
-
     private Task Search()
     {
-        var sw = Stopwatch.StartNew();
-
         groupings = SearchRequestGroupings.ToDictionary(
             kvp => kvp.Key,
             kvp => kvp.Value
                 .Where(ContainsSearch)
                 .ToList()
         );
-        loadedModelFromUrl = false;
+        if (uncategorizedTypes.Count > 0)
+            groupings["Uncategorized"] = uncategorizedTypes.Where(ContainsSearch).ToList();
 
-        if (SearchTerm is "")
-        {
-            searchTime = null;
-        }
-        else
-        {
-            searchTime = sw.Elapsed.TotalMilliseconds;
-        }
+        if (selectedSearch is null || !groupings.Values.Any(types => types.Contains(selectedSearch)))
+            selectedSearch = groupings.Values.SelectMany(types => types).FirstOrDefault();
+
         return Task.CompletedTask;
     }
 

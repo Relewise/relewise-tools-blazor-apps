@@ -1,9 +1,10 @@
-﻿@using System.Reflection
+@using System.Reflection
 @using Relewise.BlazorApps.XmlSummaries
 @using global::Relewise.Client
 <details class="box" open=@OpenDetails>
     <summary @onclick="() => hasBeenOpen = true">
-        <i>@Settings.Name(Type) <small>(abstract type with @derivedTypes.Count concrete @(derivedTypes.Count is 1 ? "type" : "types"))</small></i>
+        <span class="abstract-type-title">@Settings.Name(Type)</span>
+        <span class="abstract-type-count">Abstract type · @derivedTypes.Count concrete @(derivedTypes.Count is 1 ? "type" : "types")</span>
         @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(Type) is { } summary)
         {
             <TrustedInfo>@summary</TrustedInfo>
@@ -13,7 +14,7 @@
             <CommunityInfo Summary="@communitySummary"></CommunityInfo>
         }
     </summary>
-    <div style="padding: 5px;">
+    <div class="abstract-type-content">
         This is not a concrete type. It represents a common abstract type that can be one of the following concrete types.
         <br />
         @if (hasBeenOpen)
@@ -38,8 +39,8 @@
                         <ChildContent>
                             <DynamicComponent Type=editor.EditorType(type) Parameters=parameters />
                         </ChildContent>
-                        <ErrorContent>
-                            <code>Failed for @Settings.Name(type)</code>
+                        <ErrorContent Context="exception">
+                            <ErrorNotification Message="@($"Failed to display {Settings.Name(type)}. {exception.GetBaseException().Message}")" />
                         </ErrorContent>
                     </ErrorBoundary>
                 }
@@ -50,6 +51,7 @@
 
 @code {
     private bool hasBeenOpen;
+    private Type? initializedType;
     private XmlDocumentation? xmlDocumentation;
     private CommunityDocumentation? communityDocumentation;
     private List<Type> derivedTypes = new();
@@ -66,9 +68,12 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        hasBeenOpen = hasBeenOpen || OpenDetails;
+        if (initializedType == Type) return;
+
         (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
 
-        hasBeenOpen = hasBeenOpen || OpenDetails;
+        initializedType = Type;
 
         var assembly = Assembly.GetAssembly(typeof(ClientBase));
         derivedTypes = assembly!

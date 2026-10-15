@@ -1,0 +1,7 @@
+.color-gray {
+    color: var(--mud-palette-text-secondary);
+}
+
+.font11 {
+    font-size: 11px;
+}

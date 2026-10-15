@@ -1,0 +1,47 @@
+@using MudBlazor
+@using Relewise.BlazorApps.Shared
+
+@if (Rows.Count > 0)
+{
+<MudExpansionPanel Expanded="true" Dense="true">
+    <TitleContent>
+        <div class="changes-title">
+            <MudText Typo="Typo.h6" Class="changes-heading">@Title (@Rows.Count)</MudText>
+        </div>
+    </TitleContent>
+    <ChildContent>
+            <MudDataGrid T="VersionChangeRow" Items="Rows" Dense="true" Striped="true" Hover="true"
+                         RowsPerPage="@(Math.Max(1, Rows.Count))" Elevation="0" SortMode="SortMode.None" Filterable="false" ReadOnly="true">
+                <Columns>
+                    <PropertyColumn Property="row => row.TypeName" Title="Type" />
+                    @if (ShowMember)
+                    {
+                        <PropertyColumn Property="row => row.Member" Title="@MemberTitle" />
+                    }
+                    @if (ShowPrevious)
+                    {
+                        <PropertyColumn Property="row => row.Previous" Title="Previous type">
+                            <CellTemplate Context="row"><span class="previous-type">@row.Item.Previous</span></CellTemplate>
+                        </PropertyColumn>
+                    }
+                    @if (ShowCurrent)
+                    {
+                        <PropertyColumn Property="row => row.Current" Title="@CurrentTitle">
+                            <CellTemplate Context="row"><span class="current-type">@row.Item.Current</span></CellTemplate>
+                        </PropertyColumn>
+                    }
+                </Columns>
+            </MudDataGrid>
+    </ChildContent>
+</MudExpansionPanel>
+}
+
+@code {
+    [Parameter, EditorRequired] public required string Title { get; set; }
+    [Parameter, EditorRequired] public required IReadOnlyList<VersionChangeRow> Rows { get; set; }
+    [Parameter] public bool ShowMember { get; set; }
+    [Parameter] public string MemberTitle { get; set; } = "Property";
+    [Parameter] public bool ShowPrevious { get; set; }
+    [Parameter] public bool ShowCurrent { get; set; }
+    [Parameter] public string CurrentTitle { get; set; } = "Type";
+}

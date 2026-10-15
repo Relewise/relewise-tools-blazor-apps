@@ -1,4 +1,11 @@
-﻿<input type="number" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
+@using MudBlazor
+
+@* Decimal stepping preserves all 64-bit integers; MudNumericField<long> steps through double. *@
+<MudNumericField T="decimal?" Value="@((decimal?)Value)" ValueChanged="UpdateValue"
+                 Min="@((decimal?)long.MinValue)" Max="@((decimal?)long.MaxValue)" Step="1m"
+                 Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Immediate="true"
+                 HideSpinButtons="ReadOnly" Disabled="ReadOnly" Required="@(!ReadOnly)" Clearable="false"
+                 Validation="@(new Func<decimal?, string?>(ValidateInteger))" />
 
 @code {
     [Parameter]
@@ -15,4 +22,15 @@
 
     [Parameter]
     public Type[] AncestorTypes { get; set; } = [];
+
+    private static string? ValidateInteger(decimal? value)
+        => value.HasValue && decimal.Truncate(value.Value) != value.Value ? "Enter a whole number." : null;
+
+    private void UpdateValue(decimal? value)
+    {
+        if (ReadOnly || !value.HasValue || decimal.Truncate(value.Value) != value.Value
+            || value.Value < long.MinValue || value.Value > long.MaxValue) return;
+        Value = (long)value.Value;
+        Setter(Value);
+    }
 }

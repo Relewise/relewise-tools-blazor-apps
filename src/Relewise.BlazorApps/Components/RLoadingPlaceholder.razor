@@ -1,0 +1,16 @@
+<MudGrid Justify="HorizontalAlignment" Spacing="0" Style="@($"height: {Height};")" UserAttributes="@(new Dictionary<string, object> { ["data-testid"] = "loading_placeholder" })">
+    <MudItem Style="@($"padding-top: {PaddingTop};")">
+        <span class="color-gray font11">@Text</span>
+    </MudItem>
+</MudGrid>
+
+@code
+{
+    [Parameter] public string Text { get; set; } = "Loading...";
+
+    [Parameter] public string Height { get; set; } = "80px";
+
+    [Parameter] public Justify HorizontalAlignment { get; set; } = Justify.Center;
+
+    [Parameter] public string PaddingTop { get; set; } = "20px";
+}

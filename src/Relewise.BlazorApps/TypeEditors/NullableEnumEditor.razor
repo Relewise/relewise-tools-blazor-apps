@@ -1,21 +1,24 @@
 @typeparam T where T : struct, Enum
+@using Relewise.BlazorApps.Components
 @if (ReadOnly)
 {
     <code>@(Value?.ToString() ?? "<NULL>")</code>
 }
 else
 {
-    <select style="width:100%;" @bind=value @bind:after="() => Setter(value)">
-        <option value="">&lt;NULL&gt;</option>
-        @foreach (T option in Enum.GetValues<T>())
-        {
-            <option value="@option">@option</option>
-        }
-    </select>
+    <RSelect T="EnumOption" Value="SelectedOption" Items="Options" ToStringFunc="DisplayOption"
+             ValueChanged="UpdateValue" Clearable="false" Style="width:100%;" />
 }
 
 @code {
-    private T? value;
+    public readonly record struct EnumOption(T? Value);
+
+    private static readonly EnumOption[] Options = Enum.GetValues<T>()
+        .Select(option => new EnumOption(option)).Prepend(new EnumOption(null)).ToArray();
+
+    private EnumOption SelectedOption => new(Value);
+
+    private static string DisplayOption(EnumOption option) => option.Value?.ToString() ?? "<NULL>";
 
     [Parameter]
     public bool ReadOnly { get; set; } = false;
@@ -32,8 +35,10 @@ else
     [Parameter]
     public Type[] AncestorTypes { get; set; } = [];
 
-    protected override void OnParametersSet()
+    private void UpdateValue(EnumOption option)
     {
-        value = Value;
+        if (ReadOnly) return;
+        Value = option.Value;
+        Setter(Value);
     }
 }

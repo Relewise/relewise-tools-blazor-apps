@@ -1,7 +1,9 @@
-﻿@page "/Models"
+@inject ISnackbar Snackbar
+@page "/Models"
 @using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
-@using System.Diagnostics
+@using MudBlazor
+@using Relewise.BlazorApps.Components
 @using System.IO.Compression
 @using KristofferStrube.DocumentSearching
 @using KristofferStrube.DocumentSearching.SuffixTree
@@ -11,114 +13,129 @@
 @using global::Relewise.Client.Requests.Filters
 @using global::Relewise.Client.Requests.Recommendations
 @using global::Relewise.Client.Responses
-@implements IDisposable
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 
 <PageTitle>Blazor Relewise - Models</PageTitle>
 
 <h1>Models</h1>
-<p>
-    Here you can see all models and explore the many ways that you configure and use them together.
-</p>
 
-<div class="input-group">
-    <input @bind=SearchTerm @bind:after=Search id="search" @bind:event="oninput" class="form-control" placeholder="Search" />
-    <div class="input-group-append">
-        <label for="search" class="input-group-text" style="width:240px;">
-            <svg class="bi" width="24" height="24" viewBox="-2 -2 14 13"><polygon fill="transparent" stroke="grey" stroke-width="1" points="12,11 6,6 5,7 2,7 0,5 0,2 2,0 5,0 7,2 7,5 6,6"></polygon></svg>
-            @if (searchTime is not null)
-            {
-                <small style="color: green;margin-left:10px;">
-                    Found @filteredTypes.Count() results in @Math.Round(searchTime.Value, 2) ms
-                </small>
-            }
-        </label>
-    </div>
-</div>
-
-<div style="@(SearchTerm is "" ? "min-height:100vh;" : "")">
-    @if (corrections.Length is not 0)
+<div class="mb-2">
+    <RTextField Label="Search" @bind-Value="SearchTerm" @bind-Value:after="Search"
+                Immediate="true" DebounceInterval="250" Clearable="true" FullWidth="true" />
+    @if (corrections.Length != 0 || continuations.Length != 0)
     {
-        <div>
-            <small>
-                <span>search alternatives </span>
+        <div class="d-flex flex-wrap align-center">
+            @if (corrections.Length != 0)
+            {
+                <MudText Typo="Typo.caption">Search alternatives:</MudText>
                 @foreach (string correction in corrections)
                 {
-                    <text> — </text>
-                    <u style="color:#00A; cursor: pointer;" @onclick=@(() => { SearchTerm = correction; UpdateSearchQueryString(replace: false); })>@correction</u>
+                    <RButton Variant="Variant.Text" Size="Size.Small" OnClick="() => SelectSuggestion(correction)">@correction</RButton>
                 }
-            </small>
-        </div>
-    }
-    @if (continuations.Length is not 0)
-    {
-        <div>
-            <small>
-                <span>search continuations </span>
+            }
+            @if (continuations.Length != 0)
+            {
+                <MudText Typo="Typo.caption">Search continuations:</MudText>
                 @foreach (string continuation in continuations)
                 {
-                    <text> — </text>
-                    <u style="color:#00A; cursor: pointer;" @onclick=@(() => { SearchTerm = continuation; UpdateSearchQueryString(replace: false); })>@continuation</u>
+                    <RButton Variant="Variant.Text" Size="Size.Small" OnClick="() => SelectSuggestion(continuation)">@continuation</RButton>
                 }
-            </small>
+            }
         </div>
-    }
-    <br />
-    @foreach (var type in SearchResults)
-    {
-        @if (type.IsInterface || type.IsAbstract)
-        {
-            <AbstractTypePresenter Type=type />
-        }
-        else if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
-        {
-            if (editor.InitValue(type) is { } initValue && initValues[type] is null)
-            {
-                initValues[type] = initValue;
-            }
-            var parameters = new Dictionary<string, object?>() { ["Value"] = initValues[type], ["Setter"] = (object? obj) => { initValues[type] = obj; StateHasChanged(); } };
-            var editorType = editor.EditorType(type);
-            if (editorType == typeof(ByteEditor) && Nullable.GetUnderlyingType(type) == typeof(byte))
-            {
-                parameters["AllowNull"] = true;
-            }
-            if (searchTime is not null && filteredTypes.Count is 1 || type == singleExactMatch)
-            {
-                parameters.Add("OpenDetails", true);
-            }
-            if (editorType.IsConstructedGenericType && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>))
-            {
-                parameters.Add("ShowModelShareLink", true);
-            }
-
-            <ErrorBoundary>
-                <ChildContent>
-                    <DynamicComponent Type=editor.EditorType(type) Parameters=parameters />
-                </ChildContent>
-                <ErrorContent>
-                    <code>Failed for @Settings.Name(type)</code>
-                </ErrorContent>
-            </ErrorBoundary>
-        }
-        <br />
     }
 </div>
 
-<br />
-
+<div class="recommendation-workspace @(navigationOpen ? null : "navigation-collapsed")" @ref="workspaceElement">
+    <MudPaper Outlined="true" Elevation="0" Class="recommendation-navigation">
+        <div class="content-navigation-toolbar">
+            <RIconButton Icon="@(navigationOpen ? Icons.Material.Filled.ChevronLeft : Icons.Material.Filled.ChevronRight)"
+                         ToolTip="@(navigationOpen ? "Collapse content sidebar" : "Expand content sidebar")"
+                         aria-label="@(navigationOpen ? "Collapse content sidebar" : "Expand content sidebar")"
+                         aria-expanded="@(navigationOpen ? "true" : "false")" aria-controls="content-navigation-menu"
+                         OnClick="() => navigationOpen = !navigationOpen" />
+        </div>
+        <div id="content-navigation-menu" class="content-navigation-menu" hidden="@(!navigationOpen)">
+        <MudNavMenu Dense="true" Style="height: 100%; overflow-y: auto;">
+            <Virtualize Items="menuTypes" Context="type" ItemSize="31">
+                <MudNavLink OnClick="() => selectedModel = type"
+                            title="@Settings.Name(type)"
+                            Class="@(selectedModel == type ? "recommendation-selected" : null)">
+                    @Settings.Name(type)
+                </MudNavLink>
+            </Virtualize>
+        </MudNavMenu>
+        </div>
+    </MudPaper>
+    <MudPaper Outlined="true" Elevation="0" Class="recommendation-content pa-4">
+        @if (selectedModel is { } selected)
+        {
+            GetEditorState(selected);
+            @foreach (var entry in editorStates)
+            {
+                Type type = entry.Key;
+                bool isSelected = type == selected;
+                <div style="@(isSelected ? null : "display: none;")" aria-hidden="@(isSelected ? "false" : "true")">
+                    <ModelEditor @key="type" ModelType="type" State="entry.Value" IsActive="isSelected" />
+                </div>
+            }
+        }
+        else
+        {
+            <MudText>No models match your search.</MudText>
+        }
+    </MudPaper>
+</div>
 @code {
-    private bool disposed = false;
-    private CancellationTokenSource? cts;
-    private double? searchTime;
-    private Dictionary<Type, object?> initValues = default!;
+    private bool navigationOpen = true;
+    private Type? selectedModel;
+    private List<Type> menuTypes = [];
+    private readonly Dictionary<Type, ModelEditor.EditorState> editorStates = new();
+    private ElementReference workspaceElement;
+    private IJSObjectReference? layoutModule;
+    private string? loadedCompressedObject;
 
+    private ModelEditor.EditorState GetEditorState(Type type)
+    {
+        if (!editorStates.TryGetValue(type, out var state))
+            editorStates[type] = state = new();
+        return state;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (!firstRender) return;
+            layoutModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/recommendationLayout.js");
+            await layoutModule.InvokeVoidAsync("initialize", workspaceElement);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (layoutModule is null) return;
+        await layoutModule.InvokeVoidAsync("dispose", workspaceElement);
+        await layoutModule.DisposeAsync();
+    }
+
+    private async Task SelectSuggestion(string suggestion)
+    {
+        SearchTerm = suggestion;
+        await Search();
+        UpdateSearchQueryString(replace: false);
+    }
     private DocumentIndex<Type, SuffixTrieSearchIndex> concreteTypesSearchIndex = default!;
     private DocumentIndex<Type, SuffixTrieSearchIndex> abstractTypesSearchIndex = default!;
 
     private string[] corrections = [];
     private string[] continuations = [];
     private List<Type> filteredTypes = [];
-    private List<Type> filteredAbstractTypes = [];
     private Type? singleExactMatch = null;
 
     public IEnumerable<Type> SearchResults => singleExactMatch is null ? filteredTypes : filteredTypes.Where(t => t != singleExactMatch).Prepend(singleExactMatch);
@@ -130,57 +147,60 @@
     [SupplyParameterFromQuery(Name = "o")]
     public string? CompressedObject { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        if (SearchTerm is null)
+        try
         {
-            SearchTerm = "";
+            concreteTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(ConcreteTypes.ToArray(), t => Settings.Name(t).ToLower());
+            abstractTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(AbstractTypes.ToArray(), t => Settings.Name(t).ToLower());
         }
-
-        initValues = ConcreteTypes
-            .ToDictionary(
-                keySelector: t => t,
-                elementSelector: t => t.GetConstructors().FirstOrDefault(c => c.GetParameters().Length is 0)?.Invoke(null)
-            );
-
-        concreteTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(ConcreteTypes.ToArray(), t => Settings.Name(t).ToLower());
-        abstractTypesSearchIndex = DocumentIndex<Type, SuffixTrieSearchIndex>.Create(AbstractTypes.ToArray(), t => Settings.Name(t).ToLower());
-
-        await Search();
-
-        if (CompressedObject is not null)
+        catch (Exception ex)
         {
-            String decompressedString = await FromGzipAsync(CompressedObject.Replace(" ", "+"));
-            var jsonSerializerSettings = new JsonSerializerSettings
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            SearchTerm ??= "";
+            if (searchTermDiff != SearchTerm || selectedModel is null)
+                await Search();
+
+            if (CompressedObject is not null && CompressedObject != loadedCompressedObject)
+            {
+                string decompressedString = await FromGzipAsync(CompressedObject.Replace(" ", "+"));
+                var settings = new JsonSerializerSettings
                 {
                     TypeNameHandling = TypeNameHandling.Auto,
                     NullValueHandling = NullValueHandling.Ignore,
                     Formatting = Formatting.None,
                     Converters = [new StringEnumConverter()]
                 };
-            object? decompressedObject = JsonConvert.DeserializeObject(decompressedString, jsonSerializerSettings);
-            if (SearchResults.FirstOrDefault()?.Name == decompressedObject?.GetType().Name)
-            {
-                initValues[SearchResults.First()] = decompressedObject;
+                object? model = JsonConvert.DeserializeObject(decompressedString, settings);
+                if (ConcreteTypes.FirstOrDefault(type => type == model?.GetType()) is { } matchingType)
+                {
+                    if (ModelShareLink.Page(matchingType) != "Models")
+                    {
+                        NavigationManager.NavigateTo(ModelShareLink.Create(NavigationManager.BaseUri, matchingType, CompressedObject.Replace(" ", "+")), replace: true);
+                        return;
+                    }
+                    var state = GetEditorState(matchingType);
+                    state.Value = model;
+                    state.Initialized = true;
+                    if (!menuTypes.Contains(matchingType))
+                        menuTypes.Insert(0, matchingType);
+                    selectedModel = matchingType;
+                }
+                loadedCompressedObject = CompressedObject;
             }
         }
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (SearchTerm is null)
+        catch (Exception ex)
         {
-            SearchTerm = "";
-            searchTermDiff = SearchTerm;
-        }
-
-        if (searchTermDiff != SearchTerm)
-        {
-            searchTermDiff = SearchTerm;
-            await Search();
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
         }
     }
-
     public static List<Type> AssemblyTypes = Assembly
         .GetAssembly(typeof(ClientBase))!
             .GetTypes()
@@ -211,94 +231,71 @@
             .OrderBy(t => Settings.Name(t).ToLower().Trim())
             .ToList();
 
-    private static Dictionary<Type, Type> EditorTypes = ConcreteTypes
-        .ToDictionary(
-            keySelector: t => t,
-            elementSelector: t => typeof(ObjectEditor<>).MakeGenericType(new Type[] { t })
-        );
-
-    private async Task Search()
+    private Task Search()
     {
-        UpdateSearchQueryString();
-        cts?.Cancel();
-        var localCts = new CancellationTokenSource();
-        var cancellationToken = localCts.Token;
-        cts = localCts;
-        searchTime = null;
-        singleExactMatch = null;
-        filteredTypes.Clear();
-
-        var sw = Stopwatch.StartNew();
-
-        Type[] concreteResults;
-        Type[] abstractResults;
-
-        var searchTermLower = SearchTerm.ToLower();
-        var searchTermLowerSplit = SearchTerm.ToLower().Trim().Split(" ").Select(p => p.Trim()).ToArray();
-
-        if (SearchTerm is "")
+        try
         {
-            concreteResults = ConcreteTypes.ToArray();
-            abstractResults = AbstractTypes.ToArray();
-        }
-        else
-        {
-            var concreteSearchIndexMatches = concreteTypesSearchIndex.ApproximateSearch(searchTermLower, 1);
-            var abstractSearchIndexMatches = abstractTypesSearchIndex.ApproximateSearch(searchTermLower, 1);
+            SearchTerm ??= "";
+            searchTermDiff = SearchTerm;
+            UpdateSearchQueryString();
+            singleExactMatch = null;
+            corrections = [];
+            continuations = [];
+            Type[] concreteResults;
+            Type[] abstractResults;
 
-            Dictionary<string, int> correctionSet = new();
+            var searchTermLower = SearchTerm.ToLower();
+            var searchTermLowerSplit = SearchTerm.ToLower().Trim().Split(" ").Select(p => p.Trim()).ToArray();
 
-            int[] encodedInput = concreteTypesSearchIndex.SearchIndex.Input;
-            foreach (var result in concreteSearchIndexMatches)
+            if (SearchTerm is "")
             {
-                foreach (var match in result.Matches.Where(m => m.Edits >= 1 && m.ExpandedCigar.First() is EditType.Match or EditType.MisMatch))
-                {
-                    string typeName = Settings.Name(result.Element);
-                    string constructedString = typeName[match.Position..Math.Min(match.Position + match.Length, typeName.Length)].ToLower();
-
-                    if (constructedString.Contains(".") || constructedString.Length < 2 || searchTermLowerSplit.Contains(constructedString))
-                        continue;
-
-                    correctionSet.TryGetValue(constructedString, out int count);
-                    correctionSet[constructedString] = count + 1;
-                }
+                concreteResults = ConcreteTypes.ToArray();
+                abstractResults = AbstractTypes.ToArray();
             }
-            corrections = correctionSet.OrderByDescending(kvp => kvp.Value).Select(kvp => kvp.Key).Take(5).ToArray();
-
-            concreteResults = concreteSearchIndexMatches.Select(sr => sr.Element).ToArray();
-            continuations = concreteTypesSearchIndex.ContinuationsSortedByOccurrences(searchTermLower, [' ', '.'], 5, mustBeAfterBreakChar: true);
-            abstractResults = abstractSearchIndexMatches.Select(sr => sr.Element).ToArray();
-        }
-        singleExactMatch = concreteResults.Concat(abstractResults).FirstOrDefault(e => Settings.Name(e).ToLower() == searchTermLower);
-
-        if (concreteResults.Length > 10)
-        {
-            foreach (var chunk in concreteResults.Concat(abstractResults).Chunk(10))
+            else
             {
-                filteredTypes.AddRange(chunk);
-                await InvokeAsync(StateHasChanged);
-                await Task.Delay(1);
-                if (localCts.IsCancellationRequested)
-                {
-                    return;
-                }
-            }
-        }
-        else
-        {
-            filteredTypes = concreteResults.Concat(abstractResults).ToList();
-        }
+                var concreteSearchIndexMatches = concreteTypesSearchIndex.ApproximateSearch(searchTermLower, 1);
+                var abstractSearchIndexMatches = abstractTypesSearchIndex.ApproximateSearch(searchTermLower, 1);
 
-        if (SearchTerm is "")
-        {
-            searchTime = null;
+                Dictionary<string, int> correctionSet = new();
+
+                int[] encodedInput = concreteTypesSearchIndex.SearchIndex.Input;
+                foreach (var result in concreteSearchIndexMatches)
+                {
+                    foreach (var match in result.Matches.Where(m => m.Edits >= 1 && m.ExpandedCigar.First() is EditType.Match or EditType.MisMatch))
+                    {
+                        string typeName = Settings.Name(result.Element);
+                        string constructedString = typeName[match.Position..Math.Min(match.Position + match.Length, typeName.Length)].ToLower();
+
+                        if (constructedString.Contains(".") || constructedString.Length < 2 || searchTermLowerSplit.Contains(constructedString))
+                            continue;
+
+                        correctionSet.TryGetValue(constructedString, out int count);
+                        correctionSet[constructedString] = count + 1;
+                    }
+                }
+                corrections = correctionSet.OrderByDescending(kvp => kvp.Value).Select(kvp => kvp.Key).Take(5).ToArray();
+
+                concreteResults = concreteSearchIndexMatches.Select(sr => sr.Element).ToArray();
+                continuations = concreteTypesSearchIndex.ContinuationsSortedByOccurrences(searchTermLower, [' ', '.'], 5, mustBeAfterBreakChar: true);
+                abstractResults = abstractSearchIndexMatches.Select(sr => sr.Element).ToArray();
+            }
+            singleExactMatch = concreteResults.Concat(abstractResults).FirstOrDefault(e => Settings.Name(e).ToLower() == searchTermLower);
+
+            filteredTypes = concreteResults.Concat(abstractResults).Distinct().ToList();
+            menuTypes = SearchResults.ToList();
+            if (singleExactMatch is not null)
+                selectedModel = singleExactMatch;
+            else if (selectedModel is null || !menuTypes.Contains(selectedModel))
+                selectedModel = menuTypes.FirstOrDefault();
+            return Task.CompletedTask;
         }
-        else
+        catch (Exception ex)
         {
-            searchTime = sw.Elapsed.TotalMilliseconds;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            return Task.CompletedTask;
         }
     }
-
     private void UpdateSearchQueryString(bool replace = true)
     {
         Dictionary<string, object?> queryStrings = new Dictionary<string, object?>()
@@ -311,7 +308,7 @@
 
         string url = NavigationManager.GetUriWithQueryParameters(queryStrings);
 
-        if (!SearchTerm.EndsWith(" "))
+        if (!SearchTerm.EndsWith(" ") && url != NavigationManager.Uri)
         {
             NavigationManager.NavigateTo(url, replace: replace);
         }
@@ -330,8 +327,4 @@
         return System.Text.Encoding.UTF8.GetString(output.ToArray());
     }
 
-    public void Dispose()
-    {
-        disposed = true;
-    }
 }

@@ -1,0 +1,24 @@
+.list-toolbar {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) auto auto;
+    gap: 12px;
+    align-items: center;
+}
+
+.list-toolbar.has-actions {
+    grid-template-columns: minmax(240px, 1fr) auto auto auto;
+}
+
+@media (max-width: 959.98px) {
+    .list-toolbar,
+    .list-toolbar.has-actions {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 599.98px) {
+    .list-toolbar,
+    .list-toolbar.has-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

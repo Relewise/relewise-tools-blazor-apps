@@ -1,0 +1,14 @@
+﻿<MudGrid Justify="@Justify" Spacing="Spacing" Class="align-items-center">
+    @ChildContent
+</MudGrid>
+
+@code {
+
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+
+    [Parameter] public required Justify Justify { get; set; } = Justify.FlexStart;
+
+    [Parameter] public required int Spacing { get; set; } = 1;
+
+
+}

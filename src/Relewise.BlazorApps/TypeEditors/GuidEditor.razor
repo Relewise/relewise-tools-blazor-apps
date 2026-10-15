@@ -1,15 +1,12 @@
-﻿@if (Value is null)
-{
-    @if (!ReadOnly)
-    {
-        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new Guid</button>
-    }
-}
-else
-{
-    <input style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
-}
+@using Relewise.BlazorApps.Components
+@using MudBlazor
+
+<RTextField Value="@text" ValueChanged="UpdateValue" ReadOnly="ReadOnly" Disabled="ReadOnly"
+            Placeholder="@(AllowNull ? "<NULL>" : null)" Clearable="@(AllowNull && !ReadOnly)"
+            Immediate="true" FullWidth="true" Error="invalid" ErrorText="Enter a valid GUID." />
+
 @code {
+    [Parameter] public bool AllowNull { get; set; } = true;
     [Parameter]
     public bool ReadOnly { get; set; } = false;
 
@@ -25,9 +22,37 @@ else
     [Parameter]
     public Type[] AncestorTypes { get; set; } = [];
 
+    private string? text;
+    private Guid? displayedValue;
+    private bool invalid;
+
+    protected override void OnParametersSet()
+    {
+        if (displayedValue == Value) return;
+        displayedValue = Value;
+        text = Value?.ToString();
+        invalid = false;
+    }
+
+    private void UpdateValue(string? value)
+    {
+        if (ReadOnly) return;
+        text = value;
+        bool empty = string.IsNullOrWhiteSpace(value);
+        invalid = empty ? !AllowNull : !Guid.TryParse(value, out _);
+        if (invalid) return;
+        Value = empty ? null : Guid.Parse(value!);
+        displayedValue = Value;
+        Setter(Value);
+    }
+
     public void Create()
     {
+        if (ReadOnly) return;
         Value = Guid.Empty;
+        displayedValue = Value;
+        text = Value.ToString();
+        invalid = false;
         Setter(Value);
     }
 }

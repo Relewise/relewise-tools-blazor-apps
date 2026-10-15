@@ -1,0 +1,127 @@
+.recommendation-workspace {
+    display: grid;
+    grid-template-columns: 355px minmax(0, 1fr);
+    gap: 16px;
+    height: var(--workspace-height, calc(100dvh - 320px));
+    min-height: 0;
+}
+
+.recommendation-workspace ::deep .recommendation-navigation {
+    text-align: left;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.recommendation-workspace ::deep .recommendation-navigation .mud-nav-link {
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-inline-start: 8px;
+    padding-inline-end: 8px;
+    font-size: 0.8125rem;
+}
+
+.recommendation-workspace ::deep .recommendation-navigation .mud-nav-link-text {
+    font-size: 0.8125rem;
+    margin-inline-start: 4px;
+}
+
+.recommendation-workspace ::deep .recommendation-navigation .mud-nav-group .mud-navmenu .mud-nav-item .mud-nav-link {
+    padding-inline-start: 16px;
+}
+
+.recommendation-workspace ::deep .recommendation-navigation .mud-nav-link-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.recommendation-workspace ::deep .recommendation-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.recommendation-workspace ::deep .recommendation-star {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.recommendation-workspace ::deep .recommendation-navigation .mud-nav-group > .mud-nav-link .mud-nav-link-text {
+    font-weight: 700;
+}
+
+.recommendation-workspace ::deep .recommendation-navigation .mud-collapse-container {
+    transition-duration: 100ms;
+}
+
+.recommendation-workspace ::deep .recommendation-navigation .mud-nav-link-expand-icon {
+    transition-duration: 100ms;
+}
+
+.recommendation-workspace ::deep .recommendation-content {
+    min-width: 0;
+    max-height: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+.recommendation-workspace ::deep .recommendation-selected {
+    background-color: var(--mud-palette-primary-hover);
+    color: var(--mud-palette-primary);
+}
+
+@media (max-width: 599.98px) {
+    .recommendation-workspace {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+    }
+
+    .recommendation-workspace ::deep .recommendation-navigation {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .recommendation-workspace ::deep .recommendation-content {
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+.recommendation-workspace.navigation-collapsed {
+    grid-template-columns: 44px minmax(0, 1fr);
+}
+
+.recommendation-workspace ::deep .recommendation-navigation {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.content-navigation-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    padding: 4px;
+}
+
+.content-navigation-menu {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.content-navigation-menu[hidden] {
+    display: none;
+}
+
+@media (max-width: 599.98px) {
+    .recommendation-workspace.navigation-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .navigation-collapsed ::deep .recommendation-navigation {
+        width: 44px;
+    }
+}

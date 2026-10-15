@@ -1,26 +1,11 @@
-@if (Value is null)
-{
-    <div>
-        <code>&lt;NULL&gt;</code>
-        @if (!ReadOnly)
-        {
-            <text>&nbsp;</text>
-            <button class="btn btn-outline-success btn-sm" @onclick=SetToZero>Set to 0</button>
-        }
-    </div>
-}
-else
-{
-    <div class="input-container">
-        <input type="number" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
-        @if (!ReadOnly && AllowNull)
-        {
-            <button class="btn btn-outline-danger btn-sm" @onclick=SetToNull><nobr>Set to NULL</nobr></button>
-        }
-    </div>
-}
+@using Relewise.BlazorApps.Components
+
+<RNullableNumberField T="byte" Value="Value" ValueChanged="UpdateValue"
+                      AllowNull="AllowNull" ReadOnly="ReadOnly" Label="@Label" />
 
 @code {
+    [Parameter] public string? Label { get; set; }
+
     [Parameter]
     public bool ReadOnly { get; set; } = false;
 
@@ -39,14 +24,23 @@ else
     [Parameter]
     public Type[] AncestorTypes { get; set; } = [];
 
+    private void UpdateValue(byte? value)
+    {
+        if (ReadOnly || (!AllowNull && !value.HasValue)) return;
+        Value = value;
+        Setter(value);
+    }
+
     public void SetToZero()
     {
+        if (ReadOnly) return;
         Value = 0;
         Setter(Value);
     }
 
     public void SetToNull()
     {
+        if (ReadOnly || !AllowNull) return;
         Value = null;
         Setter(null);
     }

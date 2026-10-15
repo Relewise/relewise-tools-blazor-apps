@@ -1,0 +1,108 @@
+@using MudBlazor
+@typeparam T
+
+<MudStack Spacing="2">
+    <RListToolbar Search="search" SearchChanged="SearchChanged" ShowFilters="showFilters"
+                  ToggleFilters="() => showFilters = !showFilters" Refresh="OnRefresh" Loading="Loading">
+        <Actions>
+            <RButton Icon="@Icons.Material.Filled.Add" Disabled="Loading" OnClick="OnCreate">@CreateLabel</RButton>
+        </Actions>
+    </RListToolbar>
+    @if (showFilters)
+    {
+        <MudPaper Outlined="true" Elevation="0" Class="pa-3">
+            <div class="configuration-filters">
+                <RTextField Label="Name contains" @bind-Value="name" Clearable="true" FullWidth="true" />
+                <RSelect T="string" Label="Type" Items="Types" @bind-Value="type" />
+                <RTextField Label="Group contains" @bind-Value="group" Clearable="true" FullWidth="true" />
+                <RSelect T="string" Label="Status" Items="statuses" @bind-Value="status" />
+                <MudStack Row="true" Spacing="1">
+                    <RButton OnClick="ApplyFilters" Disabled="Loading">Apply filters</RButton>
+                    <RButton Variant="Variant.Text" OnClick="ClearFilters" Disabled="Loading">Clear</RButton>
+                </MudStack>
+            </div>
+        </MudPaper>
+    }
+    <MudDataGrid T="ConfigurationListItem<T>" Items="Items" QuickFilter="Matches" @ref="grid"
+                 RowsPerPage="50" Dense="true" Striped="true" Hover="true" Bordered="false" Elevation="0"
+                 SortMode="SortMode.None" Filterable="false" ReadOnly="true" Loading="Loading">
+        <Columns>
+            <PropertyColumn Property="item => item.Name" Title="Name">
+                <CellTemplate Context="row">
+                    <div class="d-flex align-center justify-space-between" style="width: 100%; gap: 8px;">
+                        <span>@row.Item.Name</span>
+                        <span class="flex-shrink-0"><RCopyButton Text="@row.Item.Name" ToolTip="Copy name" /></span>
+                    </div>
+                </CellTemplate>
+            </PropertyColumn>
+            <PropertyColumn Property="item => item.TypeName" Title="Type" />
+            <PropertyColumn Property="item => item.Group" Title="Group" />
+            <PropertyColumn Property="item => item.Enabled" Title="Status">
+                <CellTemplate Context="row">
+                    <MudChip T="string" Size="Size.Small" Color="@(row.Item.Enabled ? Color.Success : Color.Default)">
+                        @(row.Item.Enabled ? "Enabled" : "Disabled")
+                    </MudChip>
+                </CellTemplate>
+            </PropertyColumn>
+            @if (ShowPriority)
+            {
+                <PropertyColumn Property="item => item.Priority" Title="Priority" />
+            }
+            <PropertyColumn Property="item => item.Description" Title="Description" />
+            <TemplateColumn Title="Actions" Filterable="false">
+                <CellTemplate Context="row">
+                    <MudStack Row="true" Spacing="1">
+                        <RIconButton Icon="@Icons.Material.Filled.Edit" ToolTip="Edit" aria-label="@($"Edit {row.Item.Name}")"
+                                     OnClick="() => OnEdit.InvokeAsync(row.Item.Value)" />
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <NoRecordsContent><MudText>@EmptyText</MudText></NoRecordsContent>
+        <PagerContent>
+            <MudDataGridPager T="ConfigurationListItem<T>" PageSizeOptions="new[] { 10, 25, 50, 100 }" />
+        </PagerContent>
+    </MudDataGrid>
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public required IEnumerable<ConfigurationListItem<T>> Items { get; set; }
+    [Parameter] public bool ShowPriority { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string CreateLabel { get; set; } = "Create new";
+    [Parameter] public string EmptyText { get; set; } = "No items match your search and filters.";
+    [Parameter] public EventCallback<T> OnEdit { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    [Parameter] public EventCallback OnCreate { get; set; }
+
+    private MudDataGrid<ConfigurationListItem<T>>? grid;
+    private bool showFilters;
+    private string search = "";
+    private string name = "", type = "All", group = "", status = "All";
+    private string appliedName = "", appliedType = "All", appliedGroup = "", appliedStatus = "All";
+    private readonly string[] statuses = ["All", "Enabled", "Disabled"];
+    private IEnumerable<string> Types => Items.Select(item => item.TypeName).Distinct().Order().Prepend("All");
+
+    private bool Matches(ConfigurationListItem<T> item)
+    {
+        string term = search.Trim();
+        return (term.Length == 0 || Contains(item.Name, term) || Contains(item.TypeName, term)
+                || Contains(item.Group, term) || Contains(item.Description, term))
+            && Contains(item.Name, appliedName) && Contains(item.Group, appliedGroup)
+            && (appliedType == "All" || item.TypeName == appliedType)
+            && (appliedStatus == "All" || item.Enabled == (appliedStatus == "Enabled"));
+    }
+
+    private static bool Contains(string value, string term) => value.Contains(term, StringComparison.OrdinalIgnoreCase);
+    private void SearchChanged(string value) { search = value ?? ""; grid?.NavigateTo(MudBlazor.Page.First); }
+    private void ApplyFilters()
+    {
+        (appliedName, appliedType, appliedGroup, appliedStatus) = (name?.Trim() ?? "", type, group?.Trim() ?? "", status);
+        grid?.NavigateTo(MudBlazor.Page.First);
+    }
+    private void ClearFilters()
+    {
+        (name, type, group, status) = ("", "All", "", "All");
+        ApplyFilters();
+    }
+}
