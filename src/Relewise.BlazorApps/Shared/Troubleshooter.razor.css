@@ -1,43 +1,92 @@
+.diagnostics-header {
+    padding: 4px;
+}
+
+.diagnostics-header h3 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 500;
+}
+
+.diagnostic-improvements {
+    display: grid;
+    gap: 8px;
+    margin: 8px 4px;
+}
+
+.diagnostic-summary {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 4px;
+    font-size: 0.875rem;
+}
+
+.diagnostic-summary > span {
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.75rem;
+}
+
 .grid {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: max-content minmax(0, 1fr);
     grid-gap: 5px;
-    font-size: large;
+    font-size: 0.875rem;
 }
 
 .big-grid {
-    grid-gap: 15px;
+    grid-gap: 12px;
+    padding: 4px;
 }
 
 .position {
-    text-align:right;
+    text-align: right;
+    padding-top: 12px;
+    color: var(--mud-palette-text-secondary);
+}
+
+.popularity-rank {
+    color: var(--mud-palette-success);
 }
 
 .card {
     display: flex;
     flex-direction: column;
-    border: 2px solid var(--color-blue-light);
-    border-radius: 10px;
+    min-width: 0;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: var(--mud-default-borderradius);
+    background: var(--mud-palette-surface);
 }
 
 .header {
-    border-bottom: 2px solid var(--color-blue-light);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    padding: 5px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
 }
 
 .name {
     font-weight: bold;
+    overflow-wrap: anywhere;
 }
 
 .content {
-    padding: 5px;
+    padding: 4px 12px 12px;
+    overflow-wrap: anywhere;
+}
+
+.content > b {
+    font-size: 0.75rem;
+    color: var(--mud-palette-text-secondary);
+    font-weight: 400;
 }
 
 .icons {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     grid-gap: 5px;
 }
 
@@ -49,23 +98,23 @@
 }
 
 .purple {
-    background-color: var(--color-pink);
-    color: var(--color-text);
+    background-color: var(--mud-palette-secondary-hover);
+    color: var(--mud-palette-secondary);
 }
 
 .green {
-    background-color: var(--color-green);
-    color: var(--color-text);
+    background-color: var(--mud-palette-success-hover);
+    color: var(--mud-palette-success);
 }
 
 .blue {
-    background-color: var(--color-blue);
-    color: var(--color-white);
+    background-color: var(--mud-palette-info-hover);
+    color: var(--mud-palette-info);
 }
 
 .orange {
-    background-color: var(--color-yellow);
-    color: var(--color-text);
+    background-color: var(--mud-palette-warning-hover);
+    color: var(--mud-palette-warning);
 }
 
 .icon svg [stroke="#FFFFFF"] {

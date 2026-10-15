@@ -31,12 +31,7 @@ else
 {
     <p>Now you need to find the id of some Content you want to inspect.</p>
 
-    <div class="input-group">
-        <div class="input-group-prepend">
-            <label for="contentId" class="input-group-text" style="width:120px;">Content Id</label>
-        </div>
-        <input @bind=contentId class="form-control" id="contentId" />
-    </div>
+    <RTextField Label="Content ID" @bind-Value="contentId" FullWidth="true" />
     <br />
     <div style="display:flex;grid-gap:5px;flex-direction:row;">
         <button class="btn btn-primary" @onclick=Fetch>Fetch</button>
@@ -57,8 +52,7 @@ else
 }
 @if (content is not null)
 {
-    <label for="openDetails">Expand all: </label>
-    <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
+    <RCheckBox Label="Expand all" @bind-Value="openDetails" />
     <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Content Value="content"
         Setter="(Object? obj) => { content = (Content?)obj;  StateHasChanged(); }" />
     <br />

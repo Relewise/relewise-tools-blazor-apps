@@ -15,10 +15,59 @@ namespace Relewise.BlazorApps.Tests;
 [TestClass]
 public class EditorTests
 {
+    private enum NonZeroOptions { First = 1, Second = 2 }
+
     [TestMethod]
-    public void LanguageCanBeEnteredAndClearedWithoutCreatingAnObjectFirst()
+    public async Task EnumSelectIncludesTheUndefinedNumericDefault()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var component = context.Render<EnumEditor<NonZeroOptions>>(parameters => parameters
+            .Add(c => c.Value, (NonZeroOptions)0)
+            .Add(c => c.Setter, _ => { }));
+        var select = component.FindComponent<Relewise.BlazorApps.Components.RSelect<NonZeroOptions>>();
+
+        Assert.IsTrue(select.Instance.Items.Contains((NonZeroOptions)0));
+        Assert.AreEqual("Select…", select.Instance.ToStringFunc!((NonZeroOptions)0));
+        Assert.IsFalse(select.Instance.Clearable);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task EnumSelectPreservesTheEnumTypeAndReadOnlyBehavior(bool readOnly)
+    {
+        await using var context = new BunitContext();
+        context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        object? result = null;
+        var component = context.Render<EnumEditor<DayOfWeek>>(parameters => parameters
+            .Add(c => c.Value, DayOfWeek.Monday)
+            .Add(c => c.ReadOnly, readOnly)
+            .Add(c => c.Setter, value => result = value));
+        var select = component.FindComponent<Relewise.BlazorApps.Components.RSelect<DayOfWeek>>();
+
+        Assert.AreEqual(DayOfWeek.Monday, select.Instance.Value);
+        Assert.AreEqual(7, select.Instance.Items.Count());
+        Assert.AreEqual(readOnly, select.Instance.Disabled);
+        Assert.IsTrue(select.Instance.Required);
+        Assert.IsFalse(select.Instance.Clearable);
+        await component.InvokeAsync(() => select.Instance.ValueChanged.InvokeAsync(DayOfWeek.Wednesday));
+
+        if (readOnly)
+            Assert.IsNull(result);
+        else
+        {
+            Assert.IsInstanceOfType<DayOfWeek>(result);
+            Assert.AreEqual(DayOfWeek.Wednesday, result);
+        }
+    }
+
+    [TestMethod]
+    public async Task LanguageCanBeEnteredAndClearedWithoutCreatingAnObjectFirst()
+    {
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
@@ -32,14 +81,15 @@ public class EditorTests
         Assert.AreEqual(1, component.FindAll("button[aria-label='Copy Language as JSON']").Count);
         component.Find("input").Input("en-gb");
         Assert.AreEqual("en-gb", ((Relewise.Client.DataTypes.Language)result!).Value);
-        component.Find("input").Input("");
+        Assert.AreEqual(2, component.FindAll(".mud-input button").Count);
+        component.Find("button[aria-label='Clear']").Click();
         Assert.IsNull(result);
     }
 
     [TestMethod]
-    public void CurrencyCanBeEnteredAndClearedWithoutCreatingAnObjectFirst()
+    public async Task CurrencyCanBeEnteredAndClearedWithoutCreatingAnObjectFirst()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
@@ -53,14 +103,15 @@ public class EditorTests
         Assert.AreEqual(1, component.FindAll("button[aria-label='Copy Currency as JSON']").Count);
         component.Find("input").Input("EUR");
         Assert.AreEqual("EUR", ((Relewise.Client.DataTypes.Currency)result!).Value);
-        component.Find("input").Input("");
+        Assert.AreEqual(2, component.FindAll(".mud-input button").Count);
+        component.Find("button[aria-label='Clear']").Click();
         Assert.IsNull(result);
     }
 
     [TestMethod]
-    public void CreatingComplexObjectOpensOnlyTheCreatedLevel()
+    public async Task CreatingComplexObjectOpensOnlyTheCreatedLevel()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
@@ -70,7 +121,7 @@ public class EditorTests
             .Add(c => c.AncestorTypes, [typeof(SearchRequest)])
             .Add(c => c.Setter, _ => { }));
 
-        component.Find("button").Click();
+        component.Find(".null-object-field").Click();
         Assert.IsTrue(component.Find("details").HasAttribute("open"));
         Assert.IsTrue(component.FindAll("details details").All(details => !details.HasAttribute("open")));
         Assert.IsTrue(component.FindAll("input").Count > 0);
@@ -79,9 +130,9 @@ public class EditorTests
     [TestMethod]
     [DataRow(typeof(VariantSearchRequestSettings))]
     [DataRow(typeof(VariantRecommendationRequestSettings))]
-    public void VariantSettingsCanBeCreatedEditedAndCleared(Type type)
+    public async Task VariantSettingsCanBeCreatedEditedAndCleared(Type type)
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
@@ -105,9 +156,10 @@ public class EditorTests
         component.Find("button").Click();
         component.Find("input").Input("3");
         Assert.AreEqual(3, settings.MaxVariantsPerProduct);
-        component.Find("select").Change("ByRelevance");
+        var sorting = component.FindComponent<Relewise.BlazorApps.Components.RSelect<NullableEnumEditor<VariantSorting>.EnumOption>>();
+        await component.InvokeAsync(() => sorting.Instance.ValueChanged.InvokeAsync(new(VariantSorting.ByRelevance)));
         Assert.AreEqual(VariantSorting.ByRelevance, settings.Sorting);
-        component.Find("select").Change("");
+        await component.InvokeAsync(() => sorting.Instance.ValueChanged.InvokeAsync(new(null)));
         Assert.IsNull(settings.Sorting);
         component.Find("input").Input("");
         Assert.IsNull(settings.MaxVariantsPerProduct);
@@ -122,9 +174,9 @@ public class EditorTests
     }
 
     [TestMethod]
-    public void ReadOnlyNullableEnumPreservesNullAndHasNoMutationControls()
+    public async Task ReadOnlyNullableEnumPreservesNullAndHasNoMutationControls()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         var component = context.Render<NullableEnumEditor<VariantSorting>>(parameters => parameters
             .Add(p => p.Value, null)
@@ -140,14 +192,15 @@ public class EditorTests
     [DataRow(typeof(long))]
     [DataRow(typeof(int))]
     [DataRow(typeof(double))]
-    public void NumericDefaultsCanBePassedToTheSelectedComponent(Type type)
+    public async Task NumericDefaultsCanBePassedToTheSelectedComponent(Type type)
     {
         var handler = Settings.Editors.First(editor => editor.CanHandle(type));
         var value = handler.InitValue(type);
         Assert.IsNotNull(value);
         Assert.AreEqual(type, value.GetType());
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
         var component = context.Render<DynamicComponent>(parameters => parameters
             .Add(p => p.Type, handler.EditorType(type))
             .Add(p => p.Parameters, new Dictionary<string, object>
@@ -159,9 +212,9 @@ public class EditorTests
     }
 
     [TestMethod]
-    public void NullableByteCanBeClearedAndRecreated()
+    public async Task NullableByteCanBeClearedAndRecreated()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         object? result = (byte)7;
@@ -178,9 +231,9 @@ public class EditorTests
     }
 
     [TestMethod]
-    public void ReadOnlyByteDoesNotOfferMutationControls()
+    public async Task ReadOnlyByteDoesNotOfferMutationControls()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         var component = context.Render<ByteEditor>(parameters => parameters
@@ -193,9 +246,9 @@ public class EditorTests
     }
 
     [TestMethod]
-    public void DoubleEditorAcceptsIntegralJsonValues()
+    public async Task DoubleEditorAcceptsIntegralJsonValues()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         object? result = null;
@@ -212,9 +265,9 @@ public class EditorTests
     [DataRow(typeof(decimal))]
     [DataRow(typeof(ushort))]
     [DataRow(typeof(byte))]
-    public void OptionalNumericFieldsCanBeEnteredClearedAndSetToZero(Type type)
+    public async Task OptionalNumericFieldsCanBeEnteredClearedAndSetToZero(Type type)
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         object? result = null;
@@ -237,9 +290,9 @@ public class EditorTests
     }
 
     [TestMethod]
-    public void RequiredIntegerUsesNumericFieldWithoutNullControls()
+    public async Task RequiredIntegerUsesNumericFieldWithoutNullControls()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         object? result = 2;
@@ -259,9 +312,9 @@ public class EditorTests
     }
 
     [TestMethod]
-    public void StringFieldCanBeEditedFromNullAndClearedBackToNull()
+    public async Task StringFieldCanBeEditedFromNullAndClearedBackToNull()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         object? result = null;
@@ -284,9 +337,9 @@ public class EditorTests
     }
 
     [TestMethod]
-    public void StringFieldDisplaysTheSuppliedValue()
+    public async Task StringFieldDisplaysTheSuppliedValue()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         var component = context.Render<StringEditor>(p => p
@@ -297,9 +350,9 @@ public class EditorTests
     }
 
     [TestMethod]
-    public void ReadOnlyStringHasNoClearControl()
+    public async Task ReadOnlyStringHasNoClearControl()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         var component = context.Render<StringEditor>(p => p
@@ -321,19 +374,18 @@ public class EditorTests
     }
 
     [TestMethod]
-    public void FeedRequestsAppearInRecommendationDiscovery()
+    public async Task FeedRequestsAppearInRecommendationDiscovery()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.ComponentFactories.AddStub<Shared.RecommendationConstructor>(parameters => parameters.Get(p => p.RequestType).Name);
         context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
         context.Services.AddSingleton<DocumentationCache>();
         var page = context.Render<Pages.Recommendations>();
-        page.WaitForAssertion(() =>
-        {
-            StringAssert.Contains(page.Markup, "FeedRecommendationInitializationRequest");
-            StringAssert.Contains(page.Markup, "FeedRecommendationNextItemsRequest");
-        });
+        page.FindAll(".mud-nav-link").Single(link => link.TextContent.Trim() == "Feed Recommendation Initialization").Click();
+        page.WaitForAssertion(() => StringAssert.Contains(page.Markup, "FeedRecommendationInitializationRequest"));
+        page.FindAll(".mud-nav-link").Single(link => link.TextContent.Trim() == "Feed Recommendation Next Items").Click();
+        page.WaitForAssertion(() => StringAssert.Contains(page.Markup, "FeedRecommendationNextItemsRequest"));
     }
 }

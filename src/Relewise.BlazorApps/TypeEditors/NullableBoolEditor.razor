@@ -1,27 +1,37 @@
-﻿@if (Value is null)
-{
-    <div>
-        <code>&lt;NULL&gt;</code>
-        @if (!ReadOnly)
-        {
-            <text>&nbsp;</text>
-            <button class="btn btn-outline-success btn-sm" @onclick=SetValue>Set to non-null value</button>
-        }
-    </div>
-}
-else
-{
-    <div>
-        <input type="checkbox" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
-        @if (!ReadOnly)
-        {
-            <text>&nbsp;</text>
-            <button class="btn btn-outline-danger btn-sm" @onclick=SetToNull><nobr>Set to NULL</nobr></button>
-        }
-    </div>
-}
+@using Relewise.BlazorApps.Components
+
+<RSelect T="BooleanOption" Value="SelectedOption" Items="Options" ToStringFunc="DisplayOption"
+         ValueChanged="UpdateValue" Disabled="ReadOnly" AriaLabel="@AriaLabel" Clearable="false" Style="width:100%;" />
 
 @code {
+    [Parameter] public string? AriaLabel { get; set; }
+
+    public enum BooleanOption { Null, True, False }
+
+    private static readonly BooleanOption[] Options = [BooleanOption.Null, BooleanOption.True, BooleanOption.False];
+
+    private BooleanOption SelectedOption => Value switch
+    {
+        true => BooleanOption.True,
+        false => BooleanOption.False,
+        null => BooleanOption.Null
+    };
+
+    private static string DisplayOption(BooleanOption option) => option == BooleanOption.Null ? "<NULL>" : option.ToString();
+
+    private void UpdateValue(BooleanOption option)
+    {
+        if (ReadOnly) return;
+        bool? value = option switch
+        {
+            BooleanOption.True => true,
+            BooleanOption.False => false,
+            _ => null
+        };
+        Value = value;
+        Setter(value);
+    }
+
     [Parameter]
     public bool ReadOnly { get; set; } = false;
 
@@ -37,15 +47,4 @@ else
     [Parameter]
     public Type[] AncestorTypes { get; set; } = [];
 
-    public void SetValue()
-    {
-        Value = true;
-        Setter(Value);
-    }
-
-    public void SetToNull()
-    {
-        Value = null;
-        Setter(null);
-    }
 }

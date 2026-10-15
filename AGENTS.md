@@ -23,7 +23,9 @@ If that port is occupied, inspect its owning process and stop only task-started 
 Use `dotnet watch --no-hot-reload --project src/Relewise.BlazorApps` during development. WebAssembly hot reload has repeatedly caused runtime metadata assertions after Razor changes; rebuild and restart on edits instead.
 Restart the watcher after adding Razor components: newly added files have been missed by its existing watch list, leaving the running assembly behind the source.
 
-From the repository root:
+Run restore and Release build from the repository root as needed. When you add tests yourself, you may run those specific tests without a separate user request; use a focused filter or command to limit execution to the added tests. Running other tests (including script tests), the full test suite, or AOT publishing requires an explicit user request; ordinary implementation, iteration, and validation requests do not authorize those broader checks. Use focused browser checks during UI iteration.
+
+Available commands:
 
 ```powershell
 dotnet workload restore
@@ -34,7 +36,7 @@ pwsh tests/scripts/read-pr-comments.Tests.ps1
 dotnet publish src/Relewise.BlazorApps --configuration Release --no-restore --output artifacts/publish
 ```
 
-Release publishing uses AOT; a successful build alone is not sufficient for reflection or dependency changes. See README for interactive development and manual checks.
+Release publishing uses AOT. A build does not establish AOT compatibility; report that limitation when relevant without automatically running or requesting tests or AOT publishing. See README for interactive development and manual checks.
 
 Do not run build, test-with-build, and publish concurrently against the same intermediate directory. When comparing AOT modes or dependency combinations, use a separate `--artifacts-path` and publish directory for each combination; reused native/stripped assemblies can produce misleading runtime failures.
 
@@ -51,5 +53,6 @@ Do not run build, test-with-build, and publish concurrently against the same int
 
 ## Repository skills
 
-- `.agents/skills/read-pr-comments/SKILL.md`: retrieve PR conversation, reviews, and unresolved review threads without changing the checkout.
-- `.agents/skills/upgrade-dependencies/SKILL.md`: inventory and upgrade dependencies with compatibility checks and explicit exclusions.
+1. `.agents/skills/read-pr-comments/SKILL.md`: retrieve PR conversation, reviews, and unresolved review threads without changing the checkout.
+2. `.agents/skills/upgrade-dependencies/SKILL.md`: inventory and upgrade dependencies with compatibility checks and explicit exclusions.
+3. `.agents/skills/migrate-object-editors/SKILL.md`: continue the R component/MudBlazor editor migration, apply the established layout and collection behavior, and diagnose recursive rendering performance.

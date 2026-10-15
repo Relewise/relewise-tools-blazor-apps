@@ -1,10 +1,17 @@
 @using Relewise.BlazorApps.Components
+@using MudBlazor
 
 <RTextField Value="@Value" ValueChanged="UpdateValue" Label="@Label" Placeholder="<NULL>"
             Clearable="@(!ReadOnly)" ReadOnly="ReadOnly" Disabled="ReadOnly"
+            Adornment="@(OnCopy.HasDelegate ? Adornment.End : Adornment.None)"
+            AdornmentIcon="@(OnCopy.HasDelegate ? Icons.Material.Outlined.ContentCopy : null)"
+            AdornmentAriaLabel="@CopyLabel" OnAdornmentClick="() => OnCopy.InvokeAsync()"
             Immediate="true" FullWidth="true" />
 
 @code {
+    [Parameter] public EventCallback OnCopy { get; set; }
+    [Parameter] public string? CopyLabel { get; set; }
+
     [Parameter]
     public string? Label { get; set; }
 

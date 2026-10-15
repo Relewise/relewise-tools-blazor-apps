@@ -1,11 +1,37 @@
 ﻿.box {
-    border: 1px solid var(--color-yellow);
-    border-radius: 5px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: var(--mud-default-borderradius);
     flex: 1;
 }
 
 summary {
-    padding-left: 5px;
-    background-color: var(--color-yellow);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    min-height: 40px;
+    padding: 8px 14px;
+    background: transparent;
     color: var(--color-text);
+    list-style: none;
+    cursor: pointer;
+}
+
+summary::-webkit-details-marker {
+    display: none;
+}
+
+.abstract-type-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.abstract-type-count {
+    font-size: 0.75rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.abstract-type-content {
+    padding: 4px 4px 4px 22px;
 }

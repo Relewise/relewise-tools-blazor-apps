@@ -39,7 +39,7 @@ public class VersionsTests
         component.WaitForAssertion(() =>
         {
             Assert.HasCount(0, component.FindAll("[role=alert]"));
-            Assert.HasCount(4, component.FindAll(".list > div"));
+            Assert.HasCount(2, component.FindComponents<MudAutocomplete<string>>());
         });
         Assert.AreEqual(2, requests);
     }

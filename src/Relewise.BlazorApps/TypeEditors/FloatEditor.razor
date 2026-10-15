@@ -1,4 +1,6 @@
-﻿<input type="number" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
+@using Relewise.BlazorApps.Components
+
+<RNullableNumberField T="float" Value="Value" ValueChanged="UpdateValue" AllowNull="false" ReadOnly="ReadOnly" />
 
 @code {
     [Parameter]
@@ -15,4 +17,11 @@
 
     [Parameter]
     public Type[] AncestorTypes { get; set; } = [];
+
+    private void UpdateValue(float? value)
+    {
+        if (ReadOnly || !value.HasValue) return;
+        Value = value.Value;
+        Setter(Value);
+    }
 }

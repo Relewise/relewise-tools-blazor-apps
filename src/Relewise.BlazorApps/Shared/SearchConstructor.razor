@@ -1,6 +1,7 @@
 @using MudBlazor
 @inject ISnackbar Snackbar
 @using Relewise.BlazorApps.TypeEditors
+@using Relewise.BlazorApps.Components
 @using System.Reflection
 @using Relewise.BlazorApps.Extensions
 @using Relewise.BlazorApps.Pages
@@ -28,43 +29,112 @@ else
 
 
 @code {
+    private readonly EditorValidationState editorValidation = new();
+
     private RenderFragment EditorContent => @<text>
     @if (isExpanded && IsActive)
     {
-        <div style="margin:5px;">
-            <ObjectEditor
-                OpenDetails=false
-                SingleLevelOpenDetails=true
-                T=SearchRequest
-                Value="Request"
-                ShowModelShareLink="true"
-                Setter="(object? obj) => { Request = (SearchRequest?)obj; State.Request = Request; try { RequestExplorer.SaveInLocalStorage(JSRuntime, obj); } catch (Exception ex) { Snackbar.Add(ex.GetBaseException().Message, Severity.Error); } response = null; StateHasChanged(); }" />
+        <div class="request-response-layout @(SideBySide ? "side-by-side" : null)" style="margin:5px;">
+            <section class="request-editor-panel">
+            <CascadingValue Value="editorValidation">
+                <ObjectEditor
+                    OpenDetails=false
+                    SingleLevelOpenDetails=true
+                    T=SearchRequest
+                    ReadOnly="@(posting || Busy)"
+                    Value="Request"
+                    ShowModelShareLink="true"
+                    Setter="UpdateRequest">
+                    <HeaderActions>
+                        @if (ActionsInHeader && ShowPostButton)
+                        {
+                            @RunActions
+                        }
+                    </HeaderActions>
+                </ObjectEditor>
+            </CascadingValue>
             <br />
-            @if (Searcher is null)
+            @if (ShowPostButton && !ActionsInHeader)
             {
-                <button class="btn btn-success" disabled="true" @onclick="() => Post()">Post</button>
-                <i>You have to connect before you can post a request.</i>
+                @RunActions
+                @if (Searcher is null)
+                {
+                    <i>You have to connect before you can run a request.</i>
+                }
+            <br />
+            }
+            </section>
+            <section class="request-response-panel">
+            @if (ResultContent is not null)
+            {
+                @ResultContent
             }
             else
             {
-                <button class="btn btn-success" @onclick="() => Post()">Post</button>
+            @if (State.Error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-2" role="alert">
+                    <strong>Request failed.</strong> @State.Error
+                </MudAlert>
             }
-            <br />
             @if (response is not null)
             {
-                <br />
-                <br />
-                <h3>Response</h3>
-                <label for="openDetails">Expand all: </label>
-                <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-                <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=SearchResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (SearchResponse?)obj; StateHasChanged(); }" />
+                <ObjectEditor @key="responseExpansionVersion" OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=SearchResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (SearchResponse?)obj; StateHasChanged(); }">
+                    <HeaderActions>
+                <div class="response-header">
+                    <div class="response-actions">
+                        <RButton Variant="Variant.Outlined" AriaLabel="Expand all response fields" OnClick="() => SetResponseExpanded(true)">Expand all</RButton>
+                        <RButton Variant="Variant.Outlined" AriaLabel="Collapse all response fields" OnClick="() => SetResponseExpanded(false)">Collapse all</RButton>
+                    </div>
+                </div>
+                    </HeaderActions>
+                </ObjectEditor>
             }
+            }
+            </section>
         </div>
     }
     </text>;
 
     [Parameter] public bool ShowHeader { get; set; } = true;
     [Parameter] public string RequestTitle { get; set; } = "Request";
+    [Parameter] public bool AutoPost { get; set; }
+    [Parameter] public bool SideBySide { get; set; }
+    [Parameter] public bool ActionsInHeader { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public RenderFragment? RequestActions { get; set; }
+    [Parameter] public RenderFragment? ResultContent { get; set; }
+    [Parameter] public bool ShowPostButton { get; set; } = true;
+    [Parameter] public string PostButtonText { get; set; } = "Post";
+    [Parameter] public EventCallback<bool> PostingChanged { get; set; }
+    [Parameter] public EventCallback<object?> RequestChanged { get; set; }
+    private bool autoPosted;
+    private bool posting;
+
+    private RenderFragment RunActions => @<div class="request-editor-actions">
+        <RButton Disabled="@(Searcher is null || posting || Busy)" OnClick="Post" Size="Size.Medium">@PostButtonText</RButton>
+        @RequestActions
+    </div>;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (AutoPost && !autoPosted && IsActive && isExpanded && Searcher is not null && Request is not null)
+        {
+            autoPosted = true;
+            await Post();
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateRequest(object? obj)
+    {
+        Request = (SearchRequest?)obj;
+        State.Request = Request;
+        try { RequestExplorer.SaveInLocalStorage(JSRuntime, obj); }
+        catch (Exception ex) { Snackbar.Add(ex.GetBaseException().Message, Severity.Error); }
+        _ = RequestChanged.InvokeAsync(Request);
+        StateHasChanged();
+    }
 
 
     public sealed class EditorState
@@ -73,10 +143,17 @@ else
         public bool RequestInitialized { get; set; }
         public SearchResponse? Response { get; set; }
         public bool ResponseExpanded { get; set; }
+        public string? Error { get; set; }
     }
 
     [Parameter] public EditorState State { get; set; } = new();
     private bool openDetails { get => State.ResponseExpanded; set => State.ResponseExpanded = value; }
+    private int responseExpansionVersion;
+    private void SetResponseExpanded(bool expanded)
+    {
+        openDetails = expanded;
+        responseExpansionVersion++;
+    }
     private bool hasBeenOpened;
     private bool isExpanded;
     private bool? previousOpenDetails;
@@ -87,9 +164,6 @@ else
 
     [Parameter, EditorRequired]
     public required Func<bool> Connect { get; set; }
-
-    [Parameter, EditorRequired]
-    public required Action ResetSearcher { get; set; }
 
     [Parameter, EditorRequired]
     public required Type RequestType { get; set; }
@@ -158,6 +232,13 @@ else
 
     private async Task Post()
     {
+        if (posting) return;
+        if (!editorValidation.IsValid)
+        {
+            Snackbar.Add(string.Join(" ", editorValidation.Errors.Distinct()), Severity.Error);
+            return;
+        }
+
         if (!Connect()) return;
 
         if (Request is null)
@@ -166,8 +247,13 @@ else
             return;
         }
 
+        response = null;
+        State.Error = null;
+
         try
         {
+            posting = true;
+            await PostingChanged.InvokeAsync(true);
             var method = typeof(Searcher)
                 .GetMethods()
                 .Single(m => m.Name is "SearchAsync" or "PredictAsync" or "BatchAsync" && m.GetParameters() is [var requestParam, var tokenParam] && requestParam.ParameterType == Request.GetType());
@@ -179,14 +265,18 @@ else
         }
         catch (Exception ex)
         {
-            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
-            ResetSearcher();
+            State.Error = RequestErrorHandling.Message(ex);
+        }
+        finally
+        {
+            posting = false;
+            await PostingChanged.InvokeAsync(false);
         }
     }
 
     public static async Task<SearchResponse> Post<T>(MethodInfo method, Searcher recommender, SearchRequest request) where T : SearchResponse
     {
-        var taskResponse = (Task<T>)method.Invoke(recommender, [request, CancellationToken.None])!;
-        return await taskResponse;
+        return await RequestErrorHandling.ExecuteAsync(recommender,
+            () => (Task<T>)method.Invoke(recommender, [request, CancellationToken.None])!);
     }
 }

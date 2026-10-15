@@ -18,11 +18,11 @@
                              aria-label="@(mainNavigationOpen ? "Collapse main sidebar" : "Expand main sidebar")"
                              aria-expanded="@(mainNavigationOpen ? "true" : "false")" aria-controls="tool-navigation"
                              OnClick="() => mainNavigationOpen = !mainNavigationOpen" />
-                <a class="app-brand" href="" aria-label="Relewise: Blazor Apps">
-                    <img src="images/relewise-logo-white.svg" alt="Relewise" />
+                <a class="app-brand" href="" aria-label="Relewise API Explorer">
+                    <span>Relewise API Explorer</span>
                 </a>
                 <MudSpacer />
-                <MudText Typo="Typo.caption" Class="app-note">Experimental Relewise tools • Maintained by Relewise</MudText>
+                <MudText Typo="Typo.caption" Class="app-note">Experimental Relewise tools</MudText>
             </MudAppBar>
         }
 
@@ -45,7 +45,18 @@
                 @if (!IsEmbedded && SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration)
                 {
                     <div class="saved-configuration-action">
-                        <RButton Variant="Variant.Outlined" Color="Color.Default" OnClick="ForgetConfiguration">Forget saved configuration</RButton>
+                        <MudTooltip Placement="Placement.Left">
+                            <TooltipContent>
+                                <div class="connection-tooltip">
+                                    <strong>Server</strong><span>@StaticDatasetStorage.ServerUrl</span>
+                                    <strong>Dataset ID</strong><span>@StaticDatasetStorage.DatasetId</span>
+                                </div>
+                            </TooltipContent>
+                            <ChildContent>
+                                <RButton Variant="Variant.Outlined" Color="Color.Error" Class="forget-configuration-button"
+                                         OnClick="ForgetConfiguration">Forget saved configuration</RButton>
+                            </ChildContent>
+                        </MudTooltip>
                     </div>
                     <ErrorNotification Message="@SavedConnectionStorage.Error" />
                 }

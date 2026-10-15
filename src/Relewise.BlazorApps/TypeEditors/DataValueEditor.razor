@@ -1,56 +1,66 @@
+@using MudBlazor
+@using Relewise.BlazorApps.Components
 
-
-<details class="box" open="@OpenDetails">
-    <summary>
-        <i>
-            <span>DataValue</span>
-            @if (Value is not null)
-            {
-                <small> holding a @Value!.Type</small>
-            }
-        </i>
-    </summary>
-    <div class="two-column-grid">
-        @if (Value is null)
+@if (Inline)
+{
+    @Fields
+}
+else if (Value is null)
+{
+    <div class="data-value-null @(ReadOnly ? null : "data-value-editable")"
+         tabindex="@(ReadOnly ? -1 : 0)" aria-label="Create DataValue"
+         @onclick="Create" @onkeydown="CreateKeyDown">
+        <span class="data-value-placeholder">&lt;NULL&gt;</span>
+        @if (!ReadOnly)
         {
-            <div>
-                <code>&lt;NULL&gt;</code>
-                @if (!ReadOnly)
-                {
-                    <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new DataValue</button>
-                }
-            </div>
+            <span @onclick:stopPropagation="true">
+                <RButton Variant="Variant.Text" Size="Size.Small" OnClick="Create">Create</RButton>
+            </span>
         }
-        else
-        {
+    </div>
+}
+else
+{
+    <details class="box" open="@(OpenDetails || openCreatedValue)">
+        <summary>
+            <span class="data-value-title">DataValue · @Value.Type</span>
+        </summary>
+        @Fields
+    </details>
+}
+
+@code {
+    private RenderFragment Fields => @<div class="@(Inline ? "data-value-inline" : "two-column-grid")">
+            @if (!Inline)
+            {
+                <div class="data-value-label">Type</div>
+            }
             <div>
-                <b>Type</b>
-            </div>
-            <div>
-                <EnumEditor T="DataValue.DataValueTypes" Value="Value!.Type" ReadOnly=ReadOnly Setter="SetType" />
+                <EnumEditor T="DataValue.DataValueTypes" Value="@(Value?.Type ?? DataValue.DataValueTypes.String)" ReadOnly=ReadOnly Setter="SetType" />
             </div>
 
+            @if (!Inline)
+            {
+                <div class="data-value-label">Value</div>
+            }
             <div>
-                <b>Value</b>
-            </div>
-            <div>
-                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(dataValueEnumTypesToTypes[Value!.Type])) is { } editor)
+                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(dataValueEnumTypesToTypes[Value?.Type ?? DataValue.DataValueTypes.String])) is { } editor)
                 {
                     <ErrorBoundary>
                         <ChildContent>
-                            <DynamicComponent Type="@editor.EditorType(dataValueEnumTypesToTypes[Value!.Type])" Parameters="@(Settings.WithNumericNullability(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails,  ["Value"] = Value.Value, ["Setter"] = (object? obj) => { Value.Value = obj; Setter(Value); } }, dataValueEnumTypesToTypes[Value!.Type]))" />
+                            <DynamicComponent Type="@editor.EditorType(dataValueEnumTypesToTypes[Value?.Type ?? DataValue.DataValueTypes.String])" Parameters="@(Settings.WithNumericNullability(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails,  ["Value"] = Value?.Value, ["Setter"] = (Action<object?>)SetValue, ["AncestorTypes"] = AncestorTypes }, dataValueEnumTypesToTypes[Value?.Type ?? DataValue.DataValueTypes.String]))" />
                         </ChildContent>
                         <ErrorContent>
-                            <code>Failed to initialize editor part for @dataValueEnumTypesToTypes[Value!.Type].ToString()</code>
+                            <code>Failed to initialize editor part for @dataValueEnumTypesToTypes[Value?.Type ?? DataValue.DataValueTypes.String].ToString()</code>
                         </ErrorContent>
                     </ErrorBoundary>
                 }
             </div>
-        }
-    </div>
-</details>
+    </div>;
 
-@code {
+    [Parameter] public bool Inline { get; set; }
+    private bool openCreatedValue;
+
     private readonly Dictionary<DataValue.DataValueTypes, Type> dataValueEnumTypesToTypes = new()
         {
             [DataValue.DataValueTypes.String] = typeof(string),
@@ -84,12 +94,28 @@
 
     public void Create()
     {
+        if (ReadOnly || Value is not null) return;
         Value = Activator.CreateInstance<DataValue>();
+        openCreatedValue = true;
+        Setter(Value);
+    }
+
+    private void CreateKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ") Create();
+    }
+
+    private void SetValue(object? value)
+    {
+        if (ReadOnly) return;
+        Value ??= new DataValue("");
+        Value.Value = value;
         Setter(Value);
     }
 
     public void SetType(object? obj)
     {
+        if (ReadOnly) return;
         var newEnumValue = (DataValue.DataValueTypes)obj!;
         if (newEnumValue != Value?.Type)
         {

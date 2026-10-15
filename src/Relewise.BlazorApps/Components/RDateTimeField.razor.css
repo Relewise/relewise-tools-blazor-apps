@@ -1,0 +1,17 @@
+.date-time-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.date-time-fields ::deep .mud-picker {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+.date-time-offset {
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.8rem;
+}

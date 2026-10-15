@@ -39,9 +39,9 @@ public static class Settings
         new(t => t == typeof(string),
             _ => typeof(StringEditor),
             _ => ""),
-        new(t => t == typeof(Guid),
+        new(t => t == typeof(Guid) || t == typeof(Guid?),
             _ => typeof(GuidEditor),
-            _ => null),
+            t => t == typeof(Guid) ? (object)Guid.Empty : null),
         new(t => t == typeof(DateTimeOffset),
             _ => typeof(DateTimeOffsetEditor),
             _ => null),
@@ -57,12 +57,24 @@ public static class Settings
         new(t => t == typeof(byte),
             _ => typeof(ByteEditor),
             _ => (byte)0),
+        new(t => t == typeof(string[]),
+            _ => typeof(StringArrayEditor),
+            _ => Array.Empty<string>()),
+        new(t => t == typeof(int[]),
+            _ => typeof(IntArrayEditor),
+            _ => Array.Empty<int>()),
         new(t => t.IsArray,
             t => typeof(ArrayEditor<>).MakeGenericType(new Type[] { t.GetElementType()! }),
             t => Array.CreateInstance(t.GetElementType()!, 0)),
         new(t => t.IsGenericType && (t.GetGenericTypeDefinition() == typeof(List<>)),
             t => typeof(ListEditor<>).MakeGenericType(new Type[] { t.GenericTypeArguments[0] }),
             t => null),
+        new(t => t == typeof(Dictionary<string, string>),
+            _ => typeof(StringDictionaryEditor),
+            _ => null),
+        new(t => t == typeof(Dictionary<string, DataValue>),
+            _ => typeof(DataValueDictionaryEditor),
+            _ => null),
         new(t => t.IsGenericType && (t.GetGenericTypeDefinition() == typeof(Dictionary<,>)),
             t => typeof(DictionaryEditor<,>).MakeGenericType(new Type[] { t.GenericTypeArguments[0], t.GenericTypeArguments[1] }),
             t => null),
@@ -477,10 +489,16 @@ public static class Settings
     {
         var numericType = Nullable.GetUnderlyingType(valueType) ?? valueType;
         if (numericType == typeof(int) || numericType == typeof(double) || numericType == typeof(decimal)
-            || numericType == typeof(ushort) || numericType == typeof(byte))
+            || numericType == typeof(ushort) || numericType == typeof(byte)
+            || numericType == typeof(DateTime) || numericType == typeof(DateTimeOffset) || numericType == typeof(Guid))
             parameters["AllowNull"] = Nullable.GetUnderlyingType(valueType) is not null;
         return parameters;
     }
 
-    public static IEnumerable<PropertyInfo> GetProperties(Type type) => type.GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "DatasetId" and not "APIKeySecret");
+    private static bool IsDeprecatedChannelAlias(PropertyInfo property)
+        => property.Name == "Channel" && property.PropertyType == typeof(Relewise.Client.Requests.Channel)
+            && property.GetCustomAttribute<ObsoleteAttribute>() is not null
+            && property.DeclaringType?.GetProperty("User")?.PropertyType == typeof(User);
+
+    public static IEnumerable<PropertyInfo> GetProperties(Type type) => type.GetProperties().Where(p => p.SetMethod is not null && p.GetIndexParameters() is { Length: 0 } && p.Name is not "DatasetId" and not "APIKeySecret" && !IsDeprecatedChannelAlias(p));
 }

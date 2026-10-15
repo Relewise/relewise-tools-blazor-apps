@@ -38,22 +38,19 @@
     <br />
     <br />
 }
-else
+else if (selectedRule is not null || creatingNew)
 {
-    <p>Now you can get an overview over all the existing merchandising rules in the dataset or create a new.</p>
-
-    <button class="btn btn-primary" @onclick=ListAllRules>List All Rules</button>
-    <button class="btn btn-success" @onclick=CreateNewRule>Create New Rule</button>
-    <br />
-    <br />
+    <div class="d-flex flex-wrap align-center my-3" style="gap: 8px;">
+        <RButton Variant="Variant.Outlined" OnClick="ListAllRules" Icon="@Icons.Material.Outlined.Refresh">Refresh rules</RButton>
+        <RButton OnClick="CreateNewRule" Icon="@Icons.Material.Filled.Add">Create new rule</RButton>
+    </div>
 }
 
 @if (selectedRule is not null || creatingNew)
 {
     <ObjectEditor OpenDetails=true ShowModelShareLink=true T=MerchandisingRule Value="selectedRule" Setter="(Object? obj) => { selectedRule = (MerchandisingRule?)obj; StateHasChanged(); }" />
     <br />
-    <label for="name">Your name: </label>
-    <input @bind=name id="name" />
+    <RTextField Label="Your name" @bind-Value="name" Immediate="true" FullWidth="true" />
     <br />
     <br />
     @if (creatingNew)
@@ -88,29 +85,7 @@ else
 }
 else if (rules is not null)
 {
-    <h2>All Merchandising Rules</h2>
-    <hr />
-    foreach (MerchandisingRule rule in rules.OrderBy(c => c.Priority))
-    {
-        <div>
-            <h3 style="display:inline;">
-                @rule.Name (<code>@rule.GetType().Name)</code>
-            </h3>
-            &nbsp;
-            @if (rule.Enabled)
-            {
-                <span class="badge bg-success">enabled</span>
-            }
-            else
-            {
-                <span class="badge bg-danger">disabled</span>
-            }
-            <br />
-            <p>@rule.Description</p>
-            <button class="btn btn-primary" @onclick="() => Edit(rule)">Edit</button>
-            <hr />
-        </div>
-    }
+    <MerchandisingRuleList Rules="rules" OnEdit="Edit" OnRefresh="ListAllRules" OnCreate="CreateNewRule" Loading="loadingRules" />
 }
 <br />
 <br />
@@ -130,22 +105,23 @@ else if (rules is not null)
     {
         if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
         {
-            if (StaticDatasetStorage.ParentOrigin is null)
-                await ConnectAsync();
-            else
-                Connect();
+            await ConnectAsync();
         }
         StaticDatasetStorage.AuthenticationReceived += Authenticated;
         await Task.CompletedTask;
     }
 
-    private void Authenticated(object? sender, EventArgs args)
+    private async void Authenticated(object? sender, EventArgs args)
     {
-        Connect();
-        StateHasChanged();
+        await InvokeAsync(async () =>
+        {
+            await ConnectAsync();
+            StateHasChanged();
+        });
     }
 
     private bool connecting;
+    private bool loadingRules;
 
     [Inject]
     public required IJSRuntime ConnectionRuntime { get; set; }
@@ -158,7 +134,8 @@ else if (rules is not null)
         {
             if (!Connect()) return;
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            await merchandisingAccessor!.LoadAsync(cancellation.Token);
+            var response = await merchandisingAccessor!.LoadAsync(cancellation.Token);
+            rules = response.Rules;
             await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
         }
         catch (Exception ex)
@@ -212,7 +189,8 @@ else if (rules is not null)
 
     private async Task ListAllRules()
     {
-        if (!Connect()) return;
+        if (loadingRules || !Connect()) return;
+        loadingRules = true;
         try
         {
             var response = await merchandisingAccessor!.LoadAsync();
@@ -220,11 +198,16 @@ else if (rules is not null)
 
             Snackbar.Add("Successfully fetched all merchandising rules for this dataset.", Severity.Success);
             selectedRule = null;
+            creatingNew = false;
         }
         catch (Exception ex)
         {
             Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             merchandisingAccessor = null;
+        }
+        finally
+        {
+            loadingRules = false;
         }
     }
 

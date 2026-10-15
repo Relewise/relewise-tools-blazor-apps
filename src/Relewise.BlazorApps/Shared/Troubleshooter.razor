@@ -4,47 +4,55 @@
 @using global::Relewise.Client.Requests.Search
 @using global::Relewise.Client.Search
 @using Relewise.BlazorApps.Components
+@using MudBlazor
 
 @if (Request is not ProductSearchRequest)
 {
     return;
 }
 
-<h2>Troubleshooter</h2>
-<p>We can do a bit of analysis which might make troublshooting easier. Try it out!</p>
-@if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
+<header class="diagnostics-header">
+    <h3>Product Search Troubleshooting</h3>
+</header>
+@if (Stale)
 {
-    <ConnectionCredentials>
-        <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that can use the <code>Searcher</code>, <code>DataAccessor</code>, and <code>Search Administrator</code>, and listing all merchandising rules.</PermissionsNote>
-    </ConnectionCredentials>
+    <MudAlert Severity="MudBlazor.Severity.Warning">The request changed. Troubleshoot again to update the diagnostics.</MudAlert>
+    if (searcher is null) return;
 }
-
-@if (searcher is null || connecting)
+@if (connecting)
 {
-    <RButton Disabled="connecting" OnClick="Connect">@(connecting ? "Connecting…" : "Connect")</RButton>
-    <br />
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="my-2" />
+    <MudText Typo="Typo.body2">Troubleshooting…</MudText>
     return;
 }
-else
+@if (error is not null)
 {
-    <button class="btn btn-success" @onclick="ExecuteRequest">Make Request Again</button>
-    <br />
+    <MudAlert Severity="MudBlazor.Severity.Error" role="alert">@error</MudAlert>
+    return;
 }
-<br />
-
-@if (improvements?.Count > 0)
+@if (searcher is null)
 {
-    <ul>
+    <MudAlert Severity="MudBlazor.Severity.Warning">Enter connection details, then click Troubleshoot again.</MudAlert>
+    return;
+}
+
+@if (improvements.Count > 0)
+{
+    <div class="diagnostic-improvements">
         @foreach (var improvement in improvements.OrderByDescending(i => i.Severity))
         {
-            <li style="color: @SeverityColor(improvement.Severity)">@improvement.Message</li>
+            <MudAlert Severity="@(improvement.Severity switch { Severity.Error => MudBlazor.Severity.Error, Severity.Warning => MudBlazor.Severity.Warning, _ => MudBlazor.Severity.Info })">@improvement.Message</MudAlert>
         }
-    </ul>
+    </div>
 }
 
+@if (results is not null)
+{
+    <div class="diagnostic-summary"><span>Results</span><strong>@results.Length products</strong></div>
+}
 @if (results?.Length is 0)
 {
-    <h4>There were no results</h4>
+    <MudText Typo="Typo.body2" Class="ml-4">No products returned.</MudText>
 }
 else if (results?.Length > 0)
 {
@@ -54,13 +62,13 @@ else if (results?.Length > 0)
             int indexOfResult = results.ToList().IndexOf(result);
             <div class="position">
                 @(result.Position).<br />
-                <small style="color:green;" title="It's ranking among the 1000 first result only with regards to relevance to the user (including merchandising rules but not relevance modifiers); Not textual match.">(@result.PopularityIndex)</small>
+                <small class="popularity-rank" title="It's ranking among the 1000 first result only with regards to relevance to the user (including merchandising rules but not relevance modifiers); Not textual match.">(@result.PopularityIndex)</small>
             </div>
 
             <div class="card" @key=@result>
                 <div class="header">
                     <div class="name">
-                        @result.ProductId @(result.VariantId is not null ? " - " + result.VariantId : "") &nbsp;
+                        ProductResult (@result.ProductId@(result.VariantId is not null ? " / " + result.VariantId : ""))
                     </div>
                     <div class="icons">
                         @foreach (var ruleSummary in result.MerchandisingRules)

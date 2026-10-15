@@ -9,12 +9,13 @@
                  Margin="@Margin"
                  Class="@Class"
                  Style="@Style"
-                 Required="@Required"
+                 Required="@(Required && !Disabled)"
                  ValueChanged="@ValueChanged"
                  Min="@Min"
                  Max="@Max"
                  Clearable="@Clearable"
                  Disabled="@Disabled"
+                 HideSpinButtons="@Disabled"
                  For="For"/>
 @* ReSharper restore CSharpWarnings::CS8620 *@
 @* ReSharper restore CSharpWarnings::CS8619 *@

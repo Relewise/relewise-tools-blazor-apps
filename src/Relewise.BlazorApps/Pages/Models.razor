@@ -181,6 +181,11 @@
                 object? model = JsonConvert.DeserializeObject(decompressedString, settings);
                 if (ConcreteTypes.FirstOrDefault(type => type == model?.GetType()) is { } matchingType)
                 {
+                    if (ModelShareLink.Page(matchingType) != "Models")
+                    {
+                        NavigationManager.NavigateTo(ModelShareLink.Create(NavigationManager.BaseUri, matchingType, CompressedObject.Replace(" ", "+")), replace: true);
+                        return;
+                    }
                     var state = GetEditorState(matchingType);
                     state.Value = model;
                     state.Initialized = true;

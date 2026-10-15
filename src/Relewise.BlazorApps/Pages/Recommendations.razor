@@ -62,7 +62,7 @@
                     <RecommendationConstructor @key="requestType" RequestType="requestType"
                                                RequestTitle="@RecommendationName(requestType)" RequestFactory="() => GetRequest(requestType)"
                                                Request="initValues.GetValueOrDefault(requestType)" State="entry.Value" IsActive="isSelected"
-                                               OpenDetails="true" ShowHeader="false" Connect="Connect" ResetRecommender="ResetRecommender"
+                                               OpenDetails="true" ShowHeader="false" Connect="Connect"
                                                Recommender="@(connecting ? null : recommender)" />
                 </div>
             }
@@ -251,12 +251,6 @@
             Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             return false;
         }
-    }
-
-    private void ResetRecommender()
-    {
-        recommender = null;
-        StateHasChanged();
     }
 
     public static Dictionary<string, List<Type>> RecommendationGroupings = new()

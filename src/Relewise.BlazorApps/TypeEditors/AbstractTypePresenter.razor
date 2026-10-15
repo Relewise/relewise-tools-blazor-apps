@@ -3,7 +3,8 @@
 @using global::Relewise.Client
 <details class="box" open=@OpenDetails>
     <summary @onclick="() => hasBeenOpen = true">
-        <i>@Settings.Name(Type) <small>(abstract type with @derivedTypes.Count concrete @(derivedTypes.Count is 1 ? "type" : "types"))</small></i>
+        <span class="abstract-type-title">@Settings.Name(Type)</span>
+        <span class="abstract-type-count">Abstract type · @derivedTypes.Count concrete @(derivedTypes.Count is 1 ? "type" : "types")</span>
         @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(Type) is { } summary)
         {
             <TrustedInfo>@summary</TrustedInfo>
@@ -13,7 +14,7 @@
             <CommunityInfo Summary="@communitySummary"></CommunityInfo>
         }
     </summary>
-    <div style="padding: 5px;">
+    <div class="abstract-type-content">
         This is not a concrete type. It represents a common abstract type that can be one of the following concrete types.
         <br />
         @if (hasBeenOpen)

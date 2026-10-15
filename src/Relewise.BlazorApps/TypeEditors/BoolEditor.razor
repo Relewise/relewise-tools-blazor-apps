@@ -1,6 +1,17 @@
-﻿<input type="checkbox" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
+@using Relewise.BlazorApps.Components
+
+<RCheckBox Label="" AriaLabel="@AriaLabel" Value="Value" ValueChanged="UpdateValue" Disabled="ReadOnly" />
 
 @code {
+    [Parameter] public string? AriaLabel { get; set; }
+
+    private void UpdateValue(bool value)
+    {
+        if (ReadOnly) return;
+        Value = value;
+        Setter(value);
+    }
+
     [Parameter]
     public bool ReadOnly { get; set; } = false;
 

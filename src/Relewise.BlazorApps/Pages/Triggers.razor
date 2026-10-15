@@ -27,7 +27,7 @@
     <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
     <br />
 }
-else
+else if (selectedConfiguration is not null || creatingNew)
 {
     <MudStack Row="true" Spacing="2" Class="mb-4">
         <RButton Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Refresh" Disabled="loadingConfigurations"
@@ -39,8 +39,7 @@ else
 {
     <ObjectEditor OpenDetails=true ShowModelShareLink=true T=TriggerConfiguration Value="selectedConfiguration" Setter="(Object? obj) => { selectedConfiguration = (TriggerConfiguration?)obj; StateHasChanged(); }" />
     <br />
-    <label for="name">Your name: </label>
-    <input @bind=name id="name" />
+    <RTextField Label="Your name" @bind-Value="name" Immediate="true" FullWidth="true" />
     <br />
     <br />
     @if (creatingNew)
@@ -62,70 +61,14 @@ else
 }
 else if (configurations is not null || loadingConfigurations)
 {
-    <MudDataGrid T="TriggerListItem" Items="triggerRows" QuickFilter="MatchesSearch" @ref="triggerGrid"
-                 RowsPerPage="25" Dense="true" Striped="true" Hover="true" Bordered="false" Elevation="0"
-                 SortMode="SortMode.Multiple" Filterable="false"
-                 ReadOnly="true" Loading="loadingConfigurations">
-        <ToolBarContent>
-            <RTextField Label="Search" Value="@searchText" ValueChanged="SearchChanged"
-                        Immediate="true" DebounceInterval="300" Clearable="true" FullWidth="true" />
-        </ToolBarContent>
-        <Columns>
-            <PropertyColumn Property="item => item.Name" Title="Name">
-                <CellTemplate Context="row">
-                    <div class="d-flex align-center justify-space-between" style="width: 100%; gap: 8px;">
-                        <span>@row.Item.Name</span>
-                        <span class="flex-shrink-0"><RCopyButton Text="@row.Item.Name" ToolTip="Copy trigger name" /></span>
-                    </div>
-                </CellTemplate>
-            </PropertyColumn>
-            <PropertyColumn Property="item => item.TypeName" Title="Type" />
-            <PropertyColumn Property="item => item.Group" Title="Group" />
-            <PropertyColumn Property="item => item.Description" Title="Description" />
-            <TemplateColumn Title="Actions" Filterable="false" Sortable="false">
-                <CellTemplate Context="row">
-                    <RIconButton Icon="@Icons.Material.Filled.Edit" ToolTip="Edit trigger configuration"
-                                 aria-label="Edit trigger configuration" OnClick="() => Edit(row.Item.Configuration)" />
-                </CellTemplate>
-            </TemplateColumn>
-        </Columns>
-        <NoRecordsContent>
-            <MudText>No triggers match your search.</MudText>
-        </NoRecordsContent>
-        <PagerContent>
-            <MudDataGridPager T="TriggerListItem" PageSizeOptions="new[] { 10, 25, 50, 100 }" />
-        </PagerContent>
-    </MudDataGrid>
+    <ConfigurationDataGrid T="TriggerConfiguration" Items="triggerRows" Loading="loadingConfigurations"
+                           CreateLabel="Create new configuration" EmptyText="No triggers match your search and filters."
+                           OnEdit="Edit" OnRefresh="RefreshConfigurations" OnCreate="CreateNewConfiguration" />
 }
 @code {
     private bool loadingConfigurations;
-    private string searchText = "";
-    private MudDataGrid<TriggerListItem>? triggerGrid;
-    private TriggerListItem[] triggerRows = [];
+    private ConfigurationListItem<TriggerConfiguration>[] triggerRows = [];
 
-    public sealed record TriggerListItem(TriggerConfiguration Configuration)
-    {
-        public string Name => Configuration.Name ?? "";
-        public string TypeName => Configuration.GetType().Name;
-        public string Group => Configuration.Group ?? "";
-        public string Description => Configuration.Description ?? "";
-    }
-
-    private bool MatchesSearch(TriggerListItem item)
-    {
-        string term = searchText.Trim();
-        return term.Length == 0
-            || item.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
-            || item.TypeName.Contains(term, StringComparison.OrdinalIgnoreCase)
-            || item.Group.Contains(term, StringComparison.OrdinalIgnoreCase)
-            || item.Description.Contains(term, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void SearchChanged(string value)
-    {
-        searchText = value ?? "";
-        triggerGrid?.NavigateTo(MudBlazor.Page.First);
-    }
     private string name = "";
     private bool creatingNew = false;
     private object? triggerAccessor;
@@ -229,7 +172,8 @@ else if (configurations is not null || loadingConfigurations)
         configurations = response.Configurations;
         triggerRows = configurations
             .OrderBy(configuration => int.TryParse(configuration.Group, out int rank) ? rank : int.MaxValue)
-            .Select(configuration => new TriggerListItem(configuration))
+            .Select(configuration => new ConfigurationListItem<TriggerConfiguration>(configuration, configuration.Name ?? "",
+                configuration.GetType().Name, configuration.Group ?? "", configuration.Description ?? "", configuration.Enabled))
             .ToArray();
         creatingNew = false;
         selectedConfiguration = null;

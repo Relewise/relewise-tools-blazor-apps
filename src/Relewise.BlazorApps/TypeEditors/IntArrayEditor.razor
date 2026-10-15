@@ -1,0 +1,155 @@
+@using MudBlazor
+@using Relewise.BlazorApps.Components
+@using Newtonsoft.Json
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+@if (Value is null)
+{
+    <div class="integers-null @(ReadOnly ? null : "integers-editable")"
+         role="@(ReadOnly ? null : "button")" tabindex="@(ReadOnly ? -1 : 0)" aria-label="Create integer array"
+         @onclick="Create" @onkeydown="CreateKeyDown">
+        <span class="integers-placeholder">&lt;NULL&gt;</span>
+        @if (!ReadOnly)
+        {
+            <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
+                <RButton Variant="Variant.Text" OnClick="Create">Create</RButton>
+            </span>
+        }
+    </div>
+}
+else
+{
+    <section class="integers-box" data-expanded="@(expanded ? "true" : "false")">
+        <header @onclick="ToggleExpanded">
+            <button class="integers-title" type="button" aria-expanded="@(expanded ? "true" : "false")"
+                    @onclick="ToggleExpanded" @onclick:stopPropagation="true">Integers · @Value.Length @(Value.Length == 1 ? "value" : "values")</button>
+            <span class="integers-actions" @onclick:stopPropagation="true">
+                <RIconButton Icon="@Icons.Material.Outlined.ContentCopy" ToolTip="Copy as JSON"
+                             aria-label="Copy integer array as JSON" OnClick="Copy" />
+                @if (!ReadOnly)
+                {
+                    <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                 ToolTip="Set to null" aria-label="Set integer array to null" OnClick="Clear" />
+                }
+            </span>
+        </header>
+        @if (expanded)
+        {
+            <div class="integers-entries">
+                @for (int i = 0; i < Value.Length; i++)
+                {
+                    var index = i;
+                    <div class="integers-row">
+                        <span class="integers-index">@(index + 1)</span>
+                        <RNumericField @ref="lastField" Value="@Value[index]" ValueChanged="value => Update(index, value)"
+                                    FullWidth="true" Immediate="true" Disabled="ReadOnly" />
+                        @if (!ReadOnly)
+                        {
+                            <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                         ToolTip="Remove value" aria-label="@($"Remove value {index + 1}")" OnClick="() => Remove(index)" />
+                        }
+                    </div>
+                }
+                @if (!ReadOnly)
+                {
+                    <RButton Variant="Variant.Text" Icon="@Icons.Material.Filled.Add" OnClick="Add">Add value</RButton>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool OpenDetails { get; set; }
+    [Parameter, EditorRequired] public required int[]? Value { get; set; }
+    [Parameter, EditorRequired] public required Action<object?> Setter { get; set; }
+    [Parameter] public Type[] AncestorTypes { get; set; } = [];
+
+    private bool expanded;
+    private bool? previousOpenDetails;
+    private int[]? trackedValue;
+    private RNumericField? lastField;
+    private bool focusLast;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!focusLast) return;
+        focusLast = false;
+        if (lastField is not null) await lastField.SetFocusAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!previousOpenDetails.HasValue || !ReferenceEquals(Value, trackedValue))
+            expanded = OpenDetails || (!ReadOnly && Value is { Length: 0 });
+        else if (previousOpenDetails != OpenDetails)
+            expanded = OpenDetails;
+        trackedValue = Value;
+        previousOpenDetails = OpenDetails;
+    }
+
+    private void Commit(int[]? value)
+    {
+        Value = value;
+        trackedValue = value;
+        Setter(value);
+    }
+
+    public void Create()
+    {
+        if (ReadOnly || Value is not null) return;
+        expanded = true;
+        Commit([]);
+    }
+
+    private void CreateKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ") Create();
+    }
+
+    private void ToggleExpanded() => expanded = !expanded;
+
+    public void Add()
+    {
+        if (ReadOnly || Value is null) return;
+        expanded = true;
+        focusLast = true;
+        Commit([.. Value, 0]);
+    }
+
+    public void Update(int index, int value)
+    {
+        if (ReadOnly || Value is null || index < 0 || index >= Value.Length) return;
+        var updated = (int[])Value.Clone();
+        updated[index] = value;
+        Commit(updated);
+    }
+
+    public void Remove(int index)
+    {
+        if (ReadOnly || Value is null || index < 0 || index >= Value.Length) return;
+        Commit([.. Value[..index], .. Value[(index + 1)..]]);
+    }
+
+    public void Clear()
+    {
+        if (ReadOnly) return;
+        Commit(null);
+    }
+
+    private async Task Copy()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(Value, Formatting.Indented));
+            Snackbar.Add("Copied integer array as JSON.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+}

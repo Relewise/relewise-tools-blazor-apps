@@ -1,28 +1,11 @@
 @using Relewise.BlazorApps.Components
 
-@if (AllowNull)
-{
-    <RNullableNumberField T="ushort" Value="Value"
-                      ValueChanged="value => { Value = value; Setter(value); }"
-                      AllowNull="AllowNull" ReadOnly="ReadOnly" />
-}
-else
-{
-    @if (Value is null)
-    {
-        <code>&lt;NULL&gt;&nbsp;</code>
-        @if (!ReadOnly)
-        {
-            <button class="btn btn-outline-success btn-sm" @onclick=Set>Set to 0</button>
-        }
-    }
-    else
-    {
-        <input type="number" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
-    }
-}
+<RNullableNumberField T="ushort" Value="Value" ValueChanged="UpdateValue"
+                      AllowNull="AllowNull" ReadOnly="ReadOnly" Label="@Label" />
 
 @code {
+    [Parameter] public string? Label { get; set; }
+
     [Parameter]
     public bool AllowNull { get; set; } = true;
 
@@ -41,8 +24,16 @@ else
     [Parameter]
     public Type[] AncestorTypes { get; set; } = [];
 
+    private void UpdateValue(ushort? value)
+    {
+        if (ReadOnly || (!AllowNull && !value.HasValue)) return;
+        Value = value;
+        Setter(value);
+    }
+
     public void Set()
     {
+        if (ReadOnly) return;
         Value = 0;
         Setter(Value);
     }

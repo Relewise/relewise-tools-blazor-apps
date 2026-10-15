@@ -26,12 +26,8 @@
 else
 {
     <MudStack Spacing="2">
-        <div class="product-toolbar">
-            <RTextField Label="Search" Value="@searchText" ValueChanged="SearchChanged"
-                        Immediate="true" DebounceInterval="300" Clearable="true" FullWidth="true" />
-            <RButton Variant="Variant.Outlined" Icon="@Icons.Material.Filled.FilterList" OnClick="ToggleFilters" AriaLabel="Toggle product filters">@(showFilters ? "Hide filters" : "Filters")</RButton>
-            <RButton Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Refresh" Disabled="loadingProducts" OnClick="RefreshProducts">Refresh</RButton>
-        </div>
+        <RListToolbar Search="searchText" SearchChanged="SearchChanged" ShowFilters="showFilters"
+                      ToggleFilters="ToggleFilters" Refresh="RefreshProducts" Loading="loadingProducts" />
         @if (showFilters)
         {
             <MudPaper Outlined="true" Elevation="0" Class="pa-3">

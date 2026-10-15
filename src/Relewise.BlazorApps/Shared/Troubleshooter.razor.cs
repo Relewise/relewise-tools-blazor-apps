@@ -22,7 +22,7 @@ using Relewise.Client.Search;
 
 namespace Relewise.BlazorApps.Shared
 {
-    public partial class Troubleshooter
+    public partial class Troubleshooter : IDisposable
     {
         [Inject] public required ISnackbar Snackbar { get; set; }
         private Searcher? searcher;
@@ -36,6 +36,12 @@ namespace Relewise.BlazorApps.Shared
         [Parameter, EditorRequired]
         public required object Request { get; set; }
 
+        [Parameter]
+        public bool AutoRun { get; set; }
+        [Parameter] public bool Stale { get; set; }
+        [Parameter] public EventCallback<bool> RunningChanged { get; set; }
+        private string? error;
+
         [Inject]
         public required IJSRuntime ConnectionRuntime { get; set; }
 
@@ -45,7 +51,7 @@ namespace Relewise.BlazorApps.Shared
         {
             jsonSerializerSettings.Converters.Add(new StringEnumConverter());
 
-            if (Request is not { } ProductSearchRequest)
+            if (Request is not ProductSearchRequest || Stale)
                 return;
 
             if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
@@ -62,10 +68,14 @@ namespace Relewise.BlazorApps.Shared
             StateHasChanged();
         }
 
+        public void Dispose() => StaticDatasetStorage.AuthenticationReceived -= Authenticated;
+
         private async Task Connect()
         {
             if (connecting) return;
             connecting = true;
+            error = null;
+            await RunningChanged.InvokeAsync(true);
             try
             {
                 searcher = new Searcher(new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
@@ -79,10 +89,14 @@ namespace Relewise.BlazorApps.Shared
                 await searchAdministrator.LoadAsync(new SynonymsRequest { Take = 1 }, cancellation.Token);
                 await merchandisingAccessor.LoadAsync(cancellation.Token);
                 await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
+                if (AutoRun && searcher is not null)
+                {
+                    await ExecuteRequest();
+                }
             }
             catch (Exception ex)
             {
-                Snackbar.Add(ex.GetBaseException().Message, MudBlazor.Severity.Error);
+                error = "Connection failed. " + ex.GetBaseException().Message;
                 searcher = null;
                 dataAccessor = null;
                 searchAdministrator = null;
@@ -91,6 +105,7 @@ namespace Relewise.BlazorApps.Shared
             finally
             {
                 connecting = false;
+                await RunningChanged.InvokeAsync(false);
             }
         }
 
@@ -112,6 +127,8 @@ namespace Relewise.BlazorApps.Shared
 
         private async Task ExecuteProductSearchRequest(ProductSearchRequest searchRequest)
         {
+            error = null;
+            results = null;
             try
             {
                 List<SearchResult> localResults = new();
@@ -445,8 +462,7 @@ namespace Relewise.BlazorApps.Shared
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.GetType().Name + ": " + ex.GetBaseException().Message + " -- " + ex.StackTrace);
-                Snackbar.Add(ex.GetBaseException().Message, MudBlazor.Severity.Error);
+                error = RequestErrorHandling.Message(ex);
             }
             StateHasChanged();
         }

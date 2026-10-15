@@ -1,32 +1,27 @@
-﻿@if (Value is null)
-{
-    @if (!ReadOnly)
-    {
-        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new DateTimeOffset</button>
-    }
-}
-else
-{
-    <input type="datetime-local" style="width:100%;" disabled=@ReadOnly @bind=Value @bind:event="oninput" @bind:after=@(() => Setter(Value)) />
-}
+@using System.Globalization
+@using Relewise.BlazorApps.Components
+
+<RDateTimeField Value="Value?.DateTime" ValueChanged="UpdateValue" ReadOnly="ReadOnly" AllowNull="AllowNull"
+                Offset="@(Value?.ToString("zzz", CultureInfo.InvariantCulture))" />
+
 @code {
-    [Parameter]
-    public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool AllowNull { get; set; } = true;
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool OpenDetails { get; set; }
+    [Parameter, EditorRequired] public required DateTimeOffset? Value { get; set; }
+    [Parameter, EditorRequired] public required Action<object?> Setter { get; set; }
+    [Parameter] public Type[] AncestorTypes { get; set; } = [];
 
-    [Parameter]
-    public bool OpenDetails { get; set; } = false;
-
-    [Parameter, EditorRequired]
-    public required DateTimeOffset? Value { get; set; }
-
-    [Parameter, EditorRequired]
-    public required Action<object?> Setter { get; set; }
-
-    [Parameter]
-    public Type[] AncestorTypes { get; set; } = [];
+    private void UpdateValue(DateTime? value)
+    {
+        if (ReadOnly || (value is null && !AllowNull)) return;
+        Value = value is { } date ? new DateTimeOffset(DateTime.SpecifyKind(date, DateTimeKind.Unspecified), Value?.Offset ?? TimeSpan.Zero) : null;
+        Setter(Value);
+    }
 
     public void Create()
     {
+        if (ReadOnly) return;
         Value = default(DateTimeOffset);
         Setter(Value);
     }

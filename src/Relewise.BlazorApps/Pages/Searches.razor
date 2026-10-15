@@ -62,7 +62,7 @@
                     <SearchConstructor @key="requestType" RequestType="requestType" RequestTitle="@SearchName(requestType)"
                                        RequestFactory="() => GetRequest(requestType)" Request="initValues.GetValueOrDefault(requestType)"
                                        State="entry.Value" IsActive="isSelected" OpenDetails="true" ShowHeader="false"
-                                       Connect="Connect" ResetSearcher="ResetSearcher" Searcher="@(connecting ? null : searcher)" />
+                                       Connect="Connect" Searcher="@(connecting ? null : searcher)" />
                 </div>
             }
         }
@@ -236,12 +236,6 @@
             Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             return false;
         }
-    }
-
-    private void ResetSearcher()
-    {
-        searcher = null;
-        StateHasChanged();
     }
 
     private Task Search()

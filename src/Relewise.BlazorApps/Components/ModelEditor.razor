@@ -4,7 +4,10 @@
 
 @if (IsActive)
 {
-<h3>@Settings.Name(ModelType)</h3>
+@if (!HasEditorHeading)
+{
+    <h3>@Settings.Name(ModelType)</h3>
+}
 <ErrorBoundary @key="ModelType">
     <ChildContent>
         @if (ModelType.IsInterface || ModelType.IsAbstract)
@@ -35,6 +38,11 @@
 
     private Type? editorType;
     private Dictionary<string, object>? parameters;
+
+    private bool HasEditorHeading => ModelType.IsInterface || ModelType.IsAbstract
+        || (State.Value is not null && editorType is { IsConstructedGenericType: true }
+            && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>)
+            && ModelType != typeof(Language) && ModelType != typeof(Currency));
 
     protected override bool ShouldRender() => IsActive;
 

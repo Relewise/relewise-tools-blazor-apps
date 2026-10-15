@@ -3,8 +3,8 @@
 
 <MudNumericField T="T?" Value="Value" ValueChanged="UpdateValue" Label="@Label"
                  Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true"
-                 Immediate="true" HideSpinButtons="false" Disabled="ReadOnly"
-                 Clearable="@(AllowNull && !ReadOnly)" Required="@(!AllowNull)"
+                 Immediate="true" HideSpinButtons="ReadOnly" Disabled="ReadOnly"
+                 Clearable="@(AllowNull && !ReadOnly)" Required="@(!AllowNull && !ReadOnly)"
                  Placeholder="@(AllowNull ? "<NULL>" : null)" />
 
 @code {

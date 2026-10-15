@@ -1,20 +1,19 @@
-﻿@using global::Relewise.Client.Requests.Conditions
+@using Relewise.BlazorApps.Components
+@using MudBlazor
+@using global::Relewise.Client.Requests.Conditions
 @using global::Relewise.Client.Requests.Filters
 <span>Display Name</span>
-    &nbsp;
-<svg viewBox="0 0 16 16" height="16px" style="cursor:pointer;" @onclick=ShowFilter>
-    <polygon stroke="#FFFFFF" stroke-width="2" fill="@(Column.Filter is null ? "none" : "#FFFFFF")" points="1,2 6,7 6,14 10,14 10,7 15,2" stroke-linejoin="round"></polygon>
-</svg>
+<RIconButton Icon="@Icons.Material.Outlined.FilterAlt" Color="@(Column.Filter is null ? Color.Default : Color.Primary)"
+             ToolTip="Filter by display name" aria-label="Filter by display name" aria-expanded="@(filterEditorShown ? "true" : "false")" OnClick="ShowFilter" />
 @if (filterEditorShown)
 {
-    <div style="display: flex; flex-direction: row;grid-gap: 2px;">
-        <label for="displayName">name:</label>
-        <input class="form-control form-control-sm" id="displayName" @bind=displayName @bind:event="oninput" @bind:after=Changed />
-        <label for="language">language:</label>
-        <input class="form-control form-control-sm" id="language" @bind=language @bind:event="oninput" @bind:after=Changed />
+    <div class="d-flex flex-wrap align-center ga-1">
+        <RTextField Label="Name" @bind-Value="displayName" @bind-Value:after="Changed" Immediate="true" />
+        <RTextField Label="Language" @bind-Value="language" @bind-Value:after="Changed" Immediate="true" />
         @if (Column.Filter is not null)
         {
-            <button class="btn btn-warning btn-sm" @onclick=RemoveFilter>X</button>
+            <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                         ToolTip="Remove display name filter" aria-label="Remove display name filter" OnClick="RemoveFilter" />
         }
     </div>
 }
@@ -25,7 +24,7 @@
     private string language = "";
 
     [Parameter, EditorRequired]
-    public required Column<ProductDisplayNameFilter> Column { get; set; }
+    public required Relewise.BlazorApps.Shared.Column<ProductDisplayNameFilter> Column { get; set; }
 
     public void ShowFilter()
     {

@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Blazor Relewise</title>
 
-    <base />
+    <base href="/" />
     <script type="text/javascript">
         // Single Page Apps for GitHub Pages
         // MIT License
@@ -32,7 +32,7 @@
     <script>
         var path = window.location.pathname.split('/');
         var base = document.getElementsByTagName('base')[0];
-        if (window.location.host.includes('localhost')) {
+        if (window.location.hostname === 'localhost' || window.location.hostname.endsWith('.devtunnels.ms')) {
             base.setAttribute('href', '/');
         } else if (path.length > 2) {
             base.setAttribute('href', '/' + path[1] + '/');

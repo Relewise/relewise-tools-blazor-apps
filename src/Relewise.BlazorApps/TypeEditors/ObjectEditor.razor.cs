@@ -21,6 +21,7 @@ namespace Relewise.BlazorApps.TypeEditors
         private object? emptyInstanceOfValue;
         private Type? emptyInstanceType;
         private List<Type> derivedTypes = new();
+        private bool CanSwitchType => Value is not null && derivedTypes.Any(type => type != Value.GetType());
         private static readonly Lazy<Type[]> derivedTypeCandidates = new(() => EditorSdkTypes.All.Value
             .Where(type => type != typeof(T) && type.IsAssignableTo(typeof(T)) && !type.IsGenericType && !type.IsAbstract)
             .ToArray());
@@ -43,7 +44,12 @@ namespace Relewise.BlazorApps.TypeEditors
         public bool SingleLevelOpenDetails { get; set; } = false;
 
         [Parameter]
-        public string? InlineHelp { get; set; }
+        public bool FieldsOnly { get; set; } = false;
+
+        [Parameter] public RenderFragment? HeaderActions { get; set; }
+
+        [Parameter] public EventCallback OnRemove { get; set; }
+        [Parameter] public string? RemoveLabel { get; set; }
 
         [Parameter, CascadingParameter]
         public bool? HideDefaultValueProperties { get; set; }
@@ -84,8 +90,6 @@ namespace Relewise.BlazorApps.TypeEditors
                 HideDefaultValueProperties = OverridenHideDefaultValueProperties;
             }
 
-            (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
-
             derivedTypes = derivedTypeCandidates.Value.ToList();
 
             if (AllowedDerivedTypes is not null)
@@ -125,6 +129,9 @@ namespace Relewise.BlazorApps.TypeEditors
                 emptyInstanceOfValue = editor.InitValue(editedTyped);
                 emptyInstanceType = editedTyped;
             }
+
+            // Initialize field visibility before optional documentation can delay rendering.
+            (xmlDocumentation, communityDocumentation) = await XMLDocumentationCache.GetAsync();
         }
 
         private void TypeDropdownChanged(ChangeEventArgs eventArgs)
@@ -137,6 +144,21 @@ namespace Relewise.BlazorApps.TypeEditors
             selectedCreateType = type;
             typeMenuOpen = false;
             Create();
+        }
+
+        private void DefineNullObject()
+        {
+            if (ReadOnly || Value is not null) return;
+            if (derivedTypes.Count > 1)
+                typeMenuOpen = true;
+            else
+                Create();
+        }
+
+        private void NullObjectKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs args)
+        {
+            if (args.Key is "Enter" or " ")
+                DefineNullObject();
         }
 
         private string GetTypeTitle(Type type)
@@ -188,6 +210,7 @@ namespace Relewise.BlazorApps.TypeEditors
 
         public void Create()
         {
+            if (ReadOnly) return;
             try
             {
                 var editor = Settings.Editors.First(e => e.CanHandle(selectedCreateType));
@@ -264,7 +287,7 @@ namespace Relewise.BlazorApps.TypeEditors
                 string serialized = JsonConvert.SerializeObject(Value, serializedType, jsonSerializerSettings);
                 string compressed = ToGzip(serialized);
 
-                string url = $"{NavigationManager.BaseUri}Models?q={Value?.GetType().Name}&o={compressed}";
+                string url = Shared.ModelShareLink.Create(NavigationManager.BaseUri, Value!.GetType(), compressed);
 
                 await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", url);
             }
@@ -289,7 +312,15 @@ namespace Relewise.BlazorApps.TypeEditors
             return Convert.ToBase64String(result);
         }
 
-        private IEnumerable<PropertyInfo>? Properties => Value is null ? null : Settings.GetProperties(Value.GetType());
+        private bool ShouldShowProperty(PropertyInfo property)
+            => HideDefaultValueProperties is not true
+                || (Value is null && emptyInstanceOfValue is null)
+                || (Value is not null && emptyInstanceOfValue is not null
+                    && JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue))
+                    && !Settings.InvalidProperties.Any(invalid => property == invalid.Property
+                        && AncestorTypes.Any(ancestor => invalid.AncestorInterfaces.Any(type => ancestor.IsAssignableTo(type)))));
+
+        private IEnumerable<PropertyInfo> Properties => Value is null ? [] : Settings.GetProperties(Value.GetType());
     }
 
     internal static class EditorSdkTypes

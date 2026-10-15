@@ -10,15 +10,48 @@ using Relewise.Client.Requests;
 using Relewise.Client.Requests.Search;
 using System.IO.Compression;
 using System.Reflection;
+using Relewise.BlazorApps.Shared;
+using System.Runtime.CompilerServices;
+using Relewise.Client.Search;
 
 namespace Relewise.BlazorApps.Pages
 {
     public partial class RequestExplorer
     {
+        private sealed class RequestHistoryIdentity
+        {
+            public string Id { get; set; } = Guid.NewGuid().ToString();
+        }
+
+        private static readonly ConditionalWeakTable<object, RequestHistoryIdentity> requestHistoryIdentities = new();
         [Inject] public required ISnackbar Snackbar { get; set; }
-        private bool readOnly = true;
-        private bool openDetails = false;
-        private Type selectedParseType = typeof(ProductSearchRequest);
+        private Type? selectedParseType;
+        private bool parseTypeDialogVisible;
+        private bool showTroubleshooter;
+        private int diagnosticsVersion;
+        private bool diagnosticsStale;
+        private bool troubleshootAfterParsing;
+        private bool executeAfterParsing;
+        private bool isRunning;
+        private bool sourceExpanded = true;
+        private bool sideBySide = true;
+        private Searcher? searcher;
+        private Recommender? recommender;
+        private string? requestConnectionError;
+        private SearchConstructor.EditorState searchState = new();
+        private RecommendationConstructor.EditorState recommendationState = new();
+        private static readonly HashSet<Type> recommendationRequestTypes = typeof(Recommender).GetMethods()
+            .Where(method => method.Name == "RecommendAsync" && method.GetParameters().Length == 2)
+            .Select(method => method.GetParameters()[0].ParameterType).ToHashSet();
+        private string? parseTypeError;
+        private JObject? submittedJson;
+        private readonly DialogOptions parseTypeDialogOptions = new()
+        {
+            FullWidth = true,
+            MaxWidth = MaxWidth.Small,
+            CloseButton = true,
+            CloseOnEscapeKey = true
+        };
         private readonly static JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings
         {
             TypeNameHandling = TypeNameHandling.Auto,
@@ -28,8 +61,7 @@ namespace Relewise.BlazorApps.Pages
         };
         private List<Type> derivedTypes = [];
         private object? inputObject;
-        private bool hideDefaultValueProperties = true;
-        private bool hasLastRequestBeenSavedPreviously = false;
+        private List<RequestEditHistory.Entry> requestHistory = [];
         private Type[] merchandisingRules = [typeof(BoostAndBuryRule), typeof(FilterRule), typeof(FixedPositionRule), typeof(InputModifierRule)];
 
         [Inject]
@@ -50,8 +82,23 @@ namespace Relewise.BlazorApps.Pages
                     .OrderBy(type => type.Name)
                     .ToList();
                 derivedTypes.AddRange(merchandisingRules);
-                selectedParseType = typeof(ProductSearchRequest);
-                hasLastRequestBeenSavedPreviously = HasLastRequestBeenSavedPreviously();
+                sideBySide = JSRuntime.Invoke<string?>("localStorage.getItem", "requestExplorerLayout") != "top-bottom";
+                requestHistory = RequestEditHistory.Load(JSRuntime);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
+        }
+
+        private static string ResultLayoutName(bool value) => value ? "Side by side" : "Top / bottom";
+
+        private void SetResultLayout(bool value)
+        {
+            sideBySide = value;
+            try
+            {
+                JSRuntime.InvokeVoid("localStorage.setItem", "requestExplorerLayout", value ? "side-by-side" : "top-bottom");
             }
             catch (Exception ex)
             {
@@ -61,9 +108,68 @@ namespace Relewise.BlazorApps.Pages
 
         public static void SaveInLocalStorage(IJSInProcessRuntime InProcessJSRuntime, object? objectToSave)
         {
+            if (objectToSave is null)
+            {
+                return;
+            }
+
             string serialized = JsonConvert.SerializeObject(objectToSave, typeof(object), jsonSerializerSettings);
             string compressed = ToGzip(serialized);
+            var identity = requestHistoryIdentities.GetValue(objectToSave, _ => new RequestHistoryIdentity());
+            identity.Id = RequestEditHistory.Save(InProcessJSRuntime, serialized, compressed, identity.Id);
             InProcessJSRuntime.InvokeVoid("localStorage.setItem", "lastRequest", compressed);
+        }
+
+        private void SaveEditedRequest(object? obj)
+        {
+            if (showTroubleshooter) diagnosticsStale = true;
+            inputObject = obj;
+            try
+            {
+                SaveInLocalStorage(JSRuntime, obj);
+                requestHistory = RequestEditHistory.Load(JSRuntime);
+                if (obj is not null)
+                    input = JsonConvert.SerializeObject(obj, typeof(object), jsonSerializerSettings);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
+            StateHasChanged();
+        }
+
+        private async Task RestoreHistoryEntry(RequestEditHistory.Entry entry)
+        {
+            sourceExpanded = false;
+            showTroubleshooter = false;
+            executeAfterParsing = true;
+            searcher = null;
+            recommender = null;
+            requestConnectionError = null;
+            searchState = new();
+            recommendationState = new();
+            try
+            {
+                string restored = await Models.FromGzipAsync(entry.Compressed);
+                object? restoredObject = JsonConvert.DeserializeObject<object>(restored, jsonSerializerSettings);
+                if (restoredObject is not null)
+                {
+                    requestHistoryIdentities.GetValue(restoredObject, _ => new RequestHistoryIdentity()).Id = entry.Id;
+                }
+                input = restored;
+                inputObject = restoredObject;
+                if (restoredObject is not null)
+                {
+                    PrepareExecution(restoredObject);
+                    SaveInLocalStorage(JSRuntime, restoredObject);
+                    requestHistory = RequestEditHistory.Load(JSRuntime);
+                }
+            }
+            catch (Exception ex)
+            {
+                sourceExpanded = true;
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
         }
 
         public async Task RetrieveFromLocalStorage()
@@ -85,35 +191,77 @@ namespace Relewise.BlazorApps.Pages
             return JSRuntime.Invoke<string?>("localStorage.getItem", "lastRequest") != null;
         }
 
-        public void TryParse()
+        public void Submit() => ParseRequest(false);
+
+        private void Troubleshoot() => ParseRequest(true);
+
+        private void TroubleshootAgain()
         {
+            if (inputObject is not ProductSearchRequest) return;
+            showTroubleshooter = true;
+            executeAfterParsing = false;
+            diagnosticsStale = false;
+            diagnosticsVersion++;
+        }
+
+        private void DiagnosticsRunningChanged(bool running) => isRunning = running;
+
+        private void ParseRequest(bool troubleshoot)
+        {
+            sourceExpanded = false;
+            troubleshootAfterParsing = troubleshoot;
+            diagnosticsStale = false;
+            diagnosticsVersion++;
+            executeAfterParsing = !troubleshoot;
+            searcher = null;
+            recommender = null;
+            requestConnectionError = null;
+            searchState = new();
+            recommendationState = new();
+            showTroubleshooter = false;
+            inputObject = null;
+            parseTypeError = null;
             try
             {
-                try
+                submittedJson = JObject.Parse(input);
+                if (submittedJson.ContainsKey("$type"))
                 {
-                    inputObject = JsonConvert.DeserializeObject<object?>(input, jsonSerializerSettings);
-                    if (inputObject.GetType() == typeof(JObject))
+                    try
                     {
-                        inputObject = null;
-                        throw new Exception("Not allowed to deserialize as JObject");
+                        object? annotated = JsonConvert.DeserializeObject<object>(input, jsonSerializerSettings);
+                        if (annotated is not null && annotated.GetType().Assembly == typeof(ClientBase).Assembly)
+                        {
+                            CompleteParse(annotated);
+                            return;
+                        }
                     }
-                    Snackbar.Add("Found matching type from $type annotation on object.", Severity.Success);
+                    catch (JsonException)
+                    {
+                        // Explicit annotations must not silently become a different inferred type.
+                    }
+                    selectedParseType = null;
+                    parseTypeDialogVisible = true;
+                    return;
                 }
-                catch (Exception)
+
+                submittedJson.Remove("$type");
+                string untypedJson = submittedJson.ToString(Formatting.None);
+                int numberOfTypesEquallyGood = 0;
+                object? bestMatch = null;
+                int shortestMessageSizeDifference = int.MaxValue;
+                if (submittedJson.Count > 0)
                 {
-                    int numberOfTypesEquallyGood = 0;
-                    Type? bestMatchingSerializationType = null;
-                    int shortestMessageSizeDifference = int.MaxValue;
                     foreach (Type type in derivedTypes)
                     {
                         try
                         {
-                            object? deserializedAsType = JsonConvert.DeserializeObject(input, type, jsonSerializerSettings);
-                            string reserialized = JsonConvert.SerializeObject(deserializedAsType, type, jsonSerializerSettings);
-                            int distance = Math.Abs(reserialized.Length - input.Length);
+                            object? candidate = JsonConvert.DeserializeObject(untypedJson, type, jsonSerializerSettings);
+                            if (candidate is null) continue;
+                            string reserialized = JsonConvert.SerializeObject(candidate, type, jsonSerializerSettings);
+                            int distance = Math.Abs(JObject.Parse(reserialized).ToString(Formatting.None).Length - untypedJson.Length);
                             if (distance < shortestMessageSizeDifference)
                             {
-                                bestMatchingSerializationType = type;
+                                bestMatch = candidate;
                                 shortestMessageSizeDifference = distance;
                                 numberOfTypesEquallyGood = 1;
                             }
@@ -122,38 +270,111 @@ namespace Relewise.BlazorApps.Pages
                                 numberOfTypesEquallyGood++;
                             }
                         }
-                        catch (Exception) { }
-                    }
-                    if (bestMatchingSerializationType is null)
-                    {
-                        Snackbar.Add("Could not find a request type that this was able to be deserialized as.", Severity.Error);
-                    }
-                    else if (numberOfTypesEquallyGood is not 1)
-                    {
-                        Snackbar.Add($"Was not able to find a single matching type as multiple ones matches equally good. One of them was '{bestMatchingSerializationType.Name}'. Try to get the request with $type annotation on the object or manully find the type.", Severity.Error);
-                    }
-                    else
-                    {
-                        inputObject = (LicensedRequest?)JsonConvert.DeserializeObject(input, bestMatchingSerializationType, jsonSerializerSettings);
-                        Snackbar.Add($"Successfully found a best match for the request type: '{bestMatchingSerializationType.Name}'", Severity.Success);
+                        catch (JsonException) { }
                     }
                 }
+                if (bestMatch is not null && numberOfTypesEquallyGood == 1)
+                {
+                    CompleteParse(bestMatch);
+                    return;
+                }
+                selectedParseType = null;
+                parseTypeDialogVisible = true;
+            }
+            catch (Exception ex)
+            {
+                sourceExpanded = true;
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
+        }
+
+        private void CancelTypeSelection()
+        {
+            parseTypeDialogVisible = false;
+            sourceExpanded = true;
+        }
+        private void ParseAsSelectedType(Type type)
+        {
+            selectedParseType = type;
+            parseTypeError = null;
+            try
+            {
+                var json = (JObject)submittedJson!.DeepClone();
+                json.Remove("$type");
+                object? parsed = JsonConvert.DeserializeObject(json.ToString(), type, jsonSerializerSettings);
+                if (parsed is null) throw new JsonSerializationException("The JSON did not contain a request.");
+                CompleteParse(parsed);
+            }
+            catch (Exception ex)
+            {
+                parseTypeError = ex.GetBaseException().Message;
+            }
+        }
+
+        private void CompleteParse(object parsed)
+        {
+            inputObject = parsed;
+            parseTypeDialogVisible = false;
+            showTroubleshooter = troubleshootAfterParsing && parsed is ProductSearchRequest;
+            if (troubleshootAfterParsing && !showTroubleshooter)
+            {
+                Snackbar.Add("This request type cannot be troubleshot. Troubleshooting currently supports product search requests only.", MudBlazor.Severity.Warning);
+            }
+            if (executeAfterParsing || showTroubleshooter)
+            {
+                PrepareExecution(parsed);
+            }
+            try
+            {
+                SaveInLocalStorage(JSRuntime, parsed);
+                requestHistory = RequestEditHistory.Load(JSRuntime);
             }
             catch (Exception ex)
             {
                 Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             }
         }
-        public void ParseAsSelectedType()
+
+        private void ConnectToDataset()
         {
+            executeAfterParsing = false;
+            requestConnectionError = null;
+            if (inputObject is not null) PrepareExecution(inputObject);
+        }
+
+        private void PrepareExecution(object parsed)
+        {
+            if (parsed is not SearchRequest && !recommendationRequestTypes.Contains(parsed.GetType()))
+            {
+                requestConnectionError = "This request type cannot be run here. Running requests currently supports search and recommendation requests.";
+                return;
+            }
+            if (!Guid.TryParse(StaticDatasetStorage.DatasetId, out var datasetId)
+                || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
+            {
+                requestConnectionError = "Enter connection details, then click Connect.";
+                return;
+            }
             try
             {
-                inputObject = (LicensedRequest?)JsonConvert.DeserializeObject(input, selectedParseType, jsonSerializerSettings);
-                Snackbar.Add("Successfully parsed as the selected type.", Severity.Success);
+                if (parsed is SearchRequest)
+                    searcher = new Searcher(datasetId, StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
+                else
+                    recommender = new Recommender(datasetId, StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl);
             }
             catch (Exception ex)
             {
-                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+                requestConnectionError = ex.GetBaseException().Message;
+            }
+        }
+
+        private async Task ExecutionChanged(bool running)
+        {
+            isRunning = running;
+            if (running) showTroubleshooter = false;
+            if (!running && (searchState.Response is not null || recommendationState.Response is not null))
+            {
+                await SavedConnectionStorage.SaveAsync(JSRuntime);
             }
         }
 

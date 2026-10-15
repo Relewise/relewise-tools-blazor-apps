@@ -4,11 +4,7 @@ namespace Relewise.BlazorApps;
 
 public static class SavedConnectionStorage
 {
-#if DEBUG
     public static bool Enabled => true;
-#else
-    public static bool Enabled => false;
-#endif
 
     public static bool Remember { get; set; } = true;
     public static bool HasSavedConfiguration { get; private set; }
