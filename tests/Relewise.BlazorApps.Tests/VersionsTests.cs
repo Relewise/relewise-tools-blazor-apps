@@ -18,9 +18,9 @@ public class VersionsTests
         """;
 
     [TestMethod]
-    public void FailedVersionDownloadCanBeRetried()
+    public async Task FailedVersionDownloadCanBeRetried()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddMudServices();
         int requests = 0;
@@ -45,9 +45,9 @@ public class VersionsTests
     }
 
     [TestMethod]
-    public void FailedComparisonDownloadCanBeRetriedWithoutReloadingVersionList()
+    public async Task FailedComparisonDownloadCanBeRetriedWithoutReloadingVersionList()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddMudServices();
         int versionRequests = 0;
@@ -76,9 +76,9 @@ public class VersionsTests
     }
 
     [TestMethod]
-    public void EmptyVersionListOffersRetry()
+    public async Task EmptyVersionListOffersRetry()
     {
-        using var context = new BunitContext();
+        await using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddMudServices();
         int requests = 0;
