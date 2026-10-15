@@ -30,6 +30,11 @@ namespace Relewise.BlazorApps.TypeEditors
         private XmlDocumentation? typeTitleDocumentation;
         private readonly Dictionary<Type, string> typeTitles = new();
         private CommunityDocumentation? communityDocumentation;
+        private XmlDocumentation? propertyHelpDocumentation;
+        private CommunityDocumentation? propertyHelpCommunityDocumentation;
+        private readonly Dictionary<PropertyInfo, string?> propertyHelp = new();
+        private Type? propertiesType;
+        private PropertyInfo[] properties = [];
 
         [Parameter]
         public bool ShowModelShareLink { get; set; } = false;
@@ -180,6 +185,26 @@ namespace Relewise.BlazorApps.TypeEditors
             return title;
         }
 
+        private string? GetPropertyHelp(PropertyInfo property)
+        {
+            if (!ReferenceEquals(propertyHelpDocumentation, xmlDocumentation)
+                || !ReferenceEquals(propertyHelpCommunityDocumentation, communityDocumentation))
+            {
+                propertyHelp.Clear();
+                propertyHelpDocumentation = xmlDocumentation;
+                propertyHelpCommunityDocumentation = communityDocumentation;
+            }
+
+            if (!propertyHelp.TryGetValue(property, out var help))
+            {
+                help = property.GetCustomAttribute<ObsoleteAttribute>()?.Message
+                    ?? xmlDocumentation?.GetSummary(property.DeclaringType!, property.Name)
+                    ?? communityDocumentation?.GetSummary(property.DeclaringType!, property.Name);
+                propertyHelp.Add(property, help);
+            }
+            return help;
+        }
+
         private static bool IsInlineValueType(Type type) => type == typeof(Language) || type == typeof(Currency);
 
         private Type InlineValueType => Value?.GetType() ?? typeof(T);
@@ -238,6 +263,14 @@ namespace Relewise.BlazorApps.TypeEditors
             {
                 Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             }
+        }
+
+        private void UpdateProperty(PropertyInfo property, object? value)
+        {
+            property.SetValue(Value, value);
+            Setter(Value);
+            // These fields also affect the object's header or dynamic help text.
+            if (property.Name == "Id" || property.Name.Contains("Minutes")) StateHasChanged();
         }
 
         public async Task CopyToClipboard()
@@ -320,7 +353,19 @@ namespace Relewise.BlazorApps.TypeEditors
                     && !Settings.InvalidProperties.Any(invalid => property == invalid.Property
                         && AncestorTypes.Any(ancestor => invalid.AncestorInterfaces.Any(type => ancestor.IsAssignableTo(type)))));
 
-        private IEnumerable<PropertyInfo> Properties => Value is null ? [] : Settings.GetProperties(Value.GetType());
+        private PropertyInfo[] Properties
+        {
+            get
+            {
+                if (Value?.GetType() != propertiesType)
+                {
+                    propertiesType = Value?.GetType();
+                    properties = propertiesType is null ? [] : Settings.GetProperties(propertiesType).ToArray();
+                    propertyHelp.Clear();
+                }
+                return properties;
+            }
+        }
     }
 
     internal static class EditorSdkTypes

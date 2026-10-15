@@ -128,12 +128,16 @@ else
 
     private void UpdateRequest(object? obj)
     {
+        bool replaced = !ReferenceEquals(Request, obj);
         Request = (SearchRequest?)obj;
         State.Request = Request;
-        try { RequestExplorer.SaveInLocalStorage(JSRuntime, obj); }
-        catch (Exception ex) { Snackbar.Add(ex.GetBaseException().Message, Severity.Error); }
+        if (!RequestChanged.HasDelegate)
+        {
+            try { RequestExplorer.SaveInLocalStorage(JSRuntime, obj); }
+            catch (Exception ex) { Snackbar.Add(ex.GetBaseException().Message, Severity.Error); }
+        }
         _ = RequestChanged.InvokeAsync(Request);
-        StateHasChanged();
+        if (replaced || !RequestChanged.HasDelegate) StateHasChanged();
     }
 
 

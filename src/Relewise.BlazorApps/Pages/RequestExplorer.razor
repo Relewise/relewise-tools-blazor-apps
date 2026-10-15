@@ -127,7 +127,7 @@
                                OpenDetails="true" ShowHeader="false" AutoPost="executeAfterParsing" ShowPostButton="true" PostButtonText="Re-run Request"
                                SideBySide="sideBySide" Busy="isRunning"
                                ActionsInHeader="true"
-                               PostingChanged="ExecutionChanged" RequestChanged="SaveEditedRequest"
+                               PostingChanged="ExecutionChanged" RequestChanged="saveRequestWithoutRendering"
                                ResultContent="@(showTroubleshooter ? TroubleshootingContent : null)">
                 <RequestActions>
                     @if (inputObject is ProductSearchRequest)
@@ -144,7 +144,7 @@
                                        OpenDetails="true" ShowHeader="false" AutoPost="executeAfterParsing" ShowPostButton="true" PostButtonText="Re-run Request"
                                        SideBySide="sideBySide"
                                        ActionsInHeader="true"
-                                       PostingChanged="ExecutionChanged" RequestChanged="SaveEditedRequest" />
+                                       PostingChanged="ExecutionChanged" RequestChanged="saveRequestWithoutRendering" />
         }
         else
         {

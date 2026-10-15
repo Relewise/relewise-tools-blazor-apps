@@ -168,6 +168,7 @@ else
         if (ReadOnly || Value is null) return;
         int index = rows.IndexOf(row);
         if (index < 0) return;
+        bool refresh = index == Value.Count || IsObjectEditor && !ReferenceEquals(Value[index], value);
         if (index == Value.Count && typeof(T) == typeof(string))
         {
             if (value is not string { Length: > 0 }) return;
@@ -177,7 +178,7 @@ else
         else
             Value[index] = (T)value!;
         Setter(Value);
-        StateHasChanged();
+        if (refresh) StateHasChanged();
     }
 
     public void Create()

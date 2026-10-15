@@ -61,6 +61,7 @@ namespace Relewise.BlazorApps.Pages
         };
         private List<Type> derivedTypes = [];
         private object? inputObject;
+        private Action<object?> saveRequestWithoutRendering = null!;
         private List<RequestEditHistory.Entry> requestHistory = [];
         private Type[] merchandisingRules = [typeof(BoostAndBuryRule), typeof(FilterRule), typeof(FixedPositionRule), typeof(InputModifierRule)];
 
@@ -73,6 +74,7 @@ namespace Relewise.BlazorApps.Pages
 
         protected override void OnInitialized()
         {
+            saveRequestWithoutRendering = EventUtil.AsNonRenderingEventHandler<object?>(this, SaveEditedRequest);
             try
             {
                 Assembly? assembly = Assembly.GetAssembly(typeof(ClientBase));
@@ -122,6 +124,7 @@ namespace Relewise.BlazorApps.Pages
 
         private void SaveEditedRequest(object? obj)
         {
+            bool refresh = sourceExpanded || showTroubleshooter && !diagnosticsStale || !ReferenceEquals(inputObject, obj);
             if (showTroubleshooter) diagnosticsStale = true;
             if (!ReferenceEquals(inputObject, obj))
             {
@@ -150,7 +153,7 @@ namespace Relewise.BlazorApps.Pages
             {
                 Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             }
-            StateHasChanged();
+            if (refresh) StateHasChanged();
         }
 
         private async Task RestoreHistoryEntry(RequestEditHistory.Entry entry)

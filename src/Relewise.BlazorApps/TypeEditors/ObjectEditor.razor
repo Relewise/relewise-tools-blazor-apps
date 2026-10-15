@@ -221,9 +221,7 @@
                         {
                             var potentialEditor = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.PropertyType));
                             var editorType = potentialEditor?.EditorType(property.PropertyType);
-                            string? help = property.GetCustomAttribute<ObsoleteAttribute>()?.Message
-                                ?? xmlDocumentation?.GetSummary(property.DeclaringType, property.Name)
-                                ?? communityDocumentation?.GetSummary(property.DeclaringType, property.Name);
+                            string? help = GetPropertyHelp(property);
                             if (invalidProperty is not null)
                                 help = string.Join(" ", new[] { help, invalidProperty.Reason }.Where(text => !string.IsNullOrWhiteSpace(text)));
                             if (property.Name.Contains("Minutes") && property.PropertyType == typeof(int) && property.GetValue(Value) is int minutes)
@@ -245,7 +243,7 @@
                                             ["ReadOnly"] = ReadOnly,
                                             ["OpenDetails"] = OpenDetails,
                                             ["Value"] = property.GetValue(Value),
-                                            ["Setter"] = (object? obj) => { property.SetValue(Value, obj); Setter(Value); },
+                                            ["Setter"] = (object? obj) => UpdateProperty(property, obj),
                                             ["AncestorTypes"] = (Type[])[.. AncestorTypes, Value?.GetType() ?? typeof(T)]
                                         };
                                         Settings.WithNumericNullability(parameters, property.PropertyType);
