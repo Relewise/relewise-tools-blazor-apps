@@ -37,7 +37,9 @@ else if (selectedConfiguration is not null || creatingNew)
 }
 @if (selectedConfiguration is not null || creatingNew)
 {
-    <ObjectEditor OpenDetails=true ShowModelShareLink=true T=TriggerConfiguration Value="selectedConfiguration" Setter="(Object? obj) => { selectedConfiguration = (TriggerConfiguration?)obj; StateHasChanged(); }" />
+    <CascadingValue Value="editorValidation">
+        <ObjectEditor OpenDetails=true ShowModelShareLink=true T=TriggerConfiguration Value="selectedConfiguration" Setter="(Object? obj) => { selectedConfiguration = (TriggerConfiguration?)obj; StateHasChanged(); }" />
+    </CascadingValue>
     <br />
     <RTextField Label="Your name" @bind-Value="name" Immediate="true" FullWidth="true" />
     <br />
@@ -66,6 +68,15 @@ else if (configurations is not null || loadingConfigurations)
                            OnEdit="Edit" OnRefresh="RefreshConfigurations" OnCreate="CreateNewConfiguration" />
 }
 @code {
+    private readonly EditorValidationState editorValidation = new();
+
+    private bool ValidateEditor()
+    {
+        if (editorValidation.IsValid) return true;
+        Snackbar.Add(string.Join(" ", editorValidation.Errors), Severity.Error);
+        return false;
+    }
+
     private bool loadingConfigurations;
     private ConfigurationListItem<TriggerConfiguration>[] triggerRows = [];
 
@@ -186,6 +197,7 @@ else if (configurations is not null || loadingConfigurations)
 
     private async Task Update()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {
@@ -214,6 +226,7 @@ else if (configurations is not null || loadingConfigurations)
 
     private async Task Create()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {

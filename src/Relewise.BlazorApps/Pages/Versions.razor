@@ -17,6 +17,10 @@
 {
     <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-3">@errorMessage</MudAlert>
     <RButton OnClick="Retry" Icon="@Icons.Material.Filled.Refresh">Retry</RButton>
+    @if (comparisonFailed)
+    {
+        <RButton Variant="Variant.Outlined" Class="ml-2" OnClick="Reset">Select versions</RButton>
+    }
     return;
 }
 @if (loadingVersions)
@@ -192,6 +196,8 @@ else
 
     private void Reset()
     {
+        errorMessage = null;
+        comparisonFailed = false;
         selectingVersions = true;
         addedEnums = null;
         changedEnums = null;

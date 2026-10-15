@@ -48,7 +48,9 @@ else if (selectedRule is not null || creatingNew)
 
 @if (selectedRule is not null || creatingNew)
 {
-    <ObjectEditor OpenDetails=true ShowModelShareLink=true T=MerchandisingRule Value="selectedRule" Setter="(Object? obj) => { selectedRule = (MerchandisingRule?)obj; StateHasChanged(); }" />
+    <CascadingValue Value="editorValidation">
+        <ObjectEditor OpenDetails=true ShowModelShareLink=true T=MerchandisingRule Value="selectedRule" Setter="(Object? obj) => { selectedRule = (MerchandisingRule?)obj; StateHasChanged(); }" />
+    </CascadingValue>
     <br />
     <RTextField Label="Your name" @bind-Value="name" Immediate="true" FullWidth="true" />
     <br />
@@ -91,6 +93,15 @@ else if (rules is not null)
 <br />
 
 @code {
+    private readonly EditorValidationState editorValidation = new();
+
+    private bool ValidateEditor()
+    {
+        if (editorValidation.IsValid) return true;
+        Snackbar.Add(string.Join(" ", editorValidation.Errors), Severity.Error);
+        return false;
+    }
+
     private string name = "";
     private bool creatingNew = false;
     private MerchandisingAccessor? merchandisingAccessor;
@@ -218,6 +229,7 @@ else if (rules is not null)
 
     private async Task Update()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {
@@ -236,6 +248,7 @@ else if (rules is not null)
 
     private async Task Copy()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {
@@ -262,6 +275,7 @@ else if (rules is not null)
 
     private async Task Create()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {

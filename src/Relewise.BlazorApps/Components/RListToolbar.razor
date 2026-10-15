@@ -1,7 +1,7 @@
 @using MudBlazor
 
 <div class="list-toolbar @(Actions is null ? null : "has-actions")">
-    <RTextField Label="Search" Value="@Search" ValueChanged="SearchChanged"
+    <RTextField Label="Search" Placeholder="SearchPlaceholder" Value="@Search" ValueChanged="SearchChanged"
                 Immediate="true" DebounceInterval="300" Clearable="true" FullWidth="true" />
     <RButton Variant="Variant.Outlined" Icon="@Icons.Material.Filled.FilterList" OnClick="ToggleFilters"
              AriaLabel="Toggle filters">@(ShowFilters ? "Hide filters" : "Filters")</RButton>
@@ -11,6 +11,7 @@
 
 @code {
     [Parameter] public string Search { get; set; } = "";
+    [Parameter] public string? SearchPlaceholder { get; set; }
     [Parameter] public EventCallback<string> SearchChanged { get; set; }
     [Parameter] public bool ShowFilters { get; set; }
     [Parameter] public EventCallback ToggleFilters { get; set; }

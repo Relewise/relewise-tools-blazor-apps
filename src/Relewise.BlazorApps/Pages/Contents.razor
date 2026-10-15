@@ -53,12 +53,15 @@ else
 @if (content is not null)
 {
     <RCheckBox Label="Expand all" @bind-Value="openDetails" />
-    <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Content Value="content"
-        Setter="(Object? obj) => { content = (Content?)obj;  StateHasChanged(); }" />
+    <CascadingValue Value="editorValidation">
+        <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true T=Content Value="content"
+            Setter="(Object? obj) => { content = (Content?)obj;  StateHasChanged(); }" />
+    </CascadingValue>
     <br />
 }
 
 @code {
+    private readonly EditorValidationState editorValidation = new();
     private string contentId = "";
     private bool openDetails;
     private DataAccessor? dataAccessor;
@@ -172,6 +175,11 @@ else
 
     private async Task Update()
     {
+        if (!editorValidation.IsValid)
+        {
+            Snackbar.Add(string.Join(" ", editorValidation.Errors), Severity.Error);
+            return;
+        }
         try
         {
             await tracker!.TrackAsync(new ContentUpdate(content, ContentUpdate.UpdateKind.ReplaceProvidedProperties));

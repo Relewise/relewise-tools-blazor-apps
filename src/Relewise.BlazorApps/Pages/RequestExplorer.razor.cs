@@ -123,6 +123,21 @@ namespace Relewise.BlazorApps.Pages
         private void SaveEditedRequest(object? obj)
         {
             if (showTroubleshooter) diagnosticsStale = true;
+            if (!ReferenceEquals(inputObject, obj))
+            {
+                executeAfterParsing = false;
+                if (obj is not null) PrepareExecution(obj);
+                if (obj is SearchRequest searchRequest)
+                {
+                    searchState.Request = searchRequest;
+                    searchState.RequestInitialized = true;
+                }
+                else if (obj is LicensedRequest recommendationRequest)
+                {
+                    recommendationState.Request = recommendationRequest;
+                    recommendationState.RequestInitialized = true;
+                }
+            }
             inputObject = obj;
             try
             {
@@ -344,6 +359,9 @@ namespace Relewise.BlazorApps.Pages
 
         private void PrepareExecution(object parsed)
         {
+            searcher = null;
+            recommender = null;
+            requestConnectionError = null;
             if (parsed is not SearchRequest && !recommendationRequestTypes.Contains(parsed.GetType()))
             {
                 requestConnectionError = "This request type cannot be run here. Running requests currently supports search and recommendation requests.";
@@ -371,7 +389,11 @@ namespace Relewise.BlazorApps.Pages
         private async Task ExecutionChanged(bool running)
         {
             isRunning = running;
-            if (running) showTroubleshooter = false;
+            if (running)
+            {
+                executeAfterParsing = false;
+                showTroubleshooter = false;
+            }
             if (!running && (searchState.Response is not null || recommendationState.Response is not null))
             {
                 await SavedConnectionStorage.SaveAsync(JSRuntime);

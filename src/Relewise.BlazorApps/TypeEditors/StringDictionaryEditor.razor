@@ -152,7 +152,7 @@ else
     private void Validate()
     {
         bool invalid = Value is not null && !ReadOnly && rows.Any(row => KeyError(row) is not null || ValueError(row) is not null);
-        Validation?.SetError(this, invalid ? "Complete the dictionary entries and resolve duplicate keys before executing." : null);
+        Validation?.SetError(this, invalid ? "Complete the dictionary entries and resolve duplicate keys before saving or executing." : null);
     }
 
     private void Update(Entry row, string? key, string? value)
@@ -167,6 +167,11 @@ else
     private void Commit(Entry? activeRow = null)
     {
         if (Value is null) return;
+        if (rows.Any(row => KeyError(row) is not null || ValueError(row) is not null))
+        {
+            Validate();
+            return;
+        }
         Value.Clear();
         foreach (var row in rows.Where(row => !row.Edited || IsComplete(row)))
             Value.TryAdd(row.Key!, row.Value!);

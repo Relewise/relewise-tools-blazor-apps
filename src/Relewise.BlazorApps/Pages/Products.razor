@@ -27,7 +27,8 @@ else
 {
     <MudStack Spacing="2">
         <RListToolbar Search="searchText" SearchChanged="SearchChanged" ShowFilters="showFilters"
-                      ToggleFilters="ToggleFilters" Refresh="RefreshProducts" Loading="loadingProducts" />
+                      ToggleFilters="ToggleFilters" Refresh="RefreshProducts" Loading="loadingProducts"
+                      SearchPlaceholder="Name contains or exact product / variant ID" />
         @if (showFilters)
         {
             <MudPaper Outlined="true" Elevation="0" Class="pa-3">
@@ -102,6 +103,7 @@ else
                 {
                     <tr class="mud-table-row">
                         <td class="mud-table-cell" colspan="5">
+                            <CascadingValue Value="row.Item.Validation">
                             <MudStack Class="pa-4" Spacing="2">
                         <RCheckBox Label="Expand all" @bind-Value="openDetails" />
                         <ObjectEditor OpenDetails="openDetails" SingleLevelOpenDetails="true" T="Product" Value="row.Item.Product"
@@ -122,6 +124,7 @@ else
                             }
                         }
                             </MudStack>
+                            </CascadingValue>
                         </td>
                     </tr>
                 }
@@ -206,7 +209,7 @@ else
     private MudDataGrid<ProductAndVariantEditContext>? productGrid;
     private bool loadingProducts;
     private string searchText = "";
-    private (int Page, int PageSize, string ProductId, string DisplayName, string Language, string Status)? loadedPageKey;
+    private (int Page, int PageSize, string Search, string ProductId, string DisplayName, string Language, string Status)? loadedPageKey;
     private int loadedTotal;
     private bool showFilters;
     private string productIdFilter = "";
@@ -221,9 +224,13 @@ else
 
     private async Task SearchChanged(string value)
     {
-        searchText = value;
-        if (productGrid is not null)
+        searchText = value?.Trim() ?? "";
+        loadedPageKey = null;
+        if (productGrid is null) return;
+        if (productGrid.CurrentPage == 0)
             await productGrid.ReloadServerData();
+        else
+            productGrid.NavigateTo(MudBlazor.Page.First);
     }
 
     private void ToggleFilters() => showFilters = !showFilters;
@@ -257,24 +264,21 @@ else
             await productGrid.ReloadServerData();
     }
 
-    private bool MatchesSearch(ProductAndVariantEditContext item)
-    {
-        string term = searchText.Trim();
-        return term.Length == 0
-            || item.Product.Id.Contains(term, StringComparison.OrdinalIgnoreCase)
-            || item.Product.DisplayName?.Values?.Any(value => value.Text?.Contains(term, StringComparison.OrdinalIgnoreCase) == true) == true
-            || item.ProductVariants?.Any(variant => variant.Id.Contains(term, StringComparison.OrdinalIgnoreCase)) == true;
-    }
-
     private GridData<ProductAndVariantEditContext> LoadedPage() => new()
     {
-        Items = productsInView?.Where(MatchesSearch).ToArray() ?? [],
+        Items = productsInView?.ToArray() ?? [],
         TotalItems = loadedTotal
     };
 
     private FilterCollection ProductFilters()
     {
         List<Filter> filters = [];
+        if (!string.IsNullOrWhiteSpace(searchText))
+            filters.Add(new OrFilter([
+                new ProductIdFilter(searchText),
+                new VariantIdFilter(searchText),
+                new ProductDisplayNameFilter(new ContainsCondition(new DataValue(searchText)), Language.Undefined)
+            ]));
         if (!string.IsNullOrWhiteSpace(appliedProductId))
             filters.Add(new ProductIdFilter(appliedProductId));
         if (!string.IsNullOrWhiteSpace(appliedDisplayName))
@@ -287,7 +291,7 @@ else
 
     private async Task<GridData<ProductAndVariantEditContext>> LoadProducts(GridState<ProductAndVariantEditContext> state, CancellationToken cancellationToken)
     {
-        var pageKey = (state.Page, state.PageSize, appliedProductId, appliedDisplayName, appliedDisplayNameLanguage, appliedStatus);
+        var pageKey = (state.Page, state.PageSize, searchText, appliedProductId, appliedDisplayName, appliedDisplayNameLanguage, appliedStatus);
         if (loadedPageKey == pageKey && productsInView is not null) return LoadedPage();
         loadingProducts = true;
         try
@@ -383,6 +387,11 @@ else
 
     private async Task Update(ProductAndVariantEditContext context)
     {
+        if (!context.Validation.IsValid)
+        {
+            Snackbar.Add(string.Join(" ", context.Validation.Errors), Severity.Error);
+            return;
+        }
         try
         {
             if (context.VariantsHadChanges)
@@ -498,6 +507,7 @@ else
 
     public class ProductAndVariantEditContext(Product product, bool productIsDisabled)
     {
+        public EditorValidationState Validation { get; } = new();
         public Product Product { get; set; } = product;
         public string DisplayNameText => string.Join(" / ", Product.DisplayName?.Values?.Select(value => value.Text) ?? []);
         public string Status => ProductIsDisabled ? "Disabled" : "Enabled";

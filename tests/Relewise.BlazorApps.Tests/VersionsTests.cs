@@ -71,7 +71,7 @@ public class VersionsTests
 
         component.WaitForAssertion(() => Assert.AreEqual(2, dllRequests));
         Assert.AreEqual(1, versionRequests);
-        Assert.HasCount(1, component.FindAll("button"));
+        Assert.HasCount(2, component.FindAll("button"));
         Assert.IsTrue(context.Services.GetRequiredService<ISnackbar>().ShownSnackbars.Any(snackbar => snackbar.Severity == Severity.Error));
     }
 

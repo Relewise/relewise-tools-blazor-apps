@@ -108,8 +108,7 @@ else
     private void SetValue(object? value)
     {
         if (ReadOnly) return;
-        Value ??= new DataValue("");
-        Value.Value = value;
+        Value = new DataValue { Type = Value?.Type ?? DataValue.DataValueTypes.String, Value = value };
         Setter(Value);
     }
 
