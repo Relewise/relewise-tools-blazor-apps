@@ -368,9 +368,15 @@ namespace Relewise.BlazorApps.TypeEditors
             => HideDefaultValueProperties is not true
                 || (Value is null && emptyInstanceOfValue is null)
                 || (Value is not null && emptyInstanceOfValue is not null
-                    && JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue))
+                    && IsNonDefaultProperty(property)
                     && !Settings.InvalidProperties.Any(invalid => property == invalid.Property
                         && AncestorTypes.Any(ancestor => invalid.AncestorInterfaces.Any(type => ancestor.IsAssignableTo(type)))));
+
+        private bool IsNonDefaultProperty(PropertyInfo property)
+            => ReadOnly && (Value is global::Relewise.Client.Responses.TimedResponse
+                || AncestorTypes.Any(type => type.IsAssignableTo(typeof(global::Relewise.Client.Responses.TimedResponse))))
+                ? Shared.ResponsePropertyVisibility.IsNonDefault(Value!, emptyInstanceOfValue!, property)
+                : JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue));
 
         private PropertyInfo[] Properties
         {
