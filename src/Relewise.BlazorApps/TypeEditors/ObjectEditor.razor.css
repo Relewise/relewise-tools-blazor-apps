@@ -179,6 +179,10 @@ summary::-webkit-details-marker {
     min-width: 0;
 }
 
+.request-custom-value {
+    flex-direction: column;
+}
+
 .statistics-inline {
     display: flex;
     flex-wrap: wrap;

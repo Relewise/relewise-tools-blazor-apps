@@ -6,6 +6,9 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Relewise.Client;
 using Relewise.Client.DataTypes;
+using Relewise.Client.Requests;
+using Relewise.Client.Requests.Search;
+using Relewise.Client.Requests.Recommendations;
 using System.IO.Compression;
 using System.Reflection;
 
@@ -14,6 +17,7 @@ namespace Relewise.BlazorApps.TypeEditors
     public partial class ObjectEditor<T> : ComponentBase
     {
         [Inject] public required ISnackbar Snackbar { get; set; }
+        private const string DisableMerchandisingKey = "Debug_DisableMerchandising";
         private bool hasBeenOpen;
         private bool openCreatedValue;
         private bool typeMenuOpen;
@@ -270,7 +274,22 @@ namespace Relewise.BlazorApps.TypeEditors
             property.SetValue(Value, value);
             Setter(Value);
             // These fields also affect the object's header or dynamic help text.
-            if (property.Name == "Id" || property.Name.Contains("Minutes")) StateHasChanged();
+            if (property.Name == "Id" || property.Name.Contains("Minutes") || IsRequestCustom(property)) StateHasChanged();
+        }
+
+        private bool IsRequestCustom(PropertyInfo property) => property.Name == nameof(LicensedRequest.Custom)
+            && Value is SearchRequest or RecommendationRequest;
+
+        private void SetDisableMerchandising(LicensedRequest request, bool disabled)
+        {
+            if (ReadOnly) return;
+            Dictionary<string, string> custom = request.Custom is null ? new() : new(request.Custom, request.Custom.Comparer);
+            if (disabled)
+                custom[DisableMerchandisingKey] = "true";
+            else
+                custom.Remove(DisableMerchandisingKey);
+            request.Custom = custom;
+            Setter(Value);
         }
 
         public async Task CopyToClipboard()

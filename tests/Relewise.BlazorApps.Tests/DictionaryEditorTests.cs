@@ -1,4 +1,5 @@
 using Bunit;
+using Relewise.BlazorApps.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MudBlazor.Services;
@@ -12,6 +13,60 @@ namespace Relewise.BlazorApps.Tests;
 [TestClass]
 public class DictionaryEditorTests
 {
+    [TestMethod]
+    public async Task StringKeysCannotBeClearedButValuesCan()
+    {
+        await using var context = CreateContext();
+        var values = new Dictionary<string, string> { ["key"] = "value" };
+        var component = context.Render<DictionaryEditor<string, string>>(p => p
+            .Add(c => c.Value, values).Add(c => c.OpenDetails, true).Add(c => c.Setter, _ => { }));
+        var key = component.FindComponents<StringEditor>().Single(editor => editor.Instance.Value == "key");
+        var value = component.FindComponents<StringEditor>().Single(editor => editor.Instance.Value == "value");
+        Assert.IsFalse(key.FindComponent<RTextField>().Instance.Clearable);
+        Assert.IsTrue(value.FindComponent<RTextField>().Instance.Clearable);
+        value.Find(".mud-input-clear-button").Click();
+        Assert.IsTrue(values.ContainsKey("key"));
+        Assert.IsNull(values["key"]);
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow("key")]
+    [DataRow("other")]
+    public async Task InvalidOrUnchangedKeysPreserveExistingEntries(string? newKey)
+    {
+        await using var context = CreateContext();
+        var validation = new EditorValidationState();
+        var values = new Dictionary<string, string> { ["key"] = "value", ["other"] = "preserved" };
+        int updates = 0;
+        var component = context.Render<DictionaryEditor<string, string>>(p => p.AddCascadingValue(validation)
+            .Add(c => c.Value, values).Add(c => c.OpenDetails, true).Add(c => c.Setter, _ => updates++));
+        var key = component.FindComponents<StringEditor>().Single(editor => editor.Instance.Value == "key");
+        await component.InvokeAsync(() => key.Instance.Setter(newKey));
+        Assert.AreEqual("value", values["key"]);
+        Assert.AreEqual("preserved", values["other"]);
+        Assert.HasCount(2, values);
+        Assert.AreEqual(0, updates);
+        Assert.AreEqual(newKey == "other" ? "other" : "key", key.Find("input").GetAttribute("value"));
+        Assert.AreEqual(newKey != "other", validation.IsValid);
+    }
+
+    [TestMethod]
+    public async Task RenamingAKeyPreservesItsValueAndNotifiesTheParent()
+    {
+        await using var context = CreateContext();
+        var values = new Dictionary<string, string> { ["key"] = "value", ["other"] = "preserved" };
+        object? updated = null;
+        var component = context.Render<DictionaryEditor<string, string>>(p => p
+            .Add(c => c.Value, values).Add(c => c.OpenDetails, true).Add(c => c.Setter, value => updated = value));
+        var key = component.FindComponents<StringEditor>().Single(editor => editor.Instance.Value == "key");
+        key.Find("input").Input("renamed");
+        Assert.IsFalse(values.ContainsKey("key"));
+        Assert.AreEqual("value", values["renamed"]);
+        Assert.AreEqual("preserved", values["other"]);
+        Assert.AreSame(values, updated);
+    }
+
     private static BunitContext CreateContext()
     {
         var context = new BunitContext();

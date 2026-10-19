@@ -8,6 +8,7 @@
 @using Newtonsoft.Json.Converters
 @using System.IO.Compression
 @using global::Relewise.Client
+@using global::Relewise.Client.Requests
 @using KristofferStrube.Blazor.Popper
 @typeparam T
 
@@ -235,7 +236,7 @@
                                         <div class="object-property-label" style="color: @propertyColor">@property.Name</div>
                                     </ChildContent>
                                 </MudTooltip>
-                                <div class="object-value">
+                                <div class="@(IsRequestCustom(property) ? "object-value request-custom-value" : "object-value")">
                                     @if (potentialEditor is not null)
                                     {
                                         var parameters = new Dictionary<string, object>()
@@ -265,6 +266,13 @@
                                                 </ErrorContent>
                                             </ErrorBoundary>
                                         </div>
+                                        @if (IsRequestCustom(property) && Value is LicensedRequest request)
+                                        {
+                                            <RCheckBox Label="Disable merchandising" AriaLabel="Disable merchandising"
+                                                       Class="disable-merchandising" Disabled="ReadOnly"
+                                                       Value="@(request.Custom?.TryGetValue(DisableMerchandisingKey, out var flag) == true && flag == "true")"
+                                                       ValueChanged="disabled => SetDisableMerchandising(request, disabled)" />
+                                        }
                                     }
                                     else
                                     {

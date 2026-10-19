@@ -2,7 +2,7 @@
 @using MudBlazor
 
 <RTextField Value="@Value" ValueChanged="UpdateValue" Label="@Label" Placeholder="<NULL>"
-            Clearable="@(!ReadOnly)" ReadOnly="ReadOnly" Disabled="ReadOnly"
+            Clearable="@(!ReadOnly && AllowNull)" ReadOnly="ReadOnly" Disabled="ReadOnly"
             Adornment="@(OnCopy.HasDelegate ? Adornment.End : Adornment.None)"
             AdornmentIcon="@(OnCopy.HasDelegate ? Icons.Material.Outlined.ContentCopy : null)"
             AdornmentAriaLabel="@CopyLabel" OnAdornmentClick="() => OnCopy.InvokeAsync()"
@@ -19,6 +19,9 @@
     public bool ReadOnly { get; set; } = false;
 
     [Parameter]
+    public bool AllowNull { get; set; } = true;
+
+    [Parameter]
     public bool OpenDetails { get; set; } = false;
 
     [Parameter, EditorRequired]
@@ -33,7 +36,7 @@
     private void UpdateValue(string? value)
     {
         if (ReadOnly) return;
-        Value = string.IsNullOrEmpty(value) ? null : value;
+        Value = string.IsNullOrEmpty(value) ? AllowNull ? null : "" : value;
         Setter(Value);
     }
 }

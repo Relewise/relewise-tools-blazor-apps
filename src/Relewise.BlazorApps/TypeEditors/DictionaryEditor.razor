@@ -122,10 +122,10 @@ else
             type = typeof(Nullable<>).MakeGenericType(type);
         object? value = !row.KeyAssigned && (supportsNullableDraft || !type.IsValueType || type == typeof(Guid))
             ? null : row.Key;
-        return RenderEditor(type, value, key => UpdateKey(row, key));
+        return RenderEditor(type, value, key => UpdateKey(row, key), protectKey: true);
     }
 
-    private RenderFragment RenderEditor(Type type, object? value, Action<object?> setter) => @<ErrorBoundary>
+    private RenderFragment RenderEditor(Type type, object? value, Action<object?> setter, bool protectKey = false) => @<ErrorBoundary>
         <ChildContent>
             @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
             {
@@ -134,6 +134,8 @@ else
                     ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = value!,
                     ["Setter"] = setter, ["AncestorTypes"] = AncestorTypes
                 }, type);
+                if (protectKey && editor.EditorType(type) == typeof(StringEditor))
+                    parameters["AllowNull"] = false;
                 <DynamicComponent Type="@editor.EditorType(type)" Parameters="parameters" />
             }
             else
@@ -169,6 +171,11 @@ else
     private void UpdateKey(Entry row, object? key)
     {
         if (ReadOnly || Value is null) return;
+        if (row.Committed && (key is not TKey newKey || Value.Comparer.Equals(row.Key, newKey)))
+        {
+            StateHasChanged();
+            return;
+        }
         row.KeyAssigned = key is TKey;
         row.Key = key is TKey typedKey ? typedKey : default!;
         row.Edited = true;
@@ -186,14 +193,17 @@ else
     private void Commit(Entry row)
     {
         if (Value is null) return;
-        if (row.KeyAssigned && !IsDuplicate(row))
+        if (!row.KeyAssigned || IsDuplicate(row))
         {
-            if (row.Committed && !Value.Comparer.Equals(row.CommittedKey, row.Key))
-                Value.Remove(row.CommittedKey);
-            Value[row.Key] = row.Value;
-            row.CommittedKey = row.Key;
-            row.Committed = true;
+            Validate();
+            StateHasChanged();
+            return;
         }
+        if (row.Committed && !Value.Comparer.Equals(row.CommittedKey, row.Key))
+            Value.Remove(row.CommittedKey);
+        Value[row.Key] = row.Value;
+        row.CommittedKey = row.Key;
+        row.Committed = true;
         EnsureBlankRow();
         Validate();
         Setter(Value);
