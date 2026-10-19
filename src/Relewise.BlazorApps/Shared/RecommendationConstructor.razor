@@ -259,6 +259,7 @@ else
             var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Recommender, Request])!;
 
             response = await responseTask;
+            SetResponseExpanded(false);
             Snackbar.Add("Successfully recommended.", Severity.Success);
         }
         catch (Exception ex)

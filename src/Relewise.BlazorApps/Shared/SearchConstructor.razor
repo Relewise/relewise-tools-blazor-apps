@@ -265,6 +265,7 @@ else
             var responseTask = (Task<SearchResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Searcher, Request])!;
 
             response = await responseTask;
+            SetResponseExpanded(false);
             Snackbar.Add("Successfully searched.", Severity.Success);
         }
         catch (Exception ex)
