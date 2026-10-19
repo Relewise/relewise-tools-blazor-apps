@@ -21,9 +21,31 @@ else
                 <div>
                     @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TKey))) is { } keyEditor)
                     {
+                        var keyParameters = new Dictionary<string, object>()
+                        {
+                            ["ReadOnly"] = ReadOnly,
+                            ["Value"] = localKey,
+                            ["Setter"] = (object? obj) =>
+                            {
+                                if (ReadOnly || obj is not TKey newKey || Value.Comparer.Equals(localKey, newKey) || Value.ContainsKey(newKey))
+                                {
+                                    StateHasChanged();
+                                    return;
+                                }
+
+                                Value.Add(newKey, Value[localKey]);
+                                Value.Remove(localKey);
+                                localKey = newKey;
+                                Setter(Value);
+                            }
+                        };
+                        if (keyEditor.EditorType(typeof(TKey)) == typeof(StringEditor))
+                        {
+                            keyParameters["AllowNull"] = false;
+                        }
                         <ErrorBoundary>
                             <ChildContent>
-                                <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="@(new Dictionary<string, object>() { ["ReadOnly"] = ReadOnly, ["Value"] = localKey, ["Setter"] = (object? obj) => { Value[(TKey)obj] = Value[(TKey)localKey]; Value.Remove((TKey)localKey); localKey = (TKey)obj; } })" />
+                                <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="keyParameters" />
                             </ChildContent>
                             <ErrorContent>
                                 <code>Failed to initialize editor part for @Settings.Name(typeof(TKey))</code>

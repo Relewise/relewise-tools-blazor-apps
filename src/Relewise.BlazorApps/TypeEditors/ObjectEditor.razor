@@ -6,6 +6,9 @@
 @using Newtonsoft.Json.Converters
 @using System.IO.Compression
 @using global::Relewise.Client
+@using global::Relewise.Client.Requests
+@using global::Relewise.Client.Requests.Search
+@using global::Relewise.Client.Requests.Recommendations
 @using KristofferStrube.Blazor.Popper
 @typeparam T
 
@@ -182,7 +185,8 @@
                                 }
                             </div>
                             var potentialEditor = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.PropertyType));
-                            <div @key=@($"{property.Name}-value") class="object-value">
+                            bool isRequestCustom = property.Name == nameof(LicensedRequest.Custom) && Value is SearchRequest or RecommendationRequest;
+                            <div @key=@($"{property.Name}-value") class="@(isRequestCustom ? "object-value request-custom-value" : "object-value")">
                                 @if (potentialEditor is { } editor)
                                 {
                                     var parameters = new Dictionary<string, object>()
@@ -206,6 +210,15 @@
                                             <code>Failed to initialize editor part for @Settings.Name(property.PropertyType)</code>
                                         </ErrorContent>
                                     </ErrorBoundary>
+                                    @if (isRequestCustom && Value is LicensedRequest request)
+                                    {
+                                        <label>
+                                            <input class="disable-merchandising" type="checkbox" disabled=@ReadOnly
+                                                   checked="@(request.Custom?.TryGetValue(DisableMerchandisingKey, out var flag) == true && flag == "true")"
+                                                   @onchange="args => SetDisableMerchandising(request, args.Value is true)" />
+                                            Disable merchandising
+                                        </label>
+                                    }
                                     @if (property.Name.Contains("Minutes") && property.PropertyType == typeof(int) && property.GetValue(Value) is int { } minutes)
                                     {
                                         <TrustedInfo>@TimeSpan.FromMinutes(minutes).Humanize(4)</TrustedInfo>

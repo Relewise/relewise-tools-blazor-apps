@@ -32,3 +32,7 @@ summary {
     grid-gap: 5px;
 }
 
+.request-custom-value {
+    flex-direction: column;
+}
+
