@@ -55,4 +55,11 @@ Do not run build, test-with-build, and publish concurrently against the same int
 
 1. `.agents/skills/read-pr-comments/SKILL.md`: retrieve PR conversation, reviews, and unresolved review threads without changing the checkout.
 2. `.agents/skills/upgrade-dependencies/SKILL.md`: inventory and upgrade dependencies with compatibility checks and explicit exclusions.
-3. `.agents/skills/migrate-object-editors/SKILL.md`: continue the R component/MudBlazor editor migration, apply the established layout and collection behavior, and diagnose recursive rendering performance.
+
+## Working on editors
+
+1. Read [Editor architecture and behavior](docs/object-editors.md) before changing editor controls, collections, request layout, or rendering performance.
+2. Prefer the existing R components over new native controls. Preserve exact CLR types, SDK wrappers, nullability, read-only guards, and serialization contracts.
+3. Keep type discovery and documentation lookups out of the per-keystroke path. Preserve all permitted type choices and avoid rendering unrelated editor branches during ordinary edits.
+4. Keep dictionary drafts separate from committed data and check the validation cascade before saving or executing. Mutable list/object payloads also need isolation; replacing a DataValue wrapper alone does not isolate its payload.
+5. Reproduce editor issues on the affected request page with synthetic data, not only in an isolated component. Verify local values, copied JSON, saved history, collapse state, and retained responses. Avoid overwriting the user's saved requests during browser checks.
