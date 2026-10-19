@@ -16,7 +16,7 @@ using Relewise.Client.Search;
 
 namespace Relewise.BlazorApps.Pages
 {
-    public partial class RequestExplorer
+    public partial class RequestExplorer : IAsyncDisposable
     {
         private sealed class RequestHistoryIdentity
         {
@@ -61,6 +61,13 @@ namespace Relewise.BlazorApps.Pages
         };
         private List<Type> derivedTypes = [];
         private object? inputObject;
+        private CancellationTokenSource? pendingSave;
+        private bool requestDirty;
+        private bool disposed;
+        private IDisposable? navigationRegistration;
+        private IJSObjectReference? lifecycleModule;
+        private IJSObjectReference? lifecycleSubscription;
+        private DotNetObjectReference<RequestExplorer>? lifecycleReference;
         private Action<object?> saveRequestWithoutRendering = null!;
         private List<RequestEditHistory.Entry> requestHistory = [];
         private Type[] merchandisingRules = [typeof(BoostAndBuryRule), typeof(FilterRule), typeof(FixedPositionRule), typeof(InputModifierRule)];
@@ -71,10 +78,17 @@ namespace Relewise.BlazorApps.Pages
         [Inject]
         public required IJSInProcessRuntime JSRuntime { get; set; }
 
+        [Inject] public required IJSRuntime LifecycleRuntime { get; set; }
+
 
         protected override void OnInitialized()
         {
             saveRequestWithoutRendering = EventUtil.AsNonRenderingEventHandler<object?>(this, SaveEditedRequest);
+            navigationRegistration = NavigationManager.RegisterLocationChangingHandler(_ =>
+            {
+                FlushPendingRequest();
+                return ValueTask.CompletedTask;
+            });
             try
             {
                 Assembly? assembly = Assembly.GetAssembly(typeof(ClientBase));
@@ -116,18 +130,26 @@ namespace Relewise.BlazorApps.Pages
             }
 
             string serialized = JsonConvert.SerializeObject(objectToSave, typeof(object), jsonSerializerSettings);
+            SaveRequestSnapshot(InProcessJSRuntime, objectToSave, serialized);
+        }
+
+        private static List<RequestEditHistory.Entry> SaveRequestSnapshot(IJSInProcessRuntime runtime, object request, string serialized)
+        {
             string compressed = ToGzip(serialized);
-            var identity = requestHistoryIdentities.GetValue(objectToSave, _ => new RequestHistoryIdentity());
-            identity.Id = RequestEditHistory.Save(InProcessJSRuntime, serialized, compressed, identity.Id);
-            InProcessJSRuntime.InvokeVoid("localStorage.setItem", "lastRequest", compressed);
+            var identity = requestHistoryIdentities.GetValue(request, _ => new RequestHistoryIdentity());
+            identity.Id = RequestEditHistory.Save(runtime, serialized, compressed, out var history, identity.Id);
+            runtime.InvokeVoid("localStorage.setItem", "lastRequest", compressed);
+            return history;
         }
 
         private void SaveEditedRequest(object? obj)
         {
-            bool refresh = sourceExpanded || showTroubleshooter && !diagnosticsStale || !ReferenceEquals(inputObject, obj);
+            bool replaced = !ReferenceEquals(inputObject, obj);
+            bool refresh = showTroubleshooter && !diagnosticsStale || replaced;
             if (showTroubleshooter) diagnosticsStale = true;
-            if (!ReferenceEquals(inputObject, obj))
+            if (replaced)
             {
+                FlushPendingRequest();
                 executeAfterParsing = false;
                 if (obj is not null) PrepareExecution(obj);
                 if (obj is SearchRequest searchRequest)
@@ -142,22 +164,120 @@ namespace Relewise.BlazorApps.Pages
                 }
             }
             inputObject = obj;
+            requestDirty = obj is not null;
+            if (replaced)
+                FlushPendingRequest();
+            else
+            {
+                CancelPendingSave();
+                pendingSave = new();
+                _ = SaveAfterPauseAsync(pendingSave);
+            }
+            if (refresh) StateHasChanged();
+        }
+
+        private async Task SaveAfterPauseAsync(CancellationTokenSource save)
+        {
+            var token = save.Token;
             try
             {
-                SaveInLocalStorage(JSRuntime, obj);
-                requestHistory = RequestEditHistory.Load(JSRuntime);
-                if (obj is not null)
-                    input = JsonConvert.SerializeObject(obj, typeof(object), jsonSerializerSettings);
+                await Task.Delay(300, token);
+                await InvokeAsync(() =>
+                {
+                    if (disposed || !ReferenceEquals(pendingSave, save)) return;
+                    FlushPendingRequest();
+                    if (sourceExpanded) StateHasChanged();
+                });
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        }
+
+        private void CancelPendingSave()
+        {
+            pendingSave?.Cancel();
+            pendingSave?.Dispose();
+            pendingSave = null;
+        }
+
+        [JSInvokable]
+        public void FlushPendingRequest()
+        {
+            CancelPendingSave();
+            if (!requestDirty || inputObject is null) return;
+            requestDirty = false;
+            try
+            {
+                string serialized = JsonConvert.SerializeObject(inputObject, typeof(object), jsonSerializerSettings);
+                requestHistory = SaveRequestSnapshot(JSRuntime, inputObject, serialized);
+                input = serialized;
             }
             catch (Exception ex)
             {
                 Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             }
-            if (refresh) StateHasChanged();
+        }
+
+        private void ToggleSource()
+        {
+            FlushPendingRequest();
+            sourceExpanded = !sourceExpanded;
+        }
+
+        private void UpdateSource(string value)
+        {
+            FlushPendingRequest();
+            input = value;
+        }
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (!firstRender) return;
+            try
+            {
+                lifecycleModule = await LifecycleRuntime.InvokeAsync<IJSObjectReference>("import", "./js/requestExplorer.js");
+                if (lifecycleModule is null) return;
+                if (disposed)
+                {
+                    await lifecycleModule.DisposeAsync();
+                    return;
+                }
+                lifecycleReference = DotNetObjectReference.Create(this);
+                var subscription = await lifecycleModule.InvokeAsync<IJSObjectReference>("watchPendingEdits", lifecycleReference);
+                if (disposed)
+                {
+                    if (subscription is not null)
+                    {
+                        await subscription.InvokeVoidAsync("dispose");
+                        await subscription.DisposeAsync();
+                    }
+                    return;
+                }
+                lifecycleSubscription = subscription;
+            }
+            catch (JSException ex)
+            {
+                Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (disposed) return;
+            disposed = true;
+            FlushPendingRequest();
+            navigationRegistration?.Dispose();
+            if (lifecycleSubscription is not null)
+            {
+                await lifecycleSubscription.InvokeVoidAsync("dispose");
+                await lifecycleSubscription.DisposeAsync();
+            }
+            lifecycleReference?.Dispose();
+            if (lifecycleModule is not null) await lifecycleModule.DisposeAsync();
         }
 
         private async Task RestoreHistoryEntry(RequestEditHistory.Entry entry)
         {
+            FlushPendingRequest();
             sourceExpanded = false;
             showTroubleshooter = false;
             executeAfterParsing = true;
@@ -215,6 +335,7 @@ namespace Relewise.BlazorApps.Pages
 
         private void TroubleshootAgain()
         {
+            FlushPendingRequest();
             if (inputObject is not ProductSearchRequest) return;
             showTroubleshooter = true;
             executeAfterParsing = false;
@@ -226,6 +347,7 @@ namespace Relewise.BlazorApps.Pages
 
         private void ParseRequest(bool troubleshoot)
         {
+            FlushPendingRequest();
             sourceExpanded = false;
             troubleshootAfterParsing = troubleshoot;
             diagnosticsStale = false;
@@ -394,6 +516,7 @@ namespace Relewise.BlazorApps.Pages
             isRunning = running;
             if (running)
             {
+                FlushPendingRequest();
                 executeAfterParsing = false;
                 showTroubleshooter = false;
             }

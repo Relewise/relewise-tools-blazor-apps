@@ -27,7 +27,7 @@
 </div>
 
 <details class="request-source-section" open="@sourceExpanded">
-    <summary @onclick="() => sourceExpanded = !sourceExpanded" @onclick:preventDefault="true">
+    <summary @onclick="ToggleSource" @onclick:preventDefault="true">
         <div class="request-source-headings">
             <span class="request-source-toggle">Request JSON</span>
             @if (sourceExpanded)
@@ -39,7 +39,7 @@
 <div class="request-input-layout">
     <div class="request-column">
     <MudPaper Outlined="true" Elevation="0" Class="request-panel request-json pa-3">
-        <MudTextField T="string" aria-label="Request JSON" @bind-Value="input" Lines="12" FullWidth="true" Immediate="true"
+        <MudTextField T="string" aria-label="Request JSON" Value="input" ValueChanged="UpdateSource" Lines="12" FullWidth="true" Immediate="true"
                       Variant="Variant.Text" Underline="false" Margin="Margin.None" MaxLength="524288" Class="request-json-input" />
     </MudPaper>
     </div>

@@ -60,11 +60,13 @@ else
                             {
                                 var parameters = new Dictionary<string, object?> {
                                     ["ReadOnly"] = ReadOnly,
-                                    ["OpenDetails"] = true,
+                                    ["OpenDetails"] = IsResponse ? OpenDetails : true,
                                     ["Value"] = Value[index],
                                     ["Setter"] = (object? value) => Update(index, value),
                                     ["AncestorTypes"] = AncestorTypes
                                 };
+                                if (IsResponse && Value[index] is global::Relewise.Client.Responses.TimedResponse)
+                                    parameters["SingleLevelOpenDetails"] = true;
                                 <ErrorBoundary>
                                     <ChildContent>
                                         <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="@Settings.WithNumericNullability(parameters, typeof(T))" />
@@ -96,6 +98,7 @@ else
     [Parameter] public Type[] AncestorTypes { get; set; } = [];
 
     private string Title => typeof(T) == typeof(ProductAndVariantId) ? "Products and variants" : Settings.Name(typeof(T)) + "[]";
+    private bool IsResponse => ReadOnly && AncestorTypes.Any(type => type.IsAssignableTo(typeof(global::Relewise.Client.Responses.TimedResponse)));
     private bool expanded;
     private bool? previousOpenDetails;
     private T[]? trackedValue;

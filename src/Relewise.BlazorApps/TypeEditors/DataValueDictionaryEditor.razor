@@ -47,7 +47,7 @@ else
                                 ReadOnly="ReadOnly" Disabled="ReadOnly" AutoFocus="@(focusFirst && row == rows[0])"
                                 Class="@(IsDuplicate(row) ? "dictionary-duplicate-key" : null)" TestId="dictionary-key" />
                     <DataValueEditor Value="@row.Value" Setter="value => Update(row, row.Key, (DataValue?)value)"
-                                     Inline="true" OpenDetails="true" ReadOnly="ReadOnly" AncestorTypes="AncestorTypes" />
+                                     Inline="true" OpenDetails="@(!IsResponse || OpenDetails)" ReadOnly="ReadOnly" AncestorTypes="AncestorTypes" />
                     @if (!ReadOnly)
                     {
                         <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
@@ -72,6 +72,7 @@ else
     [Parameter, EditorRequired] public required Action<object?> Setter { get; set; }
     [Parameter] public Type[] AncestorTypes { get; set; } = [];
     [CascadingParameter] public EditorValidationState? Validation { get; set; }
+    private bool IsResponse => ReadOnly && AncestorTypes.Any(type => type.IsAssignableTo(typeof(global::Relewise.Client.Responses.TimedResponse)));
 
     private sealed class Entry
     {

@@ -52,8 +52,11 @@ public static class RequestEditHistory
     }
 
     public static string Save(IJSInProcessRuntime runtime, string serialized, string compressed, string? editId = null)
+        => Save(runtime, serialized, compressed, out _, editId);
+
+    public static string Save(IJSInProcessRuntime runtime, string serialized, string compressed, out List<Entry> history, string? editId = null)
     {
-        var history = Load(runtime);
+        history = Load(runtime);
         int existingIndex = history.FindIndex(entry => editId is not null && entry.Id == editId);
         if (existingIndex < 0)
         {
@@ -74,7 +77,8 @@ public static class RequestEditHistory
         var updated = CreateEntry(serialized, compressed, DateTimeOffset.UtcNow);
         updated.Id = id;
         history.Insert(0, updated);
-        runtime.InvokeVoid("localStorage.setItem", StorageKey, JsonConvert.SerializeObject(history.Take(10)));
+        history = history.Take(10).ToList();
+        runtime.InvokeVoid("localStorage.setItem", StorageKey, JsonConvert.SerializeObject(history));
         return id;
     }
 

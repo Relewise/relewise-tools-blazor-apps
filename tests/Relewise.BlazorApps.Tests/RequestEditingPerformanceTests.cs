@@ -24,7 +24,7 @@ namespace Relewise.BlazorApps.Tests;
 public class RequestEditingPerformanceTests
 {
     [TestMethod]
-    public async Task EditingComplexRequestDoesNotRenderUnrelatedFacetsAndSavesOneSnapshot()
+    public async Task EditingComplexRequestDoesNotRenderUnrelatedFacetsAndDebouncesSnapshots()
     {
         var previous = (StaticDatasetStorage.DatasetId, StaticDatasetStorage.ApiKey);
         try
@@ -75,12 +75,15 @@ public class RequestEditingPerformanceTests
             int listRenders = ((CountedFacetList)list.Instance).Renders;
             int[] facetRenders = facets.Select(facet => ((CountedFacetEditor)facet.Instance).Renders).ToArray();
             runtime.Writes = 0;
+            runtime.SaveCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
             root.Find(".object-properties > .object-property:first-child input").Input("edited term");
 
             Assert.AreEqual(constructorRenders, ((CountedSearchConstructor)page.FindComponent<SearchConstructor>().Instance).Renders);
             CollectionAssert.AreEqual(facetRenders, facets.Select(facet => ((CountedFacetEditor)facet.Instance).Renders).ToArray());
-            Assert.AreEqual(2, runtime.Writes, "History and lastRequest should each be written once per edit.");
+            Assert.AreEqual(0, runtime.Writes, "Typing should not synchronously write browser storage.");
+            await runtime.SaveCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.AreEqual(2, runtime.Writes);
             Assert.AreSame(response, state.Response);
             StringAssert.Contains(page.Find(".request-response-panel").TextContent, "fixture-product");
             var restored = JObject.Parse(await Models.FromGzipAsync(runtime.Storage["lastRequest"]));
@@ -88,10 +91,13 @@ public class RequestEditingPerformanceTests
             Assert.HasCount(10, (JArray)restored["Facets"]!["Items"]!);
             StringAssert.Contains(restored.Value<string>("$type")!, nameof(ProductSearchRequest));
 
+            runtime.SaveCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
             facets[0].FindComponent<StringEditor>().Find("input").Input("fixture.changed");
 
             Assert.AreEqual(listRenders, ((CountedFacetList)list.Instance).Renders);
             CollectionAssert.AreEqual(facetRenders, facets.Select(facet => ((CountedFacetEditor)facet.Instance).Renders).ToArray());
+            await runtime.SaveCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.AreEqual(4, runtime.Writes);
             restored = JObject.Parse(await Models.FromGzipAsync(runtime.Storage["lastRequest"]));
             Assert.AreEqual("fixture.changed", restored["Facets"]!["Items"]![0]!.Value<string>("Key"));
             Assert.AreEqual("fixture.key.1", restored["Facets"]!["Items"]![1]!.Value<string>("Key"));
@@ -206,10 +212,13 @@ public class RequestEditingPerformanceTests
         private readonly RequestEditHistoryTests.MemoryRuntime inner = new();
         public Dictionary<string, string> Storage => inner.Storage;
         public int Writes { get; set; }
+        public TaskCompletionSource SaveCompleted { get; set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TValue Invoke<TValue>(string identifier, params object?[]? args)
         {
             if (identifier == "localStorage.setItem") Writes++;
-            return inner.Invoke<TValue>(identifier, args);
+            var result = inner.Invoke<TValue>(identifier, args);
+            if (identifier == "localStorage.setItem" && (string)args![0]! == "lastRequest") SaveCompleted.TrySetResult();
+            return result;
         }
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => throw new NotSupportedException();
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => throw new NotSupportedException();
