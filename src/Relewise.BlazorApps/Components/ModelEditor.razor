@@ -1,0 +1,87 @@
+@using MudBlazor
+@inject ISnackbar Snackbar
+@using Relewise.BlazorApps.TypeEditors
+
+@if (IsActive)
+{
+@if (!HasEditorHeading)
+{
+    <h3>@Settings.Name(ModelType)</h3>
+}
+<ErrorBoundary @key="ModelType">
+    <ChildContent>
+        @if (ModelType.IsInterface || ModelType.IsAbstract)
+        {
+            <AbstractTypePresenter Type="ModelType" />
+        }
+        else
+        {
+            <DynamicComponent Type="editorType" Parameters="parameters" />
+        }
+    </ChildContent>
+    <ErrorContent>
+        <ErrorNotification Message="@($"Failed to display {Settings.Name(ModelType)}.")" />
+    </ErrorContent>
+</ErrorBoundary>
+}
+
+@code {
+    [Parameter, EditorRequired] public required Type ModelType { get; set; }
+    [Parameter, EditorRequired] public required EditorState State { get; set; }
+    [Parameter] public bool IsActive { get; set; } = true;
+
+    public sealed class EditorState
+    {
+        public object? Value { get; set; }
+        public bool Initialized { get; set; }
+    }
+
+    private Type? editorType;
+    private Dictionary<string, object>? parameters;
+
+    private bool HasEditorHeading => ModelType.IsInterface || ModelType.IsAbstract
+        || (State.Value is not null && editorType is { IsConstructedGenericType: true }
+            && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>)
+            && ModelType != typeof(Language) && ModelType != typeof(Currency));
+
+    protected override bool ShouldRender() => IsActive;
+
+    protected override void OnParametersSet()
+    {
+        try
+        {
+            if (!IsActive || ModelType.IsInterface || ModelType.IsAbstract) return;
+            var editor = Settings.Editors.First(handler => handler.CanHandle(ModelType));
+            editorType = editor.EditorType(ModelType);
+            if (!State.Initialized)
+            {
+                State.Value = ModelType.GetConstructors().FirstOrDefault(c => c.GetParameters().Length == 0)?.Invoke(null)
+                    ?? editor.InitValue(ModelType);
+                State.Initialized = true;
+            }
+            parameters = new()
+            {
+                ["Value"] = State.Value!,
+                ["Setter"] = (object? value) =>
+                {
+                    State.Value = value;
+                    parameters!["Value"] = value!;
+                    StateHasChanged();
+                }
+            };
+            Settings.WithNumericNullability(parameters, ModelType);
+            if (editorType.IsConstructedGenericType && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>))
+            {
+                parameters["ShowModelShareLink"] = true;
+                parameters["OpenDetails"] = false;
+                parameters["SingleLevelOpenDetails"] = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            editorType = null;
+            parameters = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,86 @@
+@using MudBlazor
+@using Relewise.BlazorApps.Components
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Converters
+@using Humanizer
+@typeparam T
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<section class="results">
+    <div class="results-count">@Value.Length @(Value.Length == 1 ? ItemName : ItemName.Pluralize())</div>
+    @if (Value.Length == 0)
+    {
+        <p class="results-empty">No @ItemName.Pluralize() returned.</p>
+    }
+    @for (int i = 0; i < Value.Length; i++)
+    {
+        var index = i;
+        var item = Value[index];
+        <section class="result" @key="index">
+            <header class="result-header">
+                <button type="button" class="result-toggle" aria-expanded="@(expanded.Contains(index) ? "true" : "false")"
+                        @onclick="() => Toggle(index)">
+                    <span class="result-number">@(index + 1).</span>
+                    <span class="result-summary">
+                        <span class="result-name">@ResultPresentation.Header(item, typeof(T))</span>
+                    </span>
+                    <RIcon Icon="@(expanded.Contains(index) ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" />
+                </button>
+                <RIconButton Icon="@Icons.Material.Outlined.ContentCopy" ToolTip="Copy as JSON"
+                             aria-label="@($"Copy {ItemName} {index + 1} as JSON")" OnClick="() => Copy(item)" />
+            </header>
+            @if (expanded.Contains(index))
+            {
+                <div class="result-details">
+                    <ObjectEditor T="T" Value="item" ReadOnly="true" OpenDetails="OpenDetails"
+                                  FieldsOnly="true" AncestorTypes="DetailAncestors" Setter="_ => { }" />
+                </div>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public required T[] Value { get; set; }
+    [Parameter] public bool OpenDetails { get; set; }
+    [Parameter] public Type[] AncestorTypes { get; set; } = [];
+
+    private T[]? previousValue;
+    private bool? previousOpenDetails;
+    private readonly HashSet<int> expanded = [];
+    private Type[] DetailAncestors => [.. AncestorTypes, typeof(T[])];
+    private string ItemName => ResultPresentation.ItemName(typeof(T));
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(previousValue, Value) || previousOpenDetails != OpenDetails)
+        {
+            expanded.Clear();
+            if (OpenDetails)
+                for (int i = 0; i < Value.Length; i++) expanded.Add(i);
+        }
+        previousValue = Value;
+        previousOpenDetails = OpenDetails;
+    }
+
+    private void Toggle(int index)
+    {
+        if (!expanded.Add(index)) expanded.Remove(index);
+    }
+
+    private async Task Copy(T item)
+    {
+        try
+        {
+            var settings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Auto, Formatting = Formatting.Indented };
+            settings.Converters.Add(new StringEnumConverter());
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(item, typeof(T), settings));
+            Snackbar.Add($"Copied {ItemName} as JSON.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+}

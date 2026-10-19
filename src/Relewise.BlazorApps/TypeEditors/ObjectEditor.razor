@@ -1,4 +1,6 @@
-﻿@using System.Reflection
+@using System.Reflection
+@using MudBlazor
+@using Relewise.BlazorApps.Components
 @using Humanizer
 @using Relewise.BlazorApps.XmlSummaries
 @using Microsoft.JSInterop
@@ -7,43 +9,77 @@
 @using System.IO.Compression
 @using global::Relewise.Client
 @using global::Relewise.Client.Requests
-@using global::Relewise.Client.Requests.Search
-@using global::Relewise.Client.Requests.Recommendations
 @using KristofferStrube.Blazor.Popper
 @typeparam T
 
 <CascadingValue Value="HideDefaultValueProperties">
-    @if (Value is null)
+    @if (IsInlineValueType(typeof(T)) || (Value is not null && IsInlineValueType(Value.GetType())))
     {
-        <div>
-            <code>&lt;NULL&gt;</code>
+        <div class="inline-value-field">
+            @if (IsTopLevel)
+            {
+                <MudTooltip Delay="0" Inline="false" RootClass="object-label-tooltip">
+                    <TooltipContent>
+                        <div style="max-width:min(484px,calc(100vw - 48px));white-space:normal;overflow-wrap:anywhere;text-align:left;">
+                            @(xmlDocumentation?.GetSummary(InlineValueType, "Value") ?? communityDocumentation?.GetSummary(InlineValueType, "Value"))
+                        </div>
+                    </TooltipContent>
+                    <ChildContent>
+                        <div class="object-property-label">@Settings.Name(InlineValueType)</div>
+                    </ChildContent>
+                </MudTooltip>
+            }
+            <div class="inline-value-input">
+                <StringEditor Value="@InlineValue" ReadOnly="ReadOnly"
+                              Setter="UpdateInlineValue" OnCopy="CopyToClipboard"
+                              CopyLabel="@($"Copy {Settings.Name(InlineValueType)} as JSON")" />
+            </div>
+        </div>
+    }
+    else if (Value is null)
+    {
+        <div class="null-object-field @(ReadOnly ? null : "null-object-editable")"
+             tabindex="@(ReadOnly ? -1 : 0)" aria-label="@($"Create {Settings.Name(typeof(T))}")"
+             @onclick="DefineNullObject" @onkeydown="NullObjectKeyDown">
+            <span class="null-object-placeholder">&lt;NULL&gt;</span>
             @if (!ReadOnly)
             {
-                <text>&nbsp;</text>
-                @if (derivedTypes.Count is 0)
+                <div @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
+                @if (derivedTypes.Count > 1)
                 {
-                    <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new @Settings.Name(typeof(T))</button>
+                    <MudMenu Label="Create" Variant="Variant.Text" Size="Size.Small" Dense="true"
+                             EndIcon="@Icons.Material.Filled.ArrowDropDown" MaxHeight="400" @bind-Open="typeMenuOpen">
+                        @if (typeMenuOpen)
+                        {
+                            @foreach (var type in derivedTypes)
+                            {
+                                <MudMenuItem OnClick="() => SwitchType(type)" title="@GetTypeTitle(type)">
+                                    @Settings.Name(type)
+                                </MudMenuItem>
+                            }
+                        }
+                    </MudMenu>
                 }
                 else
                 {
-                    <select @onchange=TypeDropdownChanged>
-                        @foreach (Type type in derivedTypes)
-                        {
-                            string title = xmlDocumentation is not null && xmlDocumentation.GetSummary(type) is { } summary ? summary : "";
-                            if (type == selectedCreateType)
-                            {
-                                <option title="@title" value="@type.Name" selected>@type.Name</option>
-                            }
-                            else
-                            {
-                                <option title="@title" value="@type.Name">@type.Name</option>
-                            }
-                        }
-                    </select>
-                    <button class="btn btn-outline-success btn-sm" style="margin:2px;margin-top:0px;padding:1px;line-height:1.1" @onclick=Create>Create</button>
+                    <RButton Variant="Variant.Text" Size="Size.Small" OnClick="Create">Create</RButton>
                 }
+                </div>
             }
         </div>
+    }
+    else if (ReadOnly && Value is Statistics statistics)
+    {
+        <div class="statistics-inline">
+            <RNullableNumberField T="double" Value="statistics.ServerTimeInMs" Label="ServerTimeInMs"
+                                  AllowNull="false" ReadOnly="true" />
+            <RNullableNumberField T="double" Value="statistics.NetworkTimeInMs" Label="NetworkTimeInMs"
+                                  AllowNull="false" ReadOnly="true" />
+        </div>
+    }
+    else if (FieldsOnly)
+    {
+        @PropertyFields
     }
     else
     {
@@ -61,40 +97,55 @@
         ) is { } ignoredTypeLimit
         && !ignoredTypeLimit.TypeInhertianceLimit.Any(l => Value.GetType().IsAssignableTo(l));
 
-        <details class="box @((unsupportedValue || ignoredValue) ? "box-invalid" : "")" open=@(OpenDetails || SingleLevelOpenDetails)>
-            <summary class="@((unsupportedValue || ignoredValue) ? "summary-invalid" : "")" @onclick="() => hasBeenOpen = true">
-                @if (Value is not null && derivedTypes.Count > 0 && !ReadOnly && hasBeenOpen)
-                {
-                    <select @onchange=TypeDropdownChanged>
-                        @foreach (Type type in derivedTypes)
-                        {
-                            string title = xmlDocumentation is not null && xmlDocumentation.GetSummary(type) is { } summary ? summary : "";
-                            if (type == selectedCreateType)
+        @if (IsTopLevel)
+        {
+            <section class="box object-top-level @((unsupportedValue || ignoredValue) ? "box-invalid" : null)">
+                <header class="object-top-level-header">
+                    <div class="object-header-content">
+                        <h3 class="object-header-title">@Settings.Name(Value.GetType()).Humanize(LetterCasing.Title)@(ResultPresentation.Identifier(Value) is { } resultId ? $" ({resultId})" : null)</h3>
+                        <div class="object-header-actions" @onclick:stopPropagation="true">
+                            @HeaderActions
+                            @if (!ReadOnly && CanSwitchType)
                             {
-                                <option title="@title" value="@type.Name" selected>@type.Name</option>
+                                <MudMenu Label="Switch type" Variant="Variant.Outlined" Size="Size.Small" Dense="true"
+                                         EndIcon="@Icons.Material.Filled.ArrowDropDown" MaxHeight="400" @bind-Open="typeMenuOpen">
+                                    @if (typeMenuOpen)
+                                    {
+                                        @foreach (var type in derivedTypes)
+                                        {
+                                            <MudMenuItem OnClick="() => SwitchType(type)" Disabled="@(type == Value.GetType())" title="@GetTypeTitle(type)">
+                                                @Settings.Name(type)
+                                            </MudMenuItem>
+                                        }
+                                    }
+                                </MudMenu>
                             }
-                            else
+                            <RIconButton Icon="@Icons.Material.Outlined.ContentCopy" ToolTip="Copy as JSON"
+                                         aria-label="Copy object as JSON" OnClick="CopyToClipboard" />
+                            @if (ShowModelShareLink)
                             {
-                                <option title="@title" value="@type.Name">@type.Name</option>
+                                <RIconButton Icon="@Icons.Material.Filled.Link" ToolTip="Copy model link"
+                                             aria-label="Copy model link" OnClick="CopyLinkToClipboard" />
                             }
-                        }
-                    </select>
-                    <button class="btn btn-light btn-sm" style="margin:2px;margin-top:0px;padding:1px;line-height:1.1" @onclick=Create>Switch type</button>
-                    if (unsupportedValue)
+                        </div>
+                    </div>
+                    @if (unsupportedValue || ignoredValue)
                     {
-                        <small><i>&nbsp;(the type <code>@Settings.Name(Value.GetType())</code> is not valid in this context and it will make the request fail)</i></small>
+                        <small class="object-header-warning">This type is @(unsupportedValue ? "not valid" : "ignored") in this context.</small>
                     }
-                    else if (ignoredValue)
-                    {
-                        <small><i>&nbsp;(the type <code>@Settings.Name(Value.GetType())</code> is not valid in this context so it will be ignored)</i></small>
-                    }
-                }
-                else
-                {
-                    <i>
-                        @Settings.Name(Value is not null ? Value.GetType() : typeof(T))
-                    </i>
+                </header>
+                @PropertyFields
+            </section>
+        }
+        else
+        {
+            <details class="box @((unsupportedValue || ignoredValue) ? "box-invalid" : null)" open="@(OpenDetails || SingleLevelOpenDetails || openCreatedValue)">
+                <summary class="@((unsupportedValue || ignoredValue) ? "summary-invalid" : null)" @onclick="() => hasBeenOpen = true">
+                    <span class="object-type-name">
+                        @ResultPresentation.Header(Value, typeof(T))
+                    </span>
                     @if (Value is not null
+                   && !ResultPresentation.IsResultType(Value.GetType())
                    && Properties?.FirstOrDefault(p => p.Name == "Id") is { } idProperty
                    && idProperty.GetValue(Value) is string { } idValue)
                     {
@@ -102,7 +153,7 @@
                             &nbsp;<u>@idValue</u>
                         </text>
                     }
-                    if (unsupportedValue)
+                    @if (unsupportedValue)
                     {
                         <small><i>&nbsp;(the type is not valid in this context and it will make the request fail)</i></small>
                     }
@@ -110,46 +161,54 @@
                     {
                         <small><i>&nbsp;(the type is not valid in this context so it will be ignored)</i></small>
                     }
-                    @if (Value is not null && xmlDocumentation is not null && xmlDocumentation.GetSummary(Value.GetType()) is { } summary)
+
+                <div class="object-nested-actions" @onclick:stopPropagation="true" @onclick:preventDefault="true">
+                    @if (CanSwitchType && !ReadOnly)
                     {
-                        <TrustedInfo>@summary</TrustedInfo>
+                        <MudMenu Label="Switch type" Variant="Variant.Outlined" Size="Size.Small" Dense="true"
+                                 EndIcon="@Icons.Material.Filled.ArrowDropDown" MaxHeight="400" @bind-Open="typeMenuOpen">
+                            @if (typeMenuOpen)
+                            {
+                                @foreach (var type in derivedTypes)
+                                {
+                                    <MudMenuItem OnClick="() => SwitchType(type)" Disabled="@(type == Value.GetType())" title="@GetTypeTitle(type)">
+                                        @Settings.Name(type)
+                                    </MudMenuItem>
+                                }
+                            }
+                        </MudMenu>
                     }
-                    else if (Value is not null && communityDocumentation is not null && communityDocumentation.GetSummary(Value.GetType()) is { } communitySummary)
+                    <RIconButton Icon="@Icons.Material.Outlined.ContentCopy" ToolTip="Copy as JSON"
+                                 aria-label="Copy object as JSON" OnClick="CopyToClipboard" />
+                    @if (ShowModelShareLink)
                     {
-                        <CommunityInfo Summary="@communitySummary"></CommunityInfo>
+                        <RIconButton Icon="@Icons.Material.Filled.Link" ToolTip="Copy model link"
+                                     aria-label="Copy model link" OnClick="CopyLinkToClipboard" />
                     }
-                }
-                @if (ShowModelShareLink)
+                    @if (!ReadOnly && OnRemove.HasDelegate)
+                    {
+                        <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                     ToolTip="@RemoveLabel" aria-label="@RemoveLabel" OnClick="() => OnRemove.InvokeAsync()" />
+                    }
+                </div>
+                </summary>
+                @if (hasBeenOpen)
                 {
-                    <span style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => CopyLinkToClipboard()">
-                        <svg class="bi" width="16" height="16" viewBox="-1 -1 10 10">
-                            <polygon fill="transparent" stroke="white" stroke-width="1" points="0,6 2,4 4,4 4,2 6,0 8,0 8,2 6,4 4,4 4,6 2,8 0,8">
-                                <title>Copy link to Model page with this object data</title>
-                            </polygon>
-                        </svg>
-                    </span>
+                    @PropertyFields
                 }
-                <span style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => CopyToClipboard()">
-                    <svg class="bi" width="16" height="16" viewBox="-1 -1 10 13">
-                        <polygon fill="transparent" stroke="white" stroke-width="2" points="0,12 0,2 1,1 3,1 4,0 5,0 6,1 8,1 9,2 9,12">
-                            <title>Copy to clipboard as JSON</title>
-                        </polygon>
-                    </svg>
-                </span>
-                <span title="@(HideDefaultValueProperties is not true ? "Hide properties that have default values" : "Show all properties")" style="float:right;margin-top:-2px;margin-right:4px;" @onclick:preventDefault=true @onclick="() => HideDefaultValueProperties = HideDefaultValueProperties is not true">
-                    @if (HideDefaultValueProperties is not true)
+            </details>
+        }
+    }
+</CascadingValue>
+
+
+@code {
+    private RenderFragment PropertyFields => @<text>
+                <div class="object-properties">
+                    @if (ReadOnly && Value is global::Relewise.Client.Responses.TimedResponse && !Properties.Any(ShouldShowProperty))
                     {
-                        <svg class="bi" width="16" height="16" viewBox="-2 -2 12 3"><polygon stroke="white" stroke-width="2" points="0,0 10,0 10,1 0,1"></polygon></svg>
+                        <p class="response-empty" role="status">The response contains no results or other fields to display.</p>
                     }
-                    else
-                    {
-                        <svg class="bi" width="16" height="16" viewBox="-2 -2 15 15"><polygon stroke="white" stroke-width="2" points="5,5 5,0 6,0 6,5 11,5 11,6 6,6 6,11 5,11 5,6 0,6 0,5"></polygon></svg>
-                    }
-                </span>
-            </summary>
-            @if (hasBeenOpen)
-            {
-                <div class="two-column-grid">
                     @foreach (var property in Properties)
                     {
                         PropertyInvalidContext? invalidProperty = Settings.InvalidProperties.FirstOrDefault(pic =>
@@ -157,87 +216,72 @@
                         && AncestorTypes.Any(a => pic.AncestorInterfaces.Any(ai => a.IsAssignableTo(ai)))
                         );
 
-                        string propertyColor = invalidProperty is not null ? "grey" : "black";
+                        string propertyColor = invalidProperty is not null ? "grey" : "var(--mud-palette-text-secondary)";
 
-                        if (HideDefaultValueProperties is not true || (Value is null && emptyInstanceOfValue is null) || (Value is not null && emptyInstanceOfValue is not null && (JsonConvert.SerializeObject(property.GetValue(Value)) != JsonConvert.SerializeObject(property.GetValue(emptyInstanceOfValue)) && invalidProperty is null)))
+                        if (ShouldShowProperty(property))
                         {
-                            <div @key=@($"{property.Name}-label")>
-                                @if (property.GetCustomAttribute<ObsoleteAttribute>() is ObsoleteAttribute { Message: { } obsoleteReason })
-                                {
-                                    <s><b style="color: @propertyColor">@property.Name</b></s>
-                                    <TrustedInfo>@obsoleteReason</TrustedInfo>
-                                }
-                                else
-                                {
-                                    <b style="color: @propertyColor">@property.Name</b>
-                                    @if (xmlDocumentation is not null && xmlDocumentation.GetSummary(property.DeclaringType, property.Name) is { } summary)
-                                    {
-                                        <TrustedInfo>@summary</TrustedInfo>
-                                    }
-                                    else if (communityDocumentation is not null && communityDocumentation.GetSummary(property.DeclaringType, property.Name) is { } communitySummary)
-                                    {
-                                        <CommunityInfo Summary="@communitySummary"></CommunityInfo>
-                                    }
-                                }
-                                @if (invalidProperty is not null)
-                                {
-                                    <Info Warning="true">@invalidProperty.Reason</Info>
-                                }
-                            </div>
                             var potentialEditor = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(property.PropertyType));
-                            bool isRequestCustom = property.Name == nameof(LicensedRequest.Custom) && Value is SearchRequest or RecommendationRequest;
-                            <div @key=@($"{property.Name}-value") class="@(isRequestCustom ? "object-value request-custom-value" : "object-value")">
-                                @if (potentialEditor is { } editor)
-                                {
-                                    var parameters = new Dictionary<string, object>()
+                            var editorType = potentialEditor?.EditorType(property.PropertyType);
+                            string? help = GetPropertyHelp(property);
+                            if (invalidProperty is not null)
+                                help = string.Join(" ", new[] { help, invalidProperty.Reason }.Where(text => !string.IsNullOrWhiteSpace(text)));
+                            if (property.Name.Contains("Minutes") && property.PropertyType == typeof(int) && property.GetValue(Value) is int minutes)
+                                help = string.Join(" ", new[] { help, TimeSpan.FromMinutes(minutes).Humanize(4) }.Where(text => !string.IsNullOrWhiteSpace(text)));
+                            <div @key="property.Name" class="object-property">
+                                <MudTooltip Delay="0" Inline="false" RootClass="object-label-tooltip" Disabled="@(string.IsNullOrWhiteSpace(help))">
+                                    <TooltipContent>
+                                        <div style="max-width:min(484px,calc(100vw - 48px));white-space:normal;overflow-wrap:anywhere;text-align:left;">@help</div>
+                                    </TooltipContent>
+                                    <ChildContent>
+                                        <div class="object-property-label" style="color: @propertyColor">@property.Name</div>
+                                    </ChildContent>
+                                </MudTooltip>
+                                <div class="@(IsRequestCustom(property) ? "object-value request-custom-value" : "object-value")">
+                                    @if (potentialEditor is not null)
                                     {
-                                        ["ReadOnly"] = ReadOnly,
-                                        ["OpenDetails"] = OpenDetails,
-                                        ["Value"] = property.GetValue(Value),
-                                        ["Setter"] = (object? obj) => { property.SetValue(Value, obj); Setter(Value); },
-                                        ["AncestorTypes"] = (Type[])[.. AncestorTypes, Value?.GetType() ?? typeof(T)]
-                                    };
-                                    var editorType = editor.EditorType(property.PropertyType);
-                                    if (editorType == typeof(ByteEditor) && Nullable.GetUnderlyingType(property.PropertyType) == typeof(byte))
-                                    {
-                                        parameters["AllowNull"] = true;
+                                        var parameters = new Dictionary<string, object>()
+                                        {
+                                            ["ReadOnly"] = ReadOnly,
+                                            ["OpenDetails"] = OpenDetails,
+                                            ["Value"] = property.GetValue(Value),
+                                            ["Setter"] = (object? obj) => UpdateProperty(property, obj),
+                                            ["AncestorTypes"] = (Type[])[.. AncestorTypes, Value?.GetType() ?? typeof(T)]
+                                        };
+                                        Settings.WithNumericNullability(parameters, property.PropertyType);
+                                        if (editorType == typeof(BoolEditor) || editorType == typeof(NullableBoolEditor))
+                                            parameters["AriaLabel"] = property.Name;
+                                        if (!ReadOnly && !IsInlineValueType(property.PropertyType) && editorType!.IsConstructedGenericType
+                                            && editorType.GetGenericTypeDefinition() == typeof(ObjectEditor<>))
+                                        {
+                                            parameters["OnRemove"] = EventCallback.Factory.Create(this, () => RemoveProperty(property));
+                                            parameters["RemoveLabel"] = $"Remove {property.Name}";
+                                        }
+                                        <div class="object-editor">
+                                            <ErrorBoundary>
+                                                <ChildContent>
+                                                    <DynamicComponent Type="editorType" Parameters="parameters" />
+                                                </ChildContent>
+                                                <ErrorContent>
+                                                    <code>Failed to initialize editor part for @Settings.Name(property.PropertyType)</code>
+                                                </ErrorContent>
+                                            </ErrorBoundary>
+                                        </div>
+                                        @if (IsRequestCustom(property) && Value is LicensedRequest request)
+                                        {
+                                            <RCheckBox Label="Disable merchandising" AriaLabel="Disable merchandising"
+                                                       Class="disable-merchandising" Disabled="ReadOnly"
+                                                       Value="@(request.Custom?.TryGetValue(DisableMerchandisingKey, out var flag) == true && flag == "true")"
+                                                       ValueChanged="disabled => SetDisableMerchandising(request, disabled)" />
+                                        }
                                     }
-                                    <ErrorBoundary>
-                                        <ChildContent>
-                                            <DynamicComponent Type=editorType Parameters=parameters />
-                                        </ChildContent>
-                                        <ErrorContent>
-                                            <code>Failed to initialize editor part for @Settings.Name(property.PropertyType)</code>
-                                        </ErrorContent>
-                                    </ErrorBoundary>
-                                    @if (isRequestCustom && Value is LicensedRequest request)
+                                    else
                                     {
-                                        <label>
-                                            <input class="disable-merchandising" type="checkbox" disabled=@ReadOnly
-                                                   checked="@(request.Custom?.TryGetValue(DisableMerchandisingKey, out var flag) == true && flag == "true")"
-                                                   @onchange="args => SetDisableMerchandising(request, args.Value is true)" />
-                                            Disable merchandising
-                                        </label>
+                                        <code>Can't edit @Settings.Name(property.PropertyType)</code>
                                     }
-                                    @if (property.Name.Contains("Minutes") && property.PropertyType == typeof(int) && property.GetValue(Value) is int { } minutes)
-                                    {
-                                        <TrustedInfo>@TimeSpan.FromMinutes(minutes).Humanize(4)</TrustedInfo>
-                                    }
-                                    @if (!ReadOnly && property.GetValue(Value) != null && potentialEditor.EditorType(property.PropertyType).IsConstructedGenericType && potentialEditor.EditorType(property.PropertyType).GetGenericTypeDefinition() == typeof(ObjectEditor<>))
-                                    {
-                                        <button class="btn btn-sm btn-warning" style="padding-top:0;padding-bottom:0;" @onclick="() => RemoveProperty(property)">X</button>
-                                    }
-                                }
-                                else
-                                {
-                                    <code>Can't edit @Settings.Name(property.PropertyType)</code>
-                                }
+                                </div>
                             </div>
                         }
                     }
                 </div>
-            }
-        </details>
-    }
-</CascadingValue>
-
+    </text>;
+}

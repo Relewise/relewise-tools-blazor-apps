@@ -1,27 +1,15 @@
-﻿@typeparam T where T : Enum
-@if (ReadOnly)
-{
-    <code>@Value.ToString()</code>
-}
-else
-{
-    <select style="width:100%;" @bind=value @bind:after="() => Setter(value)">
-        @foreach (T value in Enum.GetValues(typeof(T)))
-        {
-            if (value.Equals(Value))
-            {
-                <option value="@value" selected>@value.ToString()</option>
-            }
-            else
-            {
-                <option value="@value">@value.ToString()</option>
-            }
-        }
-    </select>
-}
+@typeparam T where T : Enum
+@using Relewise.BlazorApps.Components
+
+<RSelect T="T" Value="Value" Items="Options" ToStringFunc="DisplayOption"
+         ValueChanged="UpdateValue" Disabled="ReadOnly" Required="true" Clearable="false" Style="width:100%;" />
 
 @code {
-    private T value;
+    private static readonly T[] Options = Enum.GetValues(typeof(T)).Cast<T>()
+        .Prepend((T)Enum.ToObject(typeof(T), 0)).Distinct().ToArray();
+
+    private static string DisplayOption(T option) => option.Equals((T)Enum.ToObject(typeof(T), 0))
+        && !Enum.IsDefined(typeof(T), option) ? "Select…" : option.ToString();
 
     [Parameter]
     public bool ReadOnly { get; set; } = false;
@@ -38,8 +26,10 @@ else
     [Parameter]
     public Type[] AncestorTypes { get; set; } = [];
 
-    protected override void OnParametersSet()
+    private void UpdateValue(T value)
     {
-        value = Value;
+        if (ReadOnly) return;
+        Value = value;
+        Setter(value);
     }
 }

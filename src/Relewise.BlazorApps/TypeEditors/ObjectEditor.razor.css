@@ -1,6 +1,6 @@
-﻿.box {
-    border: 1px solid var(--color-blue-light);
-    border-radius: 5px;
+.box {
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: var(--mud-default-borderradius);
     flex: 1;
 }
 
@@ -8,17 +8,155 @@
     border: 1px solid var(--color-gray);
 }
 
-.two-column-grid {
+.object-top-level {
+    border: 0;
+}
+
+.object-top-level-header {
+    background: transparent;
+    padding: 4px;
+}
+
+.object-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+}
+
+.object-header-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 500;
+}
+
+.object-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.object-nested-actions {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    max-width: 100%;
+    gap: 2px;
+    margin-left: auto;
+}
+
+.object-header-warning {
+    display: block;
+    margin-top: 4px;
+}
+
+.object-properties {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 10px 10px;
-    padding: 5px;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0 4px;
+    padding: 4px;
+}
+
+details.box > .object-properties {
+    padding-left: 22px;
+}
+
+.object-property {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: start;
+    padding-block: 3px;
+    min-width: 0;
+}
+
+.response-empty {
+    grid-column: 1 / -1;
+    margin: 8px 0;
+    color: var(--mud-palette-text-secondary);
+}
+
+.object-value ::deep .mud-input-control {
+    margin-block: 0;
+}
+
+.object-property-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    color: var(--mud-palette-text-secondary);
+    margin: 0;
+    padding-top: 13px;
+    overflow-wrap: anywhere;
+}
+
+.object-editor {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+}
+
+.null-object-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    min-height: 40px;
+    padding: 2px 4px 2px 14px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: var(--mud-default-borderradius);
+}
+
+.null-object-field:focus-within {
+    border-color: var(--mud-palette-primary);
+}
+
+.null-object-editable {
+    cursor: pointer;
+}
+
+.null-object-editable:hover {
+    border-color: var(--mud-palette-text-primary);
+}
+
+.null-object-placeholder {
+    color: var(--mud-palette-text-primary);
+    opacity: 0.42;
+    font-family: var(--mud-typography-default-family);
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.1876;
+    letter-spacing: normal;
 }
 
 summary {
-    padding-left: 5px;
-    background-color: var(--color-blue-light);
-    color: white;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    min-height: 40px;
+    padding: 8px 14px;
+    background-color: transparent;
+    color: var(--color-text);
+    font-family: inherit;
+    list-style: none;
+    cursor: pointer;
+}
+
+summary::-webkit-details-marker {
+    display: none;
+}
+
+.object-type-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-family: inherit;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    font-weight: 700;
+    font-style: normal;
 }
 
 .summary-invalid {
@@ -30,9 +168,49 @@ summary {
     flex-direction: row;
     flex: 1 0;
     grid-gap: 5px;
+    min-width: 0;
+}
+
+.inline-value-field {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
 }
 
 .request-custom-value {
     flex-direction: column;
 }
 
+.statistics-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+.statistics-inline ::deep .mud-input-control {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+.inline-value-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.inline-value-input ::deep .mud-input-adornment-icon-button {
+    padding: 4px;
+}
+
+.inline-value-input ::deep .mud-input-adornment-icon-button svg {
+    width: 18px;
+    height: 18px;
+}
+
+.inline-value-field > .object-property-label {
+    flex: 0 0 auto;
+    padding-top: 13px;
+}

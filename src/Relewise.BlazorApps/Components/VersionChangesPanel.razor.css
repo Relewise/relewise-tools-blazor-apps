@@ -1,0 +1,20 @@
+.changes-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.changes-title ::deep .changes-heading {
+    font-weight: 600;
+}
+
+.previous-type {
+    color: var(--mud-palette-text-secondary);
+    text-decoration: line-through;
+    overflow-wrap: anywhere;
+}
+
+.current-type {
+    color: var(--mud-palette-success-darken);
+    overflow-wrap: anywhere;
+}

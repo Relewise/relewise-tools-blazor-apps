@@ -1,93 +1,183 @@
-﻿@typeparam T
+@typeparam T
+@using MudBlazor
+@using Relewise.BlazorApps.Components
+@using Newtonsoft.Json
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
 
 @if (Value is null)
 {
-    <code>&lt;NULL&gt;</code>
-    @if (!ReadOnly)
-    {
-        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new @Settings.Name(typeof(T))<text>[]</text></button>
-    }
+    <div class="array-null @(ReadOnly ? null : "array-editable")" role="@(ReadOnly ? null : "button")"
+         tabindex="@(ReadOnly ? -1 : 0)" aria-label="Create array" @onclick="Create" @onkeydown="CreateKeyDown">
+        <span class="array-placeholder">&lt;NULL&gt;</span>
+        @if (!ReadOnly)
+        {
+            <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
+                <RButton Variant="Variant.Text" OnClick="Create">Create</RButton>
+            </span>
+        }
+    </div>
+}
+else if (ReadOnly && ResultPresentation.IsResultType(typeof(T)))
+{
+    <ResultCollectionView T="T" Value="Value" OpenDetails="OpenDetails" AncestorTypes="AncestorTypes" />
 }
 else
 {
-    <details class="box" open=@OpenDetails>
-        <summary>
-            <i>@(Settings.Name(typeof(T)))[] <small>with @Value.Length @(@Value.Length is 1 ? "element" : "elements")</small></i>
-        </summary>
-        <div class="two-column-grid">
-            @for (int i = 0; i < Value.Length; i++)
-            {
-                var k = i;
-                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T))) is { } editor)
+    <section class="array-box" data-expanded="@(expanded ? "true" : "false")">
+        <header @onclick="ToggleExpanded">
+            <button class="array-title" type="button" aria-expanded="@(expanded ? "true" : "false")"
+                    @onclick="ToggleExpanded" @onclick:stopPropagation="true">@Title · @Value.Length @(Value.Length == 1 ? "item" : "items")</button>
+            <span class="array-actions" @onclick:stopPropagation="true">
+                <RIconButton Icon="@Icons.Material.Outlined.ContentCopy" ToolTip="Copy as JSON"
+                             aria-label="Copy array as JSON" OnClick="Copy" />
+                @if (!ReadOnly)
                 {
-                    var parameters = new Dictionary<string, object?>() {
-                        ["ReadOnly"] = ReadOnly,
-                        ["OpenDetails"] = OpenDetails,
-                        ["Value"] = Value[k],
-                        ["Setter"] = (object? obj) => { Value[k] = (T)obj!; Setter(Value); },
-                        ["AncestorTypes"] = AncestorTypes
-                    };
-                    <ErrorBoundary>
-                        <ChildContent>
-                            <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="@parameters" />
-                        </ChildContent>
-                        <ErrorContent>
-                            <code>Failed to initialize editor part for @Settings.Name(typeof(T))</code>
-                        </ErrorContent>
-                    </ErrorBoundary>
-                    @if (!ReadOnly)
-                    {
-                        <button class="btn btn-sm btn-warning" style="padding-top:0;padding-bottom:0;" @onclick="() => Remove(k)">X</button>
-                    }
-                    else
-                    {
-                        <span></span>
-                    }
+                    <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                 ToolTip="Set to null" aria-label="Set array to null" OnClick="Clear" />
                 }
-            }
-            @if (!ReadOnly)
-            {
-                <button class="btn btn-outline-primary btn-sm" style="grid-column: span 2" @onclick=Add>+ Add new @Settings.Name(typeof(T))</button>
-            }
-        </div>
-    </details>
+            </span>
+        </header>
+        @if (expanded)
+        {
+            <div class="array-entries">
+                @for (int i = 0; i < Value.Length; i++)
+                {
+                    var index = i;
+                    <div class="array-row">
+                        <span class="array-index">@(index + 1)</span>
+                        <div class="array-value">
+                            @if (Value[index] is ProductAndVariantId pair)
+                            {
+                                <div class="array-pair">
+                                    <RTextField Label="Product ID" Value="@pair.ProductId" ValueChanged="value => UpdateId(index, value, false)"
+                                                Placeholder="<NULL>" Immediate="true" FullWidth="true" ReadOnly="ReadOnly" Disabled="ReadOnly" />
+                                    <RTextField Label="Variant ID" Value="@pair.VariantId" ValueChanged="value => UpdateId(index, value, true)"
+                                                Placeholder="<NULL>" Immediate="true" FullWidth="true" ReadOnly="ReadOnly" Disabled="ReadOnly" />
+                                </div>
+                            }
+                            else if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T))) is { } editor)
+                            {
+                                var parameters = new Dictionary<string, object?> {
+                                    ["ReadOnly"] = ReadOnly,
+                                    ["OpenDetails"] = true,
+                                    ["Value"] = Value[index],
+                                    ["Setter"] = (object? value) => Update(index, value),
+                                    ["AncestorTypes"] = AncestorTypes
+                                };
+                                <ErrorBoundary>
+                                    <ChildContent>
+                                        <DynamicComponent Type="@editor.EditorType(typeof(T))" Parameters="@Settings.WithNumericNullability(parameters, typeof(T))" />
+                                    </ChildContent>
+                                    <ErrorContent><code>Failed to initialize editor for @Settings.Name(typeof(T))</code></ErrorContent>
+                                </ErrorBoundary>
+                            }
+                        </div>
+                        @if (!ReadOnly)
+                        {
+                            <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                         ToolTip="Remove item" aria-label="@($"Remove item {index + 1}")" OnClick="() => Remove(index)" />
+                        }
+                    </div>
+                }
+                @if (!ReadOnly)
+                {
+                    <RButton Variant="Variant.Text" Icon="@Icons.Material.Filled.Add" OnClick="Add">Add item</RButton>
+                }
+            </div>
+        }
+    </section>
 }
 @code {
-    [Parameter]
-    public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool OpenDetails { get; set; }
+    [Parameter, EditorRequired] public required T[]? Value { get; set; }
+    [Parameter, EditorRequired] public required Action<object?> Setter { get; set; }
+    [Parameter] public Type[] AncestorTypes { get; set; } = [];
 
-    [Parameter]
-    public bool OpenDetails { get; set; } = false;
+    private string Title => typeof(T) == typeof(ProductAndVariantId) ? "Products and variants" : Settings.Name(typeof(T)) + "[]";
+    private bool expanded;
+    private bool? previousOpenDetails;
+    private T[]? trackedValue;
 
-    [Parameter, EditorRequired]
-    public required T[]? Value { get; set; }
+    protected override void OnParametersSet()
+    {
+        if (!previousOpenDetails.HasValue || !ReferenceEquals(Value, trackedValue))
+            expanded = OpenDetails || (!ReadOnly && Value is { Length: 0 });
+        else if (previousOpenDetails != OpenDetails)
+            expanded = OpenDetails;
+        trackedValue = Value;
+        previousOpenDetails = OpenDetails;
+    }
 
-    [Parameter, EditorRequired]
-    public required Action<object?> Setter { get; set; }
+    private void Commit(T[]? value)
+    {
+        Value = value;
+        trackedValue = value;
+        Setter(value);
+    }
 
-    [Parameter]
-    public Type[] AncestorTypes { get; set; } = [];
+    private void ToggleExpanded() => expanded = !expanded;
+    private void CreateKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ") Create();
+    }
 
     public void Create()
     {
-        Value = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T[]))) is { } editor
-            ? (T[]?)editor.InitValue(typeof(T[]))
-            : default(T[]);
-        Setter(Value);
+        if (ReadOnly || Value is not null) return;
+        expanded = true;
+        Commit([]);
     }
 
     public void Add()
     {
-        T? newItem = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T))) is { } editor
-            ? (T?)editor.InitValue(typeof(T))
-            : default(T);
-        Value = [.. Value, newItem];
-        Setter(Value);
+        if (ReadOnly || Value is null) return;
+        var newItem = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(T))) is { } editor
+            ? (T?)editor.InitValue(typeof(T)) : default;
+        expanded = true;
+        Commit([.. Value, newItem!]);
     }
 
-    public void Remove(int k)
+    public void Update(int index, object? value)
     {
-        Value = [.. Value[..Math.Max(0, k)], .. Value[Math.Min(k + 1, Value.Length)..]];
-        Setter(Value);
+        if (ReadOnly || Value is null || index < 0 || index >= Value.Length) return;
+        var updated = (T[])Value.Clone();
+        updated[index] = (T)value!;
+        Commit(updated);
+    }
+
+    public void UpdateId(int index, string? value, bool variant)
+    {
+        if (ReadOnly || Value is null || index < 0 || index >= Value.Length || Value[index] is not ProductAndVariantId pair) return;
+        if (variant) pair.VariantId = string.IsNullOrEmpty(value) ? null : value;
+        else pair.ProductId = string.IsNullOrEmpty(value) ? null : value;
+        Update(index, pair);
+    }
+
+    public void Remove(int index)
+    {
+        if (ReadOnly || Value is null || index < 0 || index >= Value.Length) return;
+        Commit([.. Value[..index], .. Value[(index + 1)..]]);
+    }
+
+    public void Clear()
+    {
+        if (ReadOnly) return;
+        Commit(null);
+    }
+
+    private async Task Copy()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(Value, Formatting.Indented,
+                new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Auto }));
+            Snackbar.Add("Copied array as JSON.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
     }
 }

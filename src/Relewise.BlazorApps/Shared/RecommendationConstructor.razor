@@ -1,4 +1,7 @@
-﻿@using Relewise.BlazorApps.TypeEditors
+@using MudBlazor
+@inject ISnackbar Snackbar
+@using Relewise.BlazorApps.TypeEditors
+@using Relewise.BlazorApps.Components
 @using System.Reflection
 @using Relewise.BlazorApps.Extensions
 @using Relewise.BlazorApps.Pages
@@ -8,8 +11,10 @@
 @using global::Relewise.Client.DataTypes
 @inject IJSInProcessRuntime JSRuntime
 
-<details class="box" open=@OpenDetails>
-    <summary>
+@if (ShowHeader)
+{
+<details class="box" open="@isExpanded">
+    <summary @onclick="ToggleRequest" @onclick:preventDefault="true">
         @if (advancedRecommendations.Contains(RequestType.Name))
         {
             <svg class="bi" width="20" height="20" style="margin-top:-5px;margin-right:5px;" viewBox="0 0 16 16">
@@ -20,52 +25,137 @@
         }
         @(NormalName(RequestType))
     </summary>
-    <div style="margin:5px;">
-        <h3>Request</h3>
-        <ObjectEditor
-            OpenDetails=true
-            T=LicensedRequest
-            Value="Request"
-            ShowModelShareLink="true"
-            Setter="(object? obj) => { Request = (LicensedRequest?)obj; RequestExplorer.SaveInLocalStorage(JSRuntime, obj); response = null; StateHasChanged(); }" />
-        <br />
-        @if (Recommender is null)
-        {
-            <button class="btn btn-success" disabled="true" @onclick="() => Post()">Post</button>
-            <i>You have to connect before you can post a request.</i>
-        }
-        else
-        {
-            <button class="btn btn-success" @onclick="() => Post()">Post</button>
-        }
-        <br />
-        @if (error is not null)
-        {
-            <code>@error</code>
-        }
-        else if (message is not null)
-        {
-            <span style="color:green;">@message</span>
-        }
-        @if (response is not null)
-        {
-            <br />
-            <br />
-            <h3>Response</h3>
-            <label for="openDetails">Expand all: </label>
-            <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-            <ObjectEditor OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=RecommendationResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (RecommendationResponse?)obj; StateHasChanged(); }" />
-        }
-    </div>
+    @EditorContent
 </details>
+}
+else
+{
+    @EditorContent
+}
+
 
 
 @code {
+    private readonly EditorValidationState editorValidation = new();
+
+    private RenderFragment EditorContent => @<text>
+    @if (isExpanded && IsActive)
+    {
+        <div class="request-response-layout @(SideBySide ? "side-by-side" : null)" style="margin:5px;">
+            <section class="request-editor-panel">
+            <CascadingValue Value="editorValidation">
+                <ObjectEditor
+                    OpenDetails=false
+                    SingleLevelOpenDetails=true
+                    T=LicensedRequest
+                    ReadOnly="posting"
+                    Value="Request"
+                    ShowModelShareLink="true"
+                    Setter="UpdateRequest">
+                    <HeaderActions>
+                        @if (ActionsInHeader && ShowPostButton)
+                        {
+                            @RunAction
+                        }
+                    </HeaderActions>
+                </ObjectEditor>
+            </CascadingValue>
+            <br />
+            @if (ShowPostButton && !ActionsInHeader)
+            {
+                @RunAction
+                @if (Recommender is null)
+                {
+                    <i>You have to connect before you can run a request.</i>
+                }
+            <br />
+            }
+            </section>
+            <section class="request-response-panel">
+            @if (State.Error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-2" role="alert">
+                    <strong>Request failed.</strong> @State.Error
+                </MudAlert>
+            }
+            @if (response is not null)
+            {
+                <ObjectEditor @key="responseExpansionVersion" OpenDetails=openDetails SingleLevelOpenDetails=true ReadOnly=true OverridenHideDefaultValueProperties=true T=RecommendationResponse Value="response" ShowModelShareLink="true" Setter="(object? obj) => { response = (RecommendationResponse?)obj; StateHasChanged(); }">
+                    <HeaderActions>
+                <div class="response-header">
+                    <div class="response-actions">
+                        <RButton Variant="Variant.Outlined" AriaLabel="Expand all response fields" OnClick="() => SetResponseExpanded(true)">Expand all</RButton>
+                        <RButton Variant="Variant.Outlined" AriaLabel="Collapse all response fields" OnClick="() => SetResponseExpanded(false)">Collapse all</RButton>
+                    </div>
+                </div>
+                    </HeaderActions>
+                </ObjectEditor>
+            }
+            </section>
+        </div>
+    }
+    </text>;
+
+    [Parameter] public bool ShowHeader { get; set; } = true;
+    [Parameter] public string RequestTitle { get; set; } = "Request";
+    [Parameter] public bool AutoPost { get; set; }
+    [Parameter] public bool SideBySide { get; set; }
+    [Parameter] public bool ActionsInHeader { get; set; }
+    [Parameter] public bool ShowPostButton { get; set; } = true;
+    [Parameter] public string PostButtonText { get; set; } = "Post";
+    [Parameter] public EventCallback<bool> PostingChanged { get; set; }
+    [Parameter] public EventCallback<object?> RequestChanged { get; set; }
+    private bool autoPosted;
+    private bool posting;
+
+    private RenderFragment RunAction => @<RButton Disabled="@(Recommender is null || posting)" OnClick="Post" Size="Size.Medium">@PostButtonText</RButton>;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (AutoPost && !autoPosted && IsActive && isExpanded && Recommender is not null && Request is not null)
+        {
+            autoPosted = true;
+            await Post();
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateRequest(object? obj)
+    {
+        bool replaced = !ReferenceEquals(Request, obj);
+        Request = (LicensedRequest?)obj;
+        State.Request = Request;
+        if (!RequestChanged.HasDelegate)
+        {
+            try { RequestExplorer.SaveInLocalStorage(JSRuntime, obj); }
+            catch (Exception ex) { Snackbar.Add(ex.GetBaseException().Message, Severity.Error); }
+        }
+        _ = RequestChanged.InvokeAsync(Request);
+        if (replaced || !RequestChanged.HasDelegate) StateHasChanged();
+    }
+
     private List<string> advancedRecommendations = ["SimilarProductsRequest"];
-    private string? message;
-    private string? error;
-    private bool openDetails;
-    private TimedResponse? response;
+    public sealed class EditorState
+    {
+        public LicensedRequest? Request { get; set; }
+        public bool RequestInitialized { get; set; }
+        public TimedResponse? Response { get; set; }
+        public bool ResponseExpanded { get; set; }
+        public string? Error { get; set; }
+    }
+
+    [Parameter] public EditorState State { get; set; } = new();
+    private bool openDetails { get => State.ResponseExpanded; set => State.ResponseExpanded = value; }
+    private int responseExpansionVersion;
+    private void SetResponseExpanded(bool expanded)
+    {
+        openDetails = expanded;
+        responseExpansionVersion++;
+    }
+    private bool hasBeenOpened;
+    private bool isExpanded;
+    private bool? previousOpenDetails;
+    private TimedResponse? response { get => State.Response; set => State.Response = value; }
 
     [Parameter, EditorRequired]
     public required Recommender Recommender { get; set; }
@@ -74,16 +164,59 @@
     public required Func<bool> Connect { get; set; }
 
     [Parameter, EditorRequired]
-    public required Action ResetRecommender { get; set; }
-
-    [Parameter, EditorRequired]
     public required Type RequestType { get; set; }
 
-    [Parameter, EditorRequired]
-    public LicensedRequest Request { get; set; }
+    [Parameter]
+    public LicensedRequest? Request { get; set; }
+
+    [Parameter]
+    public Func<LicensedRequest>? RequestFactory { get; set; }
 
     [Parameter, EditorRequired]
     public bool OpenDetails { get; set; }
+
+    [Parameter]
+    public bool IsActive { get; set; } = true;
+
+    protected override bool ShouldRender() => IsActive;
+
+    protected override void OnParametersSet()
+    {
+        if (State.RequestInitialized) Request = State.Request;
+        if (previousOpenDetails != OpenDetails)
+        {
+            previousOpenDetails = OpenDetails;
+            isExpanded = OpenDetails;
+        }
+        if (isExpanded && IsActive) OpenRequest();
+    }
+
+    private void ToggleRequest()
+    {
+        isExpanded = !isExpanded;
+        if (isExpanded) OpenRequest();
+    }
+
+    private void OpenRequest()
+    {
+        try
+        {
+            if (hasBeenOpened) return;
+            if (State.RequestInitialized)
+                Request = State.Request;
+            else
+            {
+                Request ??= RequestFactory?.Invoke();
+                State.Request = Request;
+                State.RequestInitialized = true;
+            }
+            hasBeenOpened = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
 
     private string NormalName(Type type)
     {
@@ -97,17 +230,28 @@
 
     private async Task Post()
     {
+        if (posting) return;
+        if (!editorValidation.IsValid)
+        {
+            Snackbar.Add(string.Join(" ", editorValidation.Errors.Distinct()), Severity.Error);
+            return;
+        }
+
         if (!Connect()) return;
 
         if (Request is null)
         {
-            message = null;
-            error = "Request was null.";
+            Snackbar.Add("Request was null.", Severity.Error);
             return;
         }
 
+        response = null;
+        State.Error = null;
+
         try
         {
+            posting = true;
+            await PostingChanged.InvokeAsync(true);
             var method = typeof(Recommender)
                 .GetMethods()
                 .Single(m => m.Name is "RecommendAsync" && m.GetParameters() is [var requestParam, var tokenParam] && requestParam.ParameterType == Request.GetType());
@@ -115,20 +259,22 @@
             var responseTask = (Task<TimedResponse>)this.GetType().GetMethod(nameof(Post))!.MakeGenericMethod(method.ReturnType.GetGenericArguments().Single()).Invoke(null, [method, Recommender, Request])!;
 
             response = await responseTask;
-            message = "Successfully recommended.";
-            error = null;
+            Snackbar.Add("Successfully recommended.", Severity.Success);
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            ResetRecommender();
-            message = null;
+            State.Error = RequestErrorHandling.Message(ex);
+        }
+        finally
+        {
+            posting = false;
+            await PostingChanged.InvokeAsync(false);
         }
     }
 
     public static async Task<TimedResponse> Post<T>(MethodInfo method, Recommender recommender, LicensedRequest request) where T : TimedResponse
     {
-        var taskResponse = (Task<T>)method.Invoke(recommender, [request, CancellationToken.None])!;
-        return await taskResponse;
+        return await RequestErrorHandling.ExecuteAsync(recommender,
+            () => (Task<T>)method.Invoke(recommender, [request, CancellationToken.None])!);
     }
 }

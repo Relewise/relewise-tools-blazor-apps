@@ -1,4 +1,7 @@
-﻿@using Relewise.BlazorApps.TypeEditors
+@using MudBlazor
+@inject ISnackbar Snackbar
+@using Relewise.BlazorApps.Components
+@using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
 @using System.Threading
 @using global::Relewise.Client.DataTypes.Triggers.Configurations
@@ -12,51 +15,33 @@
 
 <h1>Triggers</h1>
 <p>Here you can create and edit Trigger Configurations.</p>
-
-@if (error is not null)
+@if ((StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey)) && !(SavedConnectionStorage.Enabled && SavedConnectionStorage.HasSavedConfiguration))
 {
-    <code>@error</code>
-    <br />
-    <br />
-}
-@if (message is not null)
-{
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
-}
-@if (StaticDatasetStorage.ParentOrigin is null || string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
-{
-    <p>
-        First you need to insert your Server URL, Dataset Id, and API Key to connect with your dataset. You can find these at <a target="_blank" href="https://my.relewise.com/api-keys">My Relewise > API Keys</a>.
-        <br />
-        <small>You can't use your Master key in this application so you will have to create some separate key that has access to edit Triggers to use this.</small>
-    </p>
-
-    <ConnectionCredentials />
+    <ConnectionCredentials>
+        <PermissionsNote>You can't use your Master key in this application so you will have to create some separate key that has access to edit Triggers to use this.</PermissionsNote>
+    </ConnectionCredentials>
 }
 
-@if (triggerAccessor is null)
+@if (triggerAccessor is null || connecting)
 {
-    <button class="btn btn-success" @onclick="() => Connect()">Connect</button>
+    <RButton Disabled="connecting" OnClick="ConnectAsync">@(connecting ? "Connecting…" : "Connect")</RButton>
     <br />
 }
-else
+else if (selectedConfiguration is not null || creatingNew)
 {
-    <p>Now you can get an overview over all the existing triggers in the dataset or create a new.</p>
-
-    <button class="btn btn-primary" @onclick=ListAllConfigurations>List All Configurations</button>
-    <button class="btn btn-success" @onclick=CreateNewConfiguration>Create New Configuration</button>
-    <br />
-    <br />
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <RButton Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Refresh" Disabled="loadingConfigurations"
+                 OnClick="RefreshConfigurations">Refresh</RButton>
+        <RButton Icon="@Icons.Material.Filled.Add" Disabled="loadingConfigurations" OnClick="CreateNewConfiguration">Create New Configuration</RButton>
+    </MudStack>
 }
-
 @if (selectedConfiguration is not null || creatingNew)
 {
-    <ObjectEditor OpenDetails=true ShowModelShareLink=true T=TriggerConfiguration Value="selectedConfiguration" Setter="(Object? obj) => { selectedConfiguration = (TriggerConfiguration?)obj; StateHasChanged(); }" />
+    <CascadingValue Value="editorValidation">
+        <ObjectEditor OpenDetails=true ShowModelShareLink=true T=TriggerConfiguration Value="selectedConfiguration" Setter="(Object? obj) => { selectedConfiguration = (TriggerConfiguration?)obj; StateHasChanged(); }" />
+    </CascadingValue>
     <br />
-    <label for="name">Your name: </label>
-    <input @bind=name id="name" />
+    <RTextField Label="Your name" @bind-Value="name" Immediate="true" FullWidth="true" />
     <br />
     <br />
     @if (creatingNew)
@@ -76,26 +61,25 @@ else
         }
     }
 }
-else if (configurations is not null)
+else if (configurations is not null || loadingConfigurations)
 {
-    <h2>All Trigger Configurations</h2>
-    <hr />
-    foreach (TriggerConfiguration configuration in configurations.OrderBy(c => int.TryParse(c.Group, out int rank) ? rank : int.MaxValue))
-    {
-        <div>
-            <h3>@configuration.Name (<code>@configuration.GetType().Name</code> - group "@configuration.Group")</h3>
-            <p>@configuration.Description</p>
-            <button class="btn btn-primary" @onclick="() => Edit(configuration)">Edit</button>
-            <hr />
-        </div>
-    }
+    <ConfigurationDataGrid T="TriggerConfiguration" Items="triggerRows" Loading="loadingConfigurations"
+                           CreateLabel="Create new configuration" EmptyText="No triggers match your search and filters."
+                           OnEdit="Edit" OnRefresh="RefreshConfigurations" OnCreate="CreateNewConfiguration" />
 }
-<br />
-<br />
-
 @code {
-    private string? error;
-    private string? message;
+    private readonly EditorValidationState editorValidation = new();
+
+    private bool ValidateEditor()
+    {
+        if (editorValidation.IsValid) return true;
+        Snackbar.Add(string.Join(" ", editorValidation.Errors), Severity.Error);
+        return false;
+    }
+
+    private bool loadingConfigurations;
+    private ConfigurationListItem<TriggerConfiguration>[] triggerRows = [];
+
     private string name = "";
     private bool creatingNew = false;
     private object? triggerAccessor;
@@ -104,17 +88,52 @@ else if (configurations is not null)
 
     protected override async Task OnInitializedAsync()
     {
+        StaticDatasetStorage.AuthenticationReceived += Authenticated;
         if (StaticDatasetStorage.DatasetId is not "" && !string.IsNullOrWhiteSpace(StaticDatasetStorage.ApiKey))
         {
-            Connect();
+            if (StaticDatasetStorage.ParentOrigin is null)
+                await ConnectAsync();
+            else
+                await RefreshConfigurations();
         }
-        StaticDatasetStorage.AuthenticationReceived += Authenticated;
     }
 
     private void Authenticated(object? sender, EventArgs args)
     {
-        Connect();
-        StateHasChanged();
+        _ = InvokeAsync(async () =>
+        {
+            await RefreshConfigurations();
+            StateHasChanged();
+        });
+    }
+
+    private bool connecting;
+
+    [Inject]
+    public required IJSRuntime ConnectionRuntime { get; set; }
+
+    private async Task ConnectAsync()
+    {
+        if (connecting) return;
+        connecting = true;
+        try
+        {
+            if (!Connect()) return;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var loadMethod = triggerAccessorType.GetMethods().First(m => m.Name == "LoadAsync" && m.ReturnType == typeof(Task<TriggerConfigurationCollectionResponse>));
+            var response = await (Task<TriggerConfigurationCollectionResponse>)loadMethod.Invoke(triggerAccessor, [cancellation.Token])!;
+            ApplyConfigurations(response);
+            await SavedConnectionStorage.SaveAsync(ConnectionRuntime);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Connection failed. Check the server URL, dataset ID, API key, and its permissions. " + ex.GetBaseException().Message, Severity.Error);
+            triggerAccessor = null;
+        }
+        finally
+        {
+            connecting = false;
+        }
     }
 
     private bool Connect()
@@ -125,48 +144,60 @@ else if (configurations is not null)
                 .GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
                 .Single(c => c.GetParameters() is { Length: 4 } p && p[3].ParameterType == typeof(TimeSpan))
                 .Invoke([new Guid(StaticDatasetStorage.DatasetId), StaticDatasetStorage.ApiKey, StaticDatasetStorage.ServerUrl, TimeSpan.FromSeconds(30)]);
-
-            message = "Successfully initialized the TriggerAccessor.";
-            error = null;
             return true;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             return false;
         }
     }
 
-    private async Task ListAllConfigurations()
+    private async Task RefreshConfigurations()
     {
-        if (!Connect()) return;
+        if (loadingConfigurations || !Connect()) return;
+        loadingConfigurations = true;
         try
         {
             var loadMethod = triggerAccessorType.GetMethods().First(m => m.Name == "LoadAsync" && m.ReturnType == typeof(Task<TriggerConfigurationCollectionResponse>));
             Task<TriggerConfigurationCollectionResponse> responseTask = (Task<TriggerConfigurationCollectionResponse>)loadMethod.Invoke(triggerAccessor, [CancellationToken.None])!;
             TriggerConfigurationCollectionResponse response = await responseTask;
-            configurations = response.Configurations;
+            ApplyConfigurations(response);
 
-            message = "Successfully fetched all triggers for this dataset.";
-            error = null;
+            Snackbar.Add("Successfully fetched all triggers for this dataset.", Severity.Success);
             selectedConfiguration = null;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             triggerAccessor = null;
+        }
+        finally
+        {
+            loadingConfigurations = false;
         }
     }
 
+    private void ApplyConfigurations(TriggerConfigurationCollectionResponse response)
+    {
+        configurations = response.Configurations;
+        triggerRows = configurations
+            .OrderBy(configuration => int.TryParse(configuration.Group, out int rank) ? rank : int.MaxValue)
+            .Select(configuration => new ConfigurationListItem<TriggerConfiguration>(configuration, configuration.Name ?? "",
+                configuration.GetType().Name, configuration.Group ?? "", configuration.Description ?? "", configuration.Enabled))
+            .ToArray();
+        creatingNew = false;
+        selectedConfiguration = null;
+    }
     private async Task Edit(TriggerConfiguration configuration)
     {
+        creatingNew = false;
         selectedConfiguration = configuration;
     }
 
     private async Task Update()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {
@@ -176,15 +207,13 @@ else if (configurations is not null)
 
             object response = await responseTask;
 
-            await ListAllConfigurations();
-            message = "Successfully updated the trigger configuration.";
-            error = null;
+            await RefreshConfigurations();
+            Snackbar.Add("Successfully updated the trigger configuration.", Severity.Success);
             selectedConfiguration = null;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             triggerAccessor = null;
         }
     }
@@ -197,6 +226,7 @@ else if (configurations is not null)
 
     private async Task Create()
     {
+        if (!ValidateEditor()) return;
         if (!Connect()) return;
         try
         {
@@ -206,16 +236,14 @@ else if (configurations is not null)
 
             object response = await responseTask;
 
-            await ListAllConfigurations();
-            message = "Successfully created the trigger configuration.";
-            error = null;
+            await RefreshConfigurations();
+            Snackbar.Add("Successfully created the trigger configuration.", Severity.Success);
             selectedConfiguration = null;
             creatingNew = false;
         }
         catch (Exception ex)
         {
-            error = ex.Message;
-            message = null;
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
             triggerAccessor = null;
         }
     }

@@ -1,61 +1,18 @@
-@using KristofferStrube.Blazor.Popper
+@using MudBlazor
 
-&nbsp;<span class="round light" @ref=reference aria-describedby="tooltip" @onpointerover=Activate @onpointerout=Deactivate>@(Warning ? "!" : "?")</span>
-
-@if (active)
-{
-    <span style="width:0;height:0;overflow:hidden;display: inline-block;">
-        <span class="popper" @ref=tooltip role="tooltip">
-            @ChildContent
-        </span>
-    </span>
-}
+<MudTooltip Delay="0">
+    <TooltipContent>
+        <div style="max-width:min(484px,calc(100vw - 48px));white-space:normal;overflow-wrap:anywhere;text-align:left;">@ChildContent</div>
+    </TooltipContent>
+    <ChildContent>
+        &nbsp;<span class="round light">@(Warning ? "!" : "?")</span>
+    </ChildContent>
+</MudTooltip>
 
 @code {
-    private bool active;
-    private ElementReference reference;
-    private ElementReference tooltip;
-    private Instance instance;
-
-    [Inject]
-    public Popper Popper { get; set; }
-
     [Parameter]
     public RenderFragment ChildContent { get; set; }
 
     [Parameter]
     public bool Warning { get; set; } = false;
-
-    public async Task Activate()
-    {
-        if (!active)
-        {
-            active = true;
-
-            StateHasChanged();
-            await Task.Delay(1);
-
-            Options options = new()
-                {
-                    Placement = Placement.Bottom
-                };
-            if (instance is null)
-            {
-                instance = await Popper.CreatePopperAsync(reference, tooltip, options);
-            }
-        }
-    }
-
-    public async Task Deactivate()
-    {
-        if (active)
-        {
-            active = false;
-            if (instance is not null)
-            {
-                await instance.Destroy();
-                instance = null;
-            }
-        }
-    }
 }

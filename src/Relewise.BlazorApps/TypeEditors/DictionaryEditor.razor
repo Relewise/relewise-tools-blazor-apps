@@ -1,145 +1,280 @@
-﻿@typeparam TKey where TKey : notnull
+@typeparam TKey where TKey : notnull
 @typeparam TValue
+@using MudBlazor
+@using Relewise.BlazorApps.Components
+@using Relewise.BlazorApps.Shared
+@using Newtonsoft.Json
+@implements IDisposable
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
 
 @if (Value is null)
 {
-    @if (!ReadOnly)
-    {
-        <button class="btn btn-outline-success btn-sm" @onclick=Create>Create new Dictionary&lt;@Settings.Name(typeof(TKey)),@Settings.Name(typeof(TValue))&gt;</button>
-    }
+    <div class="dictionary-null @(ReadOnly ? null : "dictionary-editable")"
+         role="@(ReadOnly ? null : "button")" tabindex="@(ReadOnly ? -1 : 0)" aria-label="Create dictionary"
+         @onclick="Create" @onkeydown="CreateKeyDown">
+        <span class="dictionary-placeholder">&lt;NULL&gt;</span>
+        @if (!ReadOnly)
+        {
+            <span @onclick:stopPropagation="true" @onkeydown:stopPropagation="true">
+                <RButton Variant="Variant.Text" OnClick="Create">Create</RButton>
+            </span>
+        }
+    </div>
 }
 else
 {
-    <details class="box" open=@OpenDetails>
-        <summary>
-            <i>Dictionary&lt;@Settings.Name(typeof(TKey)),@Settings.Name(typeof(TValue))&gt; <small>with @Value.Count @(@Value.Count is 1 ? "entry" : "entries")</small></i>
-        </summary>
-        <div class="three-column-grid">
-            @foreach (var key in Value.Keys)
-            {
-                var localKey = key;
-                <div>
-                    @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TKey))) is { } keyEditor)
-                    {
-                        var keyParameters = new Dictionary<string, object>()
-                        {
-                            ["ReadOnly"] = ReadOnly,
-                            ["Value"] = localKey,
-                            ["Setter"] = (object? obj) =>
-                            {
-                                if (ReadOnly || obj is not TKey newKey || Value.Comparer.Equals(localKey, newKey) || Value.ContainsKey(newKey))
-                                {
-                                    StateHasChanged();
-                                    return;
-                                }
-
-                                Value.Add(newKey, Value[localKey]);
-                                Value.Remove(localKey);
-                                localKey = newKey;
-                                Setter(Value);
-                            }
-                        };
-                        if (keyEditor.EditorType(typeof(TKey)) == typeof(StringEditor))
-                        {
-                            keyParameters["AllowNull"] = false;
-                        }
-                        <ErrorBoundary>
-                            <ChildContent>
-                                <DynamicComponent Type="@keyEditor.EditorType(typeof(TKey))" Parameters="keyParameters" />
-                            </ChildContent>
-                            <ErrorContent>
-                                <code>Failed to initialize editor part for @Settings.Name(typeof(TKey))</code>
-                            </ErrorContent>
-                        </ErrorBoundary>
-                    }
-                    else
-                    {
-                        <span>Can't edit or show @Settings.Name(typeof(TKey))</span>
-                    }
-                </div>
-                @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue))) is { } valueEditor)
-                {
-                    var parameters = new Dictionary<string, object>() {
-                        ["ReadOnly"] = ReadOnly,
-                        ["OpenDetails"] = OpenDetails,
-                        ["Value"] = Value[localKey],
-                        ["Setter"] = (object? obj) => { Value[localKey] = (TValue)obj!; Setter(Value); },
-                        ["AncestorTypes"] = AncestorTypes
-                    };
-                    <ErrorBoundary>
-                        <ChildContent>
-                            <DynamicComponent Type="@valueEditor.EditorType(typeof(TValue))" Parameters="parameters" />
-                        </ChildContent>
-                        <ErrorContent>
-                            <code>Failed to initialize editor part for @Settings.Name(typeof(TValue))</code>
-                        </ErrorContent>
-                    </ErrorBoundary>
-                }
-                else
-                {
-                    <span>Can't edit or show @Settings.Name(typeof(TValue))</span>
-                }
+    <section class="dictionary-box" data-expanded="@(expanded ? "true" : "false")">
+        <header @onclick="ToggleExpanded">
+            <button class="dictionary-title" type="button" aria-expanded="@(expanded ? "true" : "false")"
+                    @onclick="ToggleExpanded" @onclick:stopPropagation="true">Dictionary · @Value.Count @(Value.Count == 1 ? "entry" : "entries")</button>
+            <span class="dictionary-actions" @onclick:stopPropagation="true">
+                <RIconButton Icon="@Icons.Material.Outlined.ContentCopy" ToolTip="Copy as JSON"
+                             aria-label="Copy dictionary as JSON" OnClick="Copy" />
                 @if (!ReadOnly)
                 {
-                    <button class="btn btn-sm btn-warning" style="padding-top:0;padding-bottom:0;" @onclick="() => Remove(localKey)">X</button>
+                    <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                 ToolTip="Remove dictionary" aria-label="Remove dictionary" OnClick="RemoveDictionary" />
                 }
-                else
+            </span>
+        </header>
+        @if (expanded)
+        {
+            <div class="dictionary-entries">
+                <div class="dictionary-row dictionary-column-labels"><span>Key</span><span>Value</span><span></span></div>
+                @foreach (var row in rows)
                 {
-                    <span></span>
+                    <div class="dictionary-row" @key="row">
+                        <div class="dictionary-key @(IsDuplicate(row) ? "dictionary-duplicate-key" : null)">
+                            @RenderKeyEditor(row)
+                        </div>
+                        <div class="dictionary-value">
+                            @RenderEditor(typeof(TValue), row.Value, value => UpdateValue(row, value))
+                        </div>
+                        @if (!ReadOnly)
+                        {
+                            <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                         ToolTip="Remove entry" aria-label="Remove entry" Disabled="@(!row.Committed && !row.Edited)"
+                                         OnClick="() => RemoveRow(row)" />
+                        }
+                        else
+                        {
+                            <span></span>
+                        }
+                    </div>
                 }
-            }
-            @if (!ReadOnly)
-            {
-                <button class="btn btn-outline-primary btn-sm" style="grid-column: span 3" @onclick=Add>+ Add new entry</button>
-            }
-        </div>
-    </details>
+            </div>
+        }
+    </section>
 }
+
 @code {
-    [Parameter]
-    public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool OpenDetails { get; set; }
+    [Parameter, EditorRequired] public required Dictionary<TKey, TValue>? Value { get; set; }
+    [Parameter, EditorRequired] public required Action<object?> Setter { get; set; }
+    [Parameter] public Type[] AncestorTypes { get; set; } = [];
+    [CascadingParameter] public EditorValidationState? Validation { get; set; }
 
-    [Parameter]
-    public bool OpenDetails { get; set; } = false;
-
-    [Parameter, EditorRequired]
-    public required Dictionary<TKey, TValue> Value { get; set; }
-
-    [Parameter, EditorRequired]
-    public required Action<object?> Setter { get; set; }
-
-    [Parameter]
-    public Type[] AncestorTypes { get; set; } = [];
-
-    public void Add()
+    private sealed class Entry
     {
-        TKey? newKey = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TKey))) is { } keyEditor
-            ? (TKey?)keyEditor.InitValue(typeof(TKey))
-            : default(TKey);
-        TValue? newValue = Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue))) is { } valueEditor
-            ? (TValue?)valueEditor.InitValue(typeof(TValue))
-            : default(TValue);
-        if (newKey is null || newValue is null || Value.ContainsKey(newKey)) return;
-        Value.Add(newKey, newValue);
+        public TKey Key { get; set; } = default!;
+        public TValue Value { get; set; } = default!;
+        public TKey CommittedKey { get; set; } = default!;
+        public bool KeyAssigned { get; set; }
+        public bool Committed { get; set; }
+        public bool Edited { get; set; }
+    }
+
+    private readonly List<Entry> rows = [];
+    private Dictionary<TKey, TValue>? trackedValue;
+    private bool expanded;
+    private bool? previousOpenDetails;
+    private bool? previousReadOnly;
+
+    protected override void OnParametersSet()
+    {
+        bool valueChanged = !previousOpenDetails.HasValue || !ReferenceEquals(Value, trackedValue);
+        if (valueChanged || previousReadOnly != ReadOnly)
+        {
+            trackedValue = Value;
+            rows.Clear();
+            if (Value is not null)
+                rows.AddRange(Value.Select(pair => new Entry { Key = pair.Key, CommittedKey = pair.Key,
+                    Value = pair.Value, KeyAssigned = true, Committed = true }));
+        }
+        if (valueChanged)
+            expanded = OpenDetails || (!ReadOnly && Value is { Count: 0 });
+        else if (previousOpenDetails != OpenDetails)
+            expanded = OpenDetails;
+        previousOpenDetails = OpenDetails;
+        previousReadOnly = ReadOnly;
+        EnsureBlankRow();
+        Validate();
+    }
+
+    private RenderFragment RenderKeyEditor(Entry row)
+    {
+        var type = typeof(TKey);
+        bool supportsNullableDraft = type.IsEnum || type == typeof(int) || type == typeof(double)
+            || type == typeof(decimal) || type == typeof(ushort) || type == typeof(byte);
+        if (!row.KeyAssigned && supportsNullableDraft)
+            type = typeof(Nullable<>).MakeGenericType(type);
+        object? value = !row.KeyAssigned && (supportsNullableDraft || !type.IsValueType || type == typeof(Guid))
+            ? null : row.Key;
+        return RenderEditor(type, value, key => UpdateKey(row, key), protectKey: true);
+    }
+
+    private RenderFragment RenderEditor(Type type, object? value, Action<object?> setter, bool protectKey = false) => @<ErrorBoundary>
+        <ChildContent>
+            @if (Settings.Editors.FirstOrDefault(editor => editor.CanHandle(type)) is { } editor)
+            {
+                var parameters = Settings.WithNumericNullability(new Dictionary<string, object>
+                {
+                    ["ReadOnly"] = ReadOnly, ["OpenDetails"] = OpenDetails, ["Value"] = value!,
+                    ["Setter"] = setter, ["AncestorTypes"] = AncestorTypes
+                }, type);
+                if (protectKey && editor.EditorType(type) == typeof(StringEditor))
+                    parameters["AllowNull"] = false;
+                <DynamicComponent Type="@editor.EditorType(type)" Parameters="parameters" />
+            }
+            else
+            {
+                <span>Can't edit or show @Settings.Name(type)</span>
+            }
+        </ChildContent>
+        <ErrorContent>
+            <code>Failed to initialize editor part for @Settings.Name(type)</code>
+        </ErrorContent>
+    </ErrorBoundary>;
+
+    private bool IsDuplicate(Entry row) => Value is not null && row.KeyAssigned
+        && (rows.Any(other => other != row && other.KeyAssigned && Value.Comparer.Equals(other.Key, row.Key))
+            || (Value.ContainsKey(row.Key) && (!row.Committed || !Value.Comparer.Equals(row.CommittedKey, row.Key))));
+
+    private void EnsureBlankRow()
+    {
+        if (ReadOnly || Value is null || rows.Any(row => !row.Committed || !row.KeyAssigned || IsDuplicate(row))) return;
+        rows.Add(new Entry
+        {
+            Key = (TKey?)Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TKey)))?.InitValue(typeof(TKey))!,
+            Value = (TValue?)Settings.Editors.FirstOrDefault(editor => editor.CanHandle(typeof(TValue)))?.InitValue(typeof(TValue))!
+        });
+    }
+
+    private void Validate()
+    {
+        var invalid = !ReadOnly && Value is not null && rows.Any(row => row.Edited && (!row.KeyAssigned || IsDuplicate(row)));
+        Validation?.SetError(this, invalid ? "Complete the dictionary entries and resolve duplicate keys before executing." : null);
+    }
+
+    private void UpdateKey(Entry row, object? key)
+    {
+        if (ReadOnly || Value is null) return;
+        if (row.Committed && (key is not TKey newKey || Value.Comparer.Equals(row.Key, newKey)))
+        {
+            StateHasChanged();
+            return;
+        }
+        row.KeyAssigned = key is TKey;
+        row.Key = key is TKey typedKey ? typedKey : default!;
+        row.Edited = true;
+        Commit(row);
+    }
+
+    private void UpdateValue(Entry row, object? value)
+    {
+        if (ReadOnly || Value is null) return;
+        row.Value = (TValue)value!;
+        row.Edited = true;
+        Commit(row);
+    }
+
+    private void Commit(Entry row)
+    {
+        if (Value is null) return;
+        if (!row.KeyAssigned || IsDuplicate(row))
+        {
+            Validate();
+            StateHasChanged();
+            return;
+        }
+        if (row.Committed && !Value.Comparer.Equals(row.CommittedKey, row.Key))
+            Value.Remove(row.CommittedKey);
+        Value[row.Key] = row.Value;
+        row.CommittedKey = row.Key;
+        row.Committed = true;
+        EnsureBlankRow();
+        Validate();
         Setter(Value);
+        StateHasChanged();
     }
 
     public void Create()
     {
-        Value = Activator.CreateInstance<Dictionary<TKey, TValue>>();
+        if (ReadOnly || Value is not null) return;
+        Value = new();
+        trackedValue = Value;
+        rows.Clear();
+        expanded = true;
+        EnsureBlankRow();
+        Validate();
+        Setter(Value);
+    }
+
+    public void Add()
+    {
+        if (ReadOnly || Value is null) return;
+        expanded = true;
+        EnsureBlankRow();
+    }
+
+    private void CreateKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ") Create();
+    }
+
+    private void ToggleExpanded() => expanded = !expanded;
+
+    private void RemoveRow(Entry row)
+    {
+        if (ReadOnly || Value is null) return;
+        if (row.Committed) Value.Remove(row.CommittedKey);
+        rows.Remove(row);
+        EnsureBlankRow();
+        Validate();
         Setter(Value);
     }
 
     public void Remove(TKey key)
     {
-        if (typeof(TValue) == typeof(DataValue))
-        {
-            Value[key] = default;
-        }
-        else
-        {
-            Value.Remove(key);
-        }
-        Setter(Value);
+        if (ReadOnly || Value is null) return;
+        if (rows.FirstOrDefault(row => row.Committed && Value.Comparer.Equals(row.CommittedKey, key)) is { } row)
+            RemoveRow(row);
     }
+
+    private void RemoveDictionary()
+    {
+        if (ReadOnly) return;
+        Value = null;
+        trackedValue = null;
+        rows.Clear();
+        Validate();
+        Setter(null);
+    }
+
+    private async Task Copy()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(Value, Formatting.Indented));
+            Snackbar.Add("Copied dictionary as JSON.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+
+    public void Dispose() => Validation?.SetError(this, null);
 }

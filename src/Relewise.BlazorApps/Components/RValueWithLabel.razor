@@ -1,0 +1,12 @@
+﻿@typeparam T
+<span>
+    <strong>@Value</strong> @Label
+</span>
+
+@code {
+
+    [Parameter] [EditorRequired] public required T Value { get; set; }
+
+    [Parameter] [EditorRequired] public required string Label { get; set; }
+
+}

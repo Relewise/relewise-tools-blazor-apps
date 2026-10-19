@@ -1,4 +1,6 @@
-﻿@page "/RequestExplorer"
+@using Relewise.BlazorApps.Components
+@page "/RequestExplorer"
+@using MudBlazor
 @using Relewise.BlazorApps.TypeEditors
 @using System.Reflection
 @using System.Diagnostics
@@ -12,90 +14,148 @@
 
 <PageTitle>Blazor Relewise - Request Explorer</PageTitle>
 
-<h1>Request Explorer</h1>
-<p>Here you can paste a request (or a merchandising rule) and get a view of the associated object.</p>
-
-@if (error is not null)
-{
-    <code>@error</code>
-    <br />
-    <br />
-}
-else if (message is not null)
-{
-    <span style="color:green;">@message</span>
-    <br />
-    <br />
-}
-<textarea class="form-control" style="height:150px;width:100%;" @bind=input></textarea>
-<br />
-
-<button class="btn btn-success" @onclick="() => TryParse()">Try Parse</button> <i> - or - </i>
-<button class="btn btn-success" @onclick="() => ParseAsSelectedType()">Parse as specific type</button>
-<select @onchange=TypeDropdownChanged>
-    @foreach (Type type in derivedTypes)
+<div class="explorer-heading">
+    <h1>Request Explorer</h1>
+    @if (isRunning)
     {
-        if (type == selectedParseType)
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" aria-label="Running request" />
+    }
+    <div class="request-layout-choice">
+        <RSelect T="bool" Label="Request / result layout" Value="sideBySide" Items="new[] { false, true }"
+                 ToStringFunc="ResultLayoutName" ValueChanged="SetResultLayout" />
+    </div>
+</div>
+
+<details class="request-source-section" open="@sourceExpanded">
+    <summary @onclick="() => sourceExpanded = !sourceExpanded" @onclick:preventDefault="true">
+        <div class="request-source-headings">
+            <span class="request-source-toggle">Request JSON</span>
+            @if (sourceExpanded)
+            {
+                <span>Recent Requests</span>
+            }
+        </div>
+    </summary>
+<div class="request-input-layout">
+    <div class="request-column">
+    <MudPaper Outlined="true" Elevation="0" Class="request-panel request-json pa-3">
+        <MudTextField T="string" aria-label="Request JSON" @bind-Value="input" Lines="12" FullWidth="true" Immediate="true"
+                      Variant="Variant.Text" Underline="false" Margin="Margin.None" MaxLength="524288" Class="request-json-input" />
+    </MudPaper>
+    </div>
+    <div class="request-column">
+    <MudPaper Outlined="true" Elevation="0" Class="request-panel request-history pa-3">
+        <div class="request-history-content">
+        @if (requestHistory.Count == 0)
         {
-            <option value="@type.Name" selected>@type.Name</option>
+            <MudText Typo="Typo.body2" Class="mt-2">Parsed and edited requests will appear here.</MudText>
         }
         else
         {
-            <option value="@type.Name">@type.Name</option>
+            <ol class="request-history-list">
+                @foreach (var entry in requestHistory)
+                {
+                    <li>
+                        <button type="button" class="request-history-entry" disabled="@isRunning" @onclick="() => RestoreHistoryEntry(entry)">
+                            <strong>@entry.Title</strong>
+                            <span class="request-history-preview">@entry.Preview</span>
+                        </button>
+                    </li>
+                }
+            </ol>
         }
-    }
-</select>
-
-<br />
-<br />
-
-<div style="display:flex;flex-direction:column;grid-gap:5px;">
-    @if (hasLastRequestBeenSavedPreviously)
-    {
-        <div>
-            <button @onclick="RetrieveFromLocalStorage" class="btn btn-primary btn-sm">Recall last edited request</button>
         </div>
-    }
-    @if (Recommendations.RecommendationGroupings.SelectMany(g => g.Value).Contains(inputObject?.GetType()))
-    {
-        <div>
-            <button class="btn btn-primary btn-sm" @onclick="() => TransferToRecommendationsPage()">Transfer to Recommendations page</button>
-        </div>
-    }
-    @if (Searches.SearchRequestGroupings.SelectMany(g => g.Value).Contains(inputObject?.GetType()))
-    {
-        <div>
-            <button class="btn btn-primary btn-sm" @onclick="() => TransferToSearchesPage()">Transfer to Searches page</button>
-        </div>
-    }
-    @if (merchandisingRules.Contains(inputObject?.GetType()))
-    {
-        <div>
-            <button class="btn btn-primary btn-sm" @onclick="() => TransferToMerchandisingRulesPage()">Transfer to Merchandising Rules page</button>
-        </div>
-    }
+    </MudPaper>
+    </div>
 </div>
+
+<div class="request-actions">
+    <RButton OnClick="Submit" Size="Size.Medium" Disabled="isRunning">Run request</RButton>
+    <RButton OnClick="Troubleshoot" Size="Size.Medium" Variant="Variant.Outlined" Disabled="isRunning">Troubleshoot</RButton>
+</div>
+</details>
+
+<MudDialog @bind-Visible="parseTypeDialogVisible" Options="parseTypeDialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Choose request type</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Class="mb-4">We couldn't determine the request type. Choose one to parse the JSON.</MudText>
+        <RSelect T="Type" Label="Request type" Value="selectedParseType" Items="derivedTypes"
+                 ToStringFunc="type => type.Name" ValueChanged="ParseAsSelectedType" />
+        @if (parseTypeError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" role="alert">@parseTypeError</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <RButton Variant="Variant.Text" OnClick="CancelTypeSelection">Cancel</RButton>
+    </DialogActions>
+</MudDialog>
 
 @if (inputObject is not null)
 {
-    <label for="readonly">Disable edit: </label>
-    <input id="readonly" type="checkbox" @bind=readOnly @bind:event="oninput" />
-    <br />
-    <label for="hideDefaultValueProperties">Hide default values: </label>
-    <input id="hideDefaultValueProperties" type="checkbox" @bind=hideDefaultValueProperties @bind:event="oninput" />
-    <br />
-    <label for="openDetails">Expand all: </label>
-    <input id="openDetails" type="checkbox" @bind=openDetails @bind:event="oninput" />
-    <br />
-    <ObjectEditor OverridenHideDefaultValueProperties=hideDefaultValueProperties
-                  OpenDetails=openDetails
-                  SingleLevelOpenDetails=true
-                  ReadOnly=readOnly
-                  T=LicensedRequest
-                  ShowModelShareLink=@(Models.ConcreteTypes.Contains(inputObject?.GetType()))
-                  Value="inputObject"
-                  Setter="(Object? obj) => { inputObject = (LicensedRequest?)obj; SaveInLocalStorage(JSRuntime, obj); StateHasChanged(); }" />
-    <br />
-    <Troubleshooter Request="inputObject" />
-    <br />
+    @if (inputObject is SearchRequest || recommendationRequestTypes.Contains(inputObject.GetType()))
+    {
+        @if (StaticDatasetStorage.ParentOrigin is null && !SavedConnectionStorage.HasSavedConfiguration)
+        {
+            <ConnectionCredentials>
+                <PermissionsNote>
+                    @if (showTroubleshooter)
+                    {
+                        <span>Troubleshooting needs Searcher, DataAccessor, Search Administrator, and merchandising rule read permissions.</span>
+                    }
+                </PermissionsNote>
+            </ConnectionCredentials>
+        }
+        @if (searcher is null && recommender is null)
+        {
+            <div class="mb-2">
+                <RButton OnClick="ConnectToDataset" Disabled="isRunning">Connect</RButton>
+            </div>
+        }
+    }
+    @if (requestConnectionError is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-3" role="alert">@requestConnectionError</MudAlert>
+    }
+    <MudPaper Outlined="true" Elevation="0" Class="pa-4">
+        @if (inputObject is SearchRequest searchRequest)
+        {
+            <SearchConstructor @key="inputObject" Request="searchRequest" RequestType="inputObject.GetType()"
+                               Searcher="searcher" Connect="() => searcher is not null" State="searchState"
+                               OpenDetails="true" ShowHeader="false" AutoPost="executeAfterParsing" ShowPostButton="true" PostButtonText="Re-run Request"
+                               SideBySide="sideBySide" Busy="isRunning"
+                               ActionsInHeader="true"
+                               PostingChanged="ExecutionChanged" RequestChanged="saveRequestWithoutRendering"
+                               ResultContent="@(showTroubleshooter ? TroubleshootingContent : null)">
+                <RequestActions>
+                    @if (inputObject is ProductSearchRequest)
+                    {
+                        <RButton OnClick="TroubleshootAgain" Size="Size.Medium" Variant="Variant.Outlined" Disabled="isRunning">Troubleshoot again</RButton>
+                    }
+                </RequestActions>
+            </SearchConstructor>
+        }
+        else if (inputObject is LicensedRequest recommendation && recommendationRequestTypes.Contains(inputObject.GetType()))
+        {
+            <RecommendationConstructor @key="inputObject" Request="recommendation" RequestType="inputObject.GetType()"
+                                       Recommender="recommender!" Connect="() => recommender is not null" State="recommendationState"
+                                       OpenDetails="true" ShowHeader="false" AutoPost="executeAfterParsing" ShowPostButton="true" PostButtonText="Re-run Request"
+                                       SideBySide="sideBySide"
+                                       ActionsInHeader="true"
+                                       PostingChanged="ExecutionChanged" RequestChanged="saveRequestWithoutRendering" />
+        }
+        else
+        {
+            <ObjectEditor OpenDetails="true" SingleLevelOpenDetails="true" T="object" AllowedDerivedTypes="new[] { inputObject.GetType() }"
+                          ShowModelShareLink="@(Models.ConcreteTypes.Contains(inputObject.GetType()))"
+                          Value="inputObject" Setter="SaveEditedRequest" />
+        }
+    </MudPaper>
+}
+
+@code {
+    private RenderFragment TroubleshootingContent => @<Troubleshooter @key="diagnosticsVersion" Request="inputObject!"
+        AutoRun="true" Stale="diagnosticsStale" RunningChanged="DiagnosticsRunningChanged" />;
 }

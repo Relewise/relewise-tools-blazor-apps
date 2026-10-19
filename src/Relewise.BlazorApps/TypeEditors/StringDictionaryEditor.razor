@@ -1,0 +1,234 @@
+@using MudBlazor
+@using Relewise.BlazorApps.Components
+@using Relewise.BlazorApps.Shared
+@using Newtonsoft.Json
+@using Microsoft.JSInterop
+@implements IDisposable
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+@if (Value is null)
+{
+    <div class="dictionary-null @(ReadOnly ? null : "dictionary-editable")"
+         tabindex="@(ReadOnly ? -1 : 0)" aria-label="Create dictionary"
+         @onclick="Create" @onclick:preventDefault="true" @onclick:stopPropagation="true" @onkeydown="CreateKeyDown">
+        <span class="dictionary-placeholder">&lt;NULL&gt;</span>
+        @if (!ReadOnly)
+        {
+            <RButton Variant="Variant.Text" OnClick="Create">Create</RButton>
+        }
+    </div>
+}
+else
+{
+    <section class="dictionary-box" data-expanded="@(expanded ? "true" : "false")">
+        <header @onclick="ToggleExpanded">
+            <button class="dictionary-title" type="button" aria-expanded="@(expanded ? "true" : "false")"
+                    @onclick="ToggleExpanded" @onclick:stopPropagation="true">Dictionary · @Value.Count @(Value.Count == 1 ? "entry" : "entries")</button>
+            <span class="dictionary-actions" @onclick:stopPropagation="true" @onclick:preventDefault="true">
+                <RIconButton Icon="@Icons.Material.Outlined.ContentCopy" ToolTip="Copy as JSON"
+                             aria-label="Copy dictionary as JSON" OnClick="Copy" />
+                @if (!ReadOnly)
+                {
+                    <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                 ToolTip="Remove dictionary" aria-label="Remove dictionary" OnClick="RemoveDictionary" />
+                }
+            </span>
+        </header>
+        @if (expanded)
+        {
+        <div class="dictionary-entries">
+            <div class="dictionary-row dictionary-column-labels"><span>Key</span><span>Value</span><span></span></div>
+            @foreach (var row in rows)
+            {
+                <div class="dictionary-row" @key="row">
+                    <RTextField @ref="row.KeyField" Value="@row.Key" ValueChanged="key => Update(row, key, row.Value)"
+                                Placeholder="<NULL>" FullWidth="true" Immediate="true" Clearable="@(!ReadOnly)"
+                                ReadOnly="ReadOnly" Disabled="ReadOnly" AutoFocus="@(focusFirst && row == rows[0])"
+                                Class="@(IsDuplicate(row) ? "dictionary-duplicate-key" : null)" TestId="dictionary-key" />
+                    <RTextField Value="@row.Value" ValueChanged="value => Update(row, row.Key, value)"
+                                Placeholder="<NULL>" FullWidth="true" Immediate="true" Clearable="@(!ReadOnly)"
+                                ReadOnly="ReadOnly" Disabled="ReadOnly" TestId="dictionary-value" />
+                    @if (!ReadOnly)
+                    {
+                        <RIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Variant="Variant.Outlined"
+                                     ToolTip="Remove entry" aria-label="Remove entry" Disabled="@IsBlank(row)"
+                                     OnClick="() => RemoveRow(row)" />
+                    }
+                    else
+                    {
+                        <span></span>
+                    }
+                </div>
+            }
+        </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool OpenDetails { get; set; }
+    [Parameter, EditorRequired] public required Dictionary<string, string>? Value { get; set; }
+    [Parameter, EditorRequired] public required Action<object?> Setter { get; set; }
+    [Parameter] public Type[] AncestorTypes { get; set; } = [];
+    [CascadingParameter] public EditorValidationState? Validation { get; set; }
+
+    private sealed class Entry
+    {
+        public string? Key { get; set; }
+        public string? Value { get; set; }
+        public bool Edited { get; set; }
+        public RTextField? KeyField { get; set; }
+    }
+
+    private readonly List<Entry> rows = [];
+    private Dictionary<string, string>? trackedValue;
+    private bool expanded;
+    private bool? previousOpenDetails;
+    private bool focusFirst;
+
+    protected override void OnParametersSet()
+    {
+        if (!previousOpenDetails.HasValue || !ReferenceEquals(Value, trackedValue))
+        {
+            trackedValue = Value;
+            rows.Clear();
+            if (Value is not null)
+                rows.AddRange(Value.Select(pair => new Entry { Key = pair.Key, Value = pair.Value }));
+            expanded = OpenDetails;
+        }
+        else if (previousOpenDetails != OpenDetails)
+            expanded = OpenDetails;
+        previousOpenDetails = OpenDetails;
+        EnsureBlankRow();
+        Validate();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!focusFirst) return;
+        focusFirst = false;
+        if (rows.FirstOrDefault()?.KeyField is { } field)
+            await field.SetFocusAsync();
+    }
+
+    private static bool IsBlank(Entry row) => row.Edited && string.IsNullOrEmpty(row.Key) && string.IsNullOrEmpty(row.Value);
+    private static bool IsComplete(Entry row) => !string.IsNullOrEmpty(row.Key) && !string.IsNullOrEmpty(row.Value);
+
+    private string? KeyError(Entry row)
+    {
+        if (IsBlank(row) || !row.Edited) return null;
+        if (string.IsNullOrEmpty(row.Key)) return "Enter a key to complete this entry.";
+        return IsDuplicate(row) ? "This key is already used." : null;
+    }
+
+    private bool IsDuplicate(Entry row) => !string.IsNullOrEmpty(row.Key)
+        && rows.Any(other => other != row && !string.IsNullOrEmpty(other.Key)
+            && Value!.Comparer.Equals(other.Key, row.Key));
+
+    private static string? ValueError(Entry row) => row.Edited && !IsBlank(row) && string.IsNullOrEmpty(row.Value)
+        ? "Enter a value to complete this entry." : null;
+
+    private void EnsureBlankRow(Entry? activeRow = null)
+    {
+        if (ReadOnly || Value is null) return;
+        var blanks = rows.Where(IsBlank).ToList();
+        if (blanks.Count > 0)
+        {
+            var keep = activeRow is not null && IsBlank(activeRow) ? activeRow : blanks[0];
+            rows.RemoveAll(row => IsBlank(row) && row != keep);
+            if (rows[^1] != keep)
+            {
+                rows.Remove(keep);
+                rows.Add(keep);
+            }
+        }
+        if (Value is not null && !ReadOnly && !rows.Any(IsBlank)
+            && !rows.Any(row => row.Edited && !IsComplete(row)))
+            rows.Add(new Entry { Edited = true });
+    }
+
+    private void Validate()
+    {
+        bool invalid = Value is not null && !ReadOnly && rows.Any(row => KeyError(row) is not null || ValueError(row) is not null);
+        Validation?.SetError(this, invalid ? "Complete the dictionary entries and resolve duplicate keys before saving or executing." : null);
+    }
+
+    private void Update(Entry row, string? key, string? value)
+    {
+        if (ReadOnly || Value is null) return;
+        row.Key = key;
+        row.Value = value;
+        row.Edited = true;
+        Commit(row);
+    }
+
+    private void Commit(Entry? activeRow = null)
+    {
+        if (Value is null) return;
+        if (rows.Any(row => KeyError(row) is not null || ValueError(row) is not null))
+        {
+            Validate();
+            return;
+        }
+        Value.Clear();
+        foreach (var row in rows.Where(row => !row.Edited || IsComplete(row)))
+            Value.TryAdd(row.Key!, row.Value!);
+        EnsureBlankRow(activeRow);
+        Validate();
+        Setter(Value);
+    }
+
+    private void Create()
+    {
+        if (ReadOnly || Value is not null) return;
+        Value = new();
+        trackedValue = Value;
+        rows.Clear();
+        expanded = true;
+        focusFirst = true;
+        EnsureBlankRow();
+        Validate();
+        Setter(Value);
+    }
+
+    private void CreateKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ") Create();
+    }
+
+    private void ToggleExpanded() => expanded = !expanded;
+
+    private void RemoveRow(Entry row)
+    {
+        if (ReadOnly) return;
+        rows.Remove(row);
+        Commit();
+    }
+
+    private void RemoveDictionary()
+    {
+        if (ReadOnly) return;
+        Value = null;
+        trackedValue = null;
+        rows.Clear();
+        Validate();
+        Setter(null);
+    }
+
+    private async Task Copy()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", JsonConvert.SerializeObject(Value, Formatting.Indented));
+            Snackbar.Add("Copied dictionary as JSON.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.GetBaseException().Message, Severity.Error);
+        }
+    }
+
+    public void Dispose() => Validation?.SetError(this, null);
+}

@@ -2,6 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using MudBlazor.Services;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Relewise.BlazorApps.TypeEditors;
@@ -19,15 +20,15 @@ public class RequestCustomOptionsTests
     [TestMethod]
     [DataRow(typeof(ProductSearchRequest))]
     [DataRow(typeof(PopularProductsRequest))]
-    public void CheckboxCreatesFlagAndRemovesOnlyThatEntry(Type requestType)
+    public async Task CheckboxCreatesFlagAndRemovesOnlyThatEntry(Type requestType)
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var request = (LicensedRequest)JsonConvert.DeserializeObject("{}", requestType)!;
         object? updated = null;
         var component = RenderRequest(context, request, value => updated = value);
 
-        Assert.IsFalse(component.Find(".disable-merchandising").HasAttribute("checked"));
-        component.Find(".disable-merchandising").Change(true);
+        Assert.IsFalse(component.Find(".disable-merchandising input").HasAttribute("checked"));
+        component.Find(".disable-merchandising input").Change(true);
 
         Assert.AreSame(request, updated);
         Assert.AreEqual("true", request.Custom["Debug_DisableMerchandising"]);
@@ -35,11 +36,11 @@ public class RequestCustomOptionsTests
         Assert.AreEqual(JTokenType.String, serialized["Custom"]!["Debug_DisableMerchandising"]!.Type);
         request.Custom["Other"] = "preserved";
 
-        component.Find(".disable-merchandising").Change(false);
+        component.Find(".disable-merchandising input").Change(false);
 
         Assert.IsFalse(request.Custom.ContainsKey("Debug_DisableMerchandising"));
         Assert.AreEqual("preserved", request.Custom["Other"]);
-        Assert.IsFalse(component.Find(".disable-merchandising").HasAttribute("checked"));
+        Assert.IsFalse(component.Find(".disable-merchandising input").HasAttribute("checked"));
     }
 
     [TestMethod]
@@ -48,50 +49,50 @@ public class RequestCustomOptionsTests
     [DataRow("TRUE", false)]
     public async Task CheckboxReflectsLoadedFlagAndManualDictionaryEdits(string initialValue, bool expectedChecked)
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var request = JsonConvert.DeserializeObject<ProductSearchRequest>("{}")!;
         request.Custom = new() { ["Debug_DisableMerchandising"] = initialValue };
         var component = RenderRequest(context, request, _ => { });
 
-        Assert.AreEqual(expectedChecked, component.Find(".disable-merchandising").HasAttribute("checked"));
+        Assert.AreEqual(expectedChecked, component.Find(".disable-merchandising input").HasAttribute("checked"));
 
         string updatedValue = expectedChecked ? "false" : "true";
-        component.Find($".request-custom-value input[value='{initialValue}']").Input(updatedValue);
-        // Request constructors refresh the parent after the editor's Setter callback.
-        await component.InvokeAsync(() => component.Instance.SetParametersAsync(ParameterView.Empty));
+        component.FindComponent<StringDictionaryEditor>().Find(".dictionary-title").Click();
+        component.FindAll("input[data-testid='dictionary-value']")[0].Input(updatedValue);
 
         Assert.AreEqual(updatedValue, request.Custom["Debug_DisableMerchandising"]);
-        Assert.AreEqual(!expectedChecked, component.Find(".disable-merchandising").HasAttribute("checked"));
+        Assert.AreEqual(!expectedChecked, component.Find(".disable-merchandising input").HasAttribute("checked"));
     }
 
     [TestMethod]
-    public void ReadOnlyRequestShowsDisabledCheckboxWithoutChangingCustom()
+    public async Task ReadOnlyRequestShowsDisabledCheckboxWithoutChangingCustom()
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var request = JsonConvert.DeserializeObject<ProductSearchRequest>("{}")!;
         request.Custom = new() { ["Debug_DisableMerchandising"] = "true", ["Other"] = "preserved" };
         string before = JsonConvert.SerializeObject(request);
         var component = RenderRequest(context, request, _ => Assert.Fail("Read-only request invoked setter."), readOnly: true);
 
-        Assert.IsTrue(component.Find(".disable-merchandising").HasAttribute("disabled"));
-        Assert.IsTrue(component.Find(".disable-merchandising").HasAttribute("checked"));
+        Assert.IsTrue(component.Find(".disable-merchandising input").HasAttribute("disabled"));
+        Assert.IsTrue(component.Find(".disable-merchandising input").HasAttribute("checked"));
         Assert.AreEqual(before, JsonConvert.SerializeObject(request));
     }
 
     [TestMethod]
-    public void QueryCustomDoesNotOfferMerchandisingCheckbox()
+    public async Task QueryCustomDoesNotOfferMerchandisingCheckbox()
     {
-        using var context = CreateContext();
+        await using var context = CreateContext();
         var request = JsonConvert.DeserializeObject<ProductQuery>("{}")!;
         var component = RenderRequest(context, request, _ => { });
 
         Assert.HasCount(0, component.FindAll(".disable-merchandising"));
-        Assert.IsNotNull(component.FindComponent<DictionaryEditor<string, string>>());
+        Assert.IsNotNull(component.FindComponent<StringDictionaryEditor>());
     }
 
     private static BunitContext CreateContext()
     {
         var context = new BunitContext();
+        context.Services.AddMudServices();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.ComponentFactories.AddStub<Shared.Info>();
         context.Services.AddSingleton(DocumentationCacheTests.CreateClient(request => Task.FromResult(DocumentationCacheTests.Response(request))));
@@ -106,7 +107,7 @@ public class RequestCustomOptionsTests
             .Add(p => p.Setter, setter)
             .Add(p => p.SingleLevelOpenDetails, true)
             .Add(p => p.ReadOnly, readOnly));
-        component.WaitForAssertion(() => Assert.IsTrue(component.FindAll(".two-column-grid").Count > 0));
+        component.WaitForAssertion(() => Assert.IsTrue(component.FindAll(".object-properties").Count > 0));
         return component;
     }
 }
