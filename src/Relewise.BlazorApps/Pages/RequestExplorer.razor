@@ -75,14 +75,14 @@
 </div>
 </details>
 
-<MudDialog @bind-Visible="parseTypeDialogVisible" Options="parseTypeDialogOptions">
+<MudDialog @bind-Visible="parseTypeDialogVisible" Options="parseTypeDialogOptions" DefaultFocus="DefaultFocus.FirstChild">
     <TitleContent>
         <MudText Typo="Typo.h6">Choose request type</MudText>
     </TitleContent>
     <DialogContent>
         <MudText Class="mb-4">We couldn't determine the request type. Choose one to parse the JSON.</MudText>
-        <RSelect T="Type" Label="Request type" Value="selectedParseType" Items="derivedTypes"
-                 ToStringFunc="type => type.Name" ValueChanged="ParseAsSelectedType" />
+        <RAutocomplete T="Type" Label="Request type" Value="selectedParseType" Search="SearchParseTypes"
+                       ToStringFunc="type => type?.Name" CoerceValue="false" ValueChanged="ParseAsSelectedType" />
         @if (parseTypeError is not null)
         {
             <MudAlert Severity="Severity.Error" Class="mt-3" role="alert">@parseTypeError</MudAlert>

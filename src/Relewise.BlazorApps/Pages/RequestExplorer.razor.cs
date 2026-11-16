@@ -433,8 +433,15 @@ namespace Relewise.BlazorApps.Pages
             parseTypeDialogVisible = false;
             sourceExpanded = true;
         }
-        private void ParseAsSelectedType(Type type)
+        private Task<IEnumerable<Type>> SearchParseTypes(string text, CancellationToken cancellationToken)
         {
+            return Task.FromResult(derivedTypes.Where(type => string.IsNullOrWhiteSpace(text)
+                || type.Name.Contains(text.Trim(), StringComparison.OrdinalIgnoreCase)));
+        }
+
+        private void ParseAsSelectedType(Type? type)
+        {
+            if (type is null) return;
             selectedParseType = type;
             parseTypeError = null;
             try
