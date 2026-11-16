@@ -52,7 +52,7 @@ public class RequestEditHistoryTests
         var page = context.Render<RequestExplorer>();
         await page.Find("textarea").InputAsync(new() { Value = "{\"$type\":\"Unknown.Request, Unknown\",\"Term\":\"Synthetic\",\"Take\":10}" });
         await page.FindAll("button").Single(button => button.TextContent.Trim() == "Run request").ClickAsync(new());
-        dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RSelect<Type>>()));
+        dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RAutocomplete<Type>>()));
         Assert.HasCount(0, RequestEditHistory.Load(runtime));
     }
 
@@ -107,9 +107,9 @@ public class RequestEditHistoryTests
 
         if (needsTypeSelection)
         {
-            dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RSelect<Type>>()));
+            dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RAutocomplete<Type>>()));
             Assert.HasCount(0, RequestEditHistory.Load(runtime));
-            var selector = dialogs.FindComponent<RSelect<Type>>();
+            var selector = dialogs.FindComponent<RAutocomplete<Type>>();
             await selector.InvokeAsync(() => selector.Instance.ValueChanged.InvokeAsync(typeof(ProductSearchRequest)));
         }
 
@@ -229,9 +229,9 @@ public class RequestEditHistoryTests
         await page.Find("textarea").InputAsync(new() { Value = "{}" });
         await page.FindAll("button").Single(b => b.TextContent.Trim() == "Run request").ClickAsync(new());
         Assert.HasCount(0, page.FindAll("[data-testid=troubleshooter]"));
-        dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RSelect<Type>>()));
+        dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RAutocomplete<Type>>()));
         Assert.HasCount(1, RequestEditHistory.Load(runtime));
-        var selector = dialogs.FindComponent<RSelect<Type>>();
+        var selector = dialogs.FindComponent<RAutocomplete<Type>>();
         await selector.InvokeAsync(() => selector.Instance.ValueChanged.InvokeAsync(typeof(ProductSearchRequest)));
         Assert.HasCount(2, page.FindAll(".request-history-entry"));
 
@@ -266,8 +266,8 @@ public class RequestEditHistoryTests
         var page = context.Render<RequestExplorer>();
         await page.Find("textarea").InputAsync(new() { Value = "{\"$type\":\"Unknown.Request, Unknown\",\"Term\":[]}" });
         await page.FindAll("button").Single(b => b.TextContent.Trim() == "Run request").ClickAsync(new());
-        dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RSelect<Type>>()));
-        var selector = dialogs.FindComponent<RSelect<Type>>();
+        dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RAutocomplete<Type>>()));
+        var selector = dialogs.FindComponent<RAutocomplete<Type>>();
         await selector.InvokeAsync(() => selector.Instance.ValueChanged.InvokeAsync(typeof(ProductSearchRequest)));
         Assert.HasCount(1, dialogs.FindAll("[role=alert]"));
         Assert.HasCount(0, RequestEditHistory.Load(runtime));
@@ -290,7 +290,7 @@ public class RequestEditHistoryTests
         var page = context.Render<RequestExplorer>();
         await page.Find("textarea").InputAsync(new() { Value = "{}" });
         await page.FindAll("button").Single(b => b.TextContent.Trim() == "Run request").ClickAsync(new());
-        dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RSelect<Type>>()));
+        dialogs.WaitForAssertion(() => Assert.HasCount(1, dialogs.FindComponents<RAutocomplete<Type>>()));
         await dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Cancel").ClickAsync(new());
         Assert.HasCount(0, RequestEditHistory.Load(runtime));
         dialogs.WaitForAssertion(() => Assert.HasCount(0, dialogs.FindAll("[role=dialog]")));
