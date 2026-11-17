@@ -36,6 +36,15 @@ jobs:
         run: ./tests/scripts/read-pr-comments.Tests.ps1
       - name: Publish AOT application
         run: dotnet publish src/Relewise.BlazorApps --configuration Release --no-restore --output artifacts/publish
+      - name: Prepare GitHub Pages base path
+        shell: pwsh
+        run: |
+          $indexPath = 'artifacts/publish/wwwroot/index.html'
+          $html = Get-Content -LiteralPath $indexPath -Raw
+          # Set the base in the HTML before the browser's preload scanner discovers assets.
+          $html.Replace('<base href="/" />', '<base href="/relewise-tools-blazor-apps/" />') |
+            Set-Content -LiteralPath $indexPath -NoNewline -Encoding utf8
+          ./tests/scripts/github-pages-assets.Tests.ps1 -IndexPath $indexPath
       - name: Upload validated site
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7.0.1
