@@ -5,7 +5,8 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 
 const html = fs.readFileSync(path.join(__dirname, '../../src/Relewise.BlazorApps/wwwroot/index.html'), 'utf8');
-const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(match => match[1]);
+const head = html.slice(0, html.indexOf('</head>'));
+const scripts = [...head.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(match => match[1]);
 
 function loadPage(url) {
     const location = new URL(url);

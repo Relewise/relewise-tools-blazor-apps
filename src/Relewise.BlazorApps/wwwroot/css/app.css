@@ -150,6 +150,10 @@ a:hover, .btn-link:hover {
     z-index: 1000;
 }
 
+#blazor-error-ui[hidden] {
+    display: none !important;
+}
+
     #blazor-error-ui .dismiss {
         cursor: pointer;
         position: absolute;
@@ -166,6 +170,13 @@ a:hover, .btn-link:hover {
     .blazor-error-boundary::after {
         content: "An error has occurred."
     }
+
+.startup-error {
+    max-width: 30rem;
+    margin: 20vh auto 1rem;
+    padding: 1rem;
+    text-align: center;
+}
 
 .loading-progress {
     position: relative;
