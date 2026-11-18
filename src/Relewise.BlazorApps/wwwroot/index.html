@@ -92,8 +92,20 @@
             }
 
             try {
+                const requestedResources = new Set();
                 await Blazor.start({
-                    configureRuntime: runtime => runtime.withConfig({ enableDownloadRetry: true })
+                    configureRuntime: runtime => runtime.withConfig({ enableDownloadRetry: true }),
+                    loadBootResource: (type, _name, uri, integrity) => {
+                        if (type === 'dotnetjs' || !integrity) return;
+
+                        // Let .NET load the first attempt. Its retries must skip cached error responses.
+                        if (!requestedResources.has(uri)) {
+                            requestedResources.add(uri);
+                            return;
+                        }
+
+                        return fetch(uri, { cache: 'reload', integrity });
+                    }
                 });
                 startupErrors.disconnect();
             } catch (error) {
