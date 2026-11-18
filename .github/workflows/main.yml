@@ -34,6 +34,8 @@ jobs:
       - name: PR feedback script tests
         shell: pwsh
         run: ./tests/scripts/read-pr-comments.Tests.ps1
+      - name: Blazor startup script tests
+        run: node --test tests/scripts/blazor-startup.Tests.cjs
       - name: Publish AOT application
         run: dotnet publish src/Relewise.BlazorApps --configuration Release --no-restore --output artifacts/publish
       - name: Prepare GitHub Pages base path
