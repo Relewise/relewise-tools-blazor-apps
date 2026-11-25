@@ -46,3 +46,7 @@ PRs target `main`, normally link to a Trello task, and run build, tests, and AOT
 Issue creation uses the existing Relewise Hub integration to create a Trello inbound card. `HUB_BASIC_AUTH_USERNAME` and `HUB_BASIC_AUTH_PASSWORD` are repository secrets used only by that workflow.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [AGENTS.md](AGENTS.md), and the repository's `.agents/skills/` for the development workflow. Third-party browser assets and their update sources are documented in [THIRD-PARTY.md](THIRD-PARTY.md).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
